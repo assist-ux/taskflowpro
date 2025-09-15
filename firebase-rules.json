@@ -1,0 +1,73 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+      },
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('teamRole').val() === 'leader')"
+    },
+    "projects": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+    },
+    "tasks": {
+      "$taskId": {
+        ".read": "auth != null && (data.child('createdBy').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && (data.child('createdBy').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+      },
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["createdBy", "projectId", "status", "priority"]
+    },
+    "timeEntries": {
+      "$entryId": {
+        ".read": "auth != null && (data.child('userId').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && (data.child('userId').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+      },
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["userId", "projectId", "startTime"]
+    },
+    "clients": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+    },
+    "tags": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+    },
+    "teams": {
+      "$teamId": {
+        ".read": "auth != null && (data.child('leaderId').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && (data.child('leaderId').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+      },
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      ".indexOn": ["leaderId", "isActive"]
+    },
+    "teamMembers": {
+      "$memberId": {
+        ".read": "auth != null && (data.child('userId').val() === auth.uid || root.child('teams').child(data.child('teamId').val()).child('leaderId').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && (root.child('teams').child(data.child('teamId').val()).child('leaderId').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+      },
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      ".indexOn": ["teamId", "userId", "isActive"]
+    },
+    "systemLogs": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["timestamp", "level", "userId", "action"]
+    },
+    "settings": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+    },
+    "messages": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["teamId", "senderId", "timestamp"]
+    }
+  }
+}

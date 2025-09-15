@@ -1,0 +1,441 @@
+{
+  "clients": {
+    "-OZOaUw2aI9hivTdYc6M": {
+      "address": "123 street",
+      "company": "KBI Solutions",
+      "createdBy": "7SiNeK0l4hQ43I3TeSyj9F3XVMr1",
+      "email": "zak@futraai.com",
+      "id": "-OZOaUw2aI9hivTdYc6M",
+      "isArchived": false,
+      "name": "Rebecca",
+      "phone": "09628899597"
+    },
+    "-OZOgzxFfUB7EcO-lM6A": {
+      "address": "123 sinatwork",
+      "company": "Win At Work",
+      "createdBy": "7SiNeK0l4hQ43I3TeSyj9F3XVMr1",
+      "email": "winatwork@gmail.com",
+      "id": "-OZOgzxFfUB7EcO-lM6A",
+      "isArchived": false,
+      "name": "Eric Woodward",
+      "phone": "09090900909"
+    }
+  },
+  "projects": {
+    "-OZOaadUeCYRw9lkMY6o": {
+      "budget": 50,
+      "clientId": "-OZOaUw2aI9hivTdYc6M",
+      "color": "#EC4899",
+      "createdBy": "7SiNeK0l4hQ43I3TeSyj9F3XVMr1",
+      "description": "Project",
+      "id": "-OZOaadUeCYRw9lkMY6o",
+      "isArchived": false,
+      "name": "Elevate",
+      "priority": "low",
+      "status": "active",
+      "updatedAt": "2025-09-05T13:10:02.654Z"
+    },
+    "-OZOh73o9bmo0FoYtBqO": {
+      "budget": 56,
+      "clientId": "-OZOgzxFfUB7EcO-lM6A",
+      "color": "#84CC16",
+      "createdBy": "7SiNeK0l4hQ43I3TeSyj9F3XVMr1",
+      "description": "to tasks",
+      "id": "-OZOh73o9bmo0FoYtBqO",
+      "isArchived": false,
+      "name": "Design Homepage",
+      "priority": "medium",
+      "status": "active",
+      "updatedAt": "2025-09-05T13:10:12.511Z"
+    }
+  },
+  "tasks": {
+    "-OZP10FO2EHhaRShFlLD": {
+      "assigneeId": "",
+      "assigneeName": "Prince Christiane Tolentino",
+      "createdBy": "7SiNeK0l4hQ43I3TeSyj9F3XVMr1",
+      "createdByName": "Nica Gomez",
+      "description": "wala",
+      "dueDate": "2025-09-25T00:00:00.000Z",
+      "estimatedHours": 8,
+      "id": "-OZP10FO2EHhaRShFlLD",
+      "isCompleted": false,
+      "priority": {
+        "priorityId": {
+          "color": "#6B7280",
+          "id": "priority_0",
+          "level": 1,
+          "name": "Low"
+        }
+      },
+      "priorityId": "priority_0",
+      "projectId": "-OZOh73o9bmo0FoYtBqO",
+      "projectName": "Design Homepage",
+      "status": {
+        "statusId": "status_1"
+      },
+      "statusId": "status_0",
+      "tags": [
+        "no"
+      ],
+      "title": "Design the landing page",
+      "updatedAt": "2025-09-08T12:12:05.626Z"
+    },
+    "-OZP1CNniboGFVXoal7j": {
+      "assigneeId": "",
+      "assigneeName": "Nica Gomez",
+      "createdBy": "7SiNeK0l4hQ43I3TeSyj9F3XVMr1",
+      "createdByName": "Nica Gomez",
+      "description": "design",
+      "estimatedHours": 16,
+      "id": "-OZP1CNniboGFVXoal7j",
+      "isCompleted": false,
+      "priority": {
+        "color": "#6B7280",
+        "id": {
+          "color": "#6B7280",
+          "id": "priority_0",
+          "level": 1,
+          "name": "Low"
+        },
+        "level": 1,
+        "name": ""
+      },
+      "priorityId": "priority_0",
+      "projectId": "-OZOaadUeCYRw9lkMY6o",
+      "projectName": "",
+      "status": {
+        "statusId": "status_0"
+      },
+      "statusId": "status_0",
+      "title": "design",
+      "updatedAt": "2025-09-08T12:02:24.100Z"
+    },
+    "-OZdEJeViEdExRsHxuZX": {
+      "assigneeId": "",
+      "assigneeName": "",
+      "createdBy": "0LjYCy9jQZPH3hmJ1FW2AFzeNcA2",
+      "createdByName": "Prince Christiane Tolentino",
+      "description": "dsad",
+      "estimatedHours": 45,
+      "id": "-OZdEJeViEdExRsHxuZX",
+      "isCompleted": false,
+      "priority": {
+        "color": "#6B7280",
+        "id": {
+          "color": "#F59E0B",
+          "id": "priority_1",
+          "level": 2,
+          "name": "Medium"
+        },
+        "level": 1,
+        "name": ""
+      },
+      "priorityId": "priority_1",
+      "projectId": "-OZOh73o9bmo0FoYtBqO",
+      "projectName": "",
+      "status": {
+        "color": "#6B7280",
+        "id": {
+          "color": "#6B7280",
+          "id": "status_0",
+          "isCompleted": false,
+          "name": "To Do",
+          "order": 0
+        },
+        "isCompleted": false,
+        "name": "",
+        "order": 0
+      },
+      "statusId": "status_0",
+      "title": "waleyy"
+    }
+  },
+  "teamMembers": {
+    "-OZdCEe3_p-Dq3VQrD7P": {
+      "id": "-OZdCEe3_p-Dq3VQrD7P",
+      "isActive": true,
+      "joinedAt": "2025-09-08T12:02:41.734Z",
+      "role": "leader",
+      "teamId": "-OZdCEb7G4xtvr2k5D2r",
+      "teamRole": "leader",
+      "userEmail": "assist@nexistrydigitalsolutions.com",
+      "userId": "7SiNeK0l4hQ43I3TeSyj9F3XVMr1",
+      "userName": "Nica Gomez"
+    },
+    "-OZdE73kMKIAlfU8UwV5": {
+      "id": "-OZdE73kMKIAlfU8UwV5",
+      "isActive": true,
+      "joinedAt": "2025-09-08T12:10:54.958Z",
+      "role": "member",
+      "teamId": "-OZdCEb7G4xtvr2k5D2r",
+      "teamRole": "member",
+      "userEmail": "tolentinochristian89@gmail.com",
+      "userId": "0LjYCy9jQZPH3hmJ1FW2AFzeNcA2",
+      "userName": "Prince Christiane Tolentino"
+    },
+    "-OZdH8dg_nVr-6izVQa5": {
+      "id": "-OZdH8dg_nVr-6izVQa5",
+      "isActive": true,
+      "joinedAt": "2025-09-08T12:24:07.843Z",
+      "role": "leader",
+      "teamId": "-OZdH8aj0o45hLbojc3O",
+      "teamRole": "leader",
+      "userEmail": "info@nexistrydigitalsolutions.com",
+      "userId": "SKfHBOB2PLOMiTuZO14B2ZS4fsz2",
+      "userName": "Project Manager"
+    },
+    "-OZdHBWZdJiXmG4JqUHN": {
+      "id": "-OZdHBWZdJiXmG4JqUHN",
+      "isActive": true,
+      "joinedAt": "2025-09-08T12:24:19.611Z",
+      "role": "member",
+      "teamId": "-OZdH8aj0o45hLbojc3O",
+      "teamRole": "member",
+      "userEmail": "tolentinochristian89@gmail.com",
+      "userId": "0LjYCy9jQZPH3hmJ1FW2AFzeNcA2",
+      "userName": "Prince Christiane Tolentino"
+    },
+    "-OZdHCvV7p10apCKyvSg": {
+      "id": "-OZdHCvV7p10apCKyvSg",
+      "isActive": true,
+      "joinedAt": "2025-09-08T12:24:25.367Z",
+      "role": "member",
+      "teamId": "-OZdH8aj0o45hLbojc3O",
+      "teamRole": "member",
+      "userEmail": "biancakes@gmail.com",
+      "userId": "7IE9ZOQtkpd2uhyb22EdTo9BcfJ3",
+      "userName": "Bianca Mairah"
+    }
+  },
+  "teams": {
+    "-OZdCEb7G4xtvr2k5D2r": {
+      "color": "#3B82F6",
+      "createdAt": "2025-09-08T12:02:41.546Z",
+      "createdBy": "7SiNeK0l4hQ43I3TeSyj9F3XVMr1",
+      "description": "for anes haha",
+      "id": "-OZdCEb7G4xtvr2k5D2r",
+      "isActive": true,
+      "leaderEmail": "assist@nexistrydigitalsolutions.com",
+      "leaderId": "7SiNeK0l4hQ43I3TeSyj9F3XVMr1",
+      "leaderName": "Nica Gomez",
+      "memberCount": 2,
+      "name": "Team Genesis",
+      "updatedAt": "2025-09-08T12:10:55.521Z"
+    },
+    "-OZdH8aj0o45hLbojc3O": {
+      "color": "#F97316",
+      "createdAt": "2025-09-08T12:24:07.654Z",
+      "createdBy": "SKfHBOB2PLOMiTuZO14B2ZS4fsz2",
+      "description": "para sa bayan",
+      "id": "-OZdH8aj0o45hLbojc3O",
+      "isActive": true,
+      "leaderEmail": "info@nexistrydigitalsolutions.com",
+      "leaderId": "SKfHBOB2PLOMiTuZO14B2ZS4fsz2",
+      "leaderName": "Project Manager",
+      "memberCount": 3,
+      "name": "Team Anjh",
+      "updatedAt": "2025-09-08T12:24:25.930Z"
+    }
+  },
+  "timeEntries": {
+    "-OZOesmkqAJolcWrzDFa": {
+      "createdAt": "2025-09-05T11:38:16.364Z",
+      "description": "sdadsa",
+      "duration": 13,
+      "endTime": "2025-09-05T11:38:29.545Z",
+      "id": "-OZOesmkqAJolcWrzDFa",
+      "isBillable": true,
+      "isRunning": false,
+      "projectId": "-OZOaadUeCYRw9lkMY6o",
+      "projectName": "Elevate",
+      "startTime": "2025-09-05T11:38:16.364Z",
+      "updatedAt": "2025-09-05T11:38:29.545Z",
+      "userId": "7SiNeK0l4hQ43I3TeSyj9F3XVMr1"
+    },
+    "-OZOf2T9ItZ94ukNfHCL": {
+      "createdAt": "2025-09-05T11:39:00.102Z",
+      "description": "fgdf",
+      "duration": 15,
+      "endTime": "2025-09-05T11:39:15.404Z",
+      "id": "-OZOf2T9ItZ94ukNfHCL",
+      "isBillable": true,
+      "isRunning": false,
+      "projectId": "-OZOaadUeCYRw9lkMY6o",
+      "projectName": "Elevate",
+      "startTime": "2025-09-05T11:39:00.102Z",
+      "updatedAt": "2025-09-05T11:39:15.404Z",
+      "userId": "0LjYCy9jQZPH3hmJ1FW2AFzeNcA2"
+    },
+    "-OZOgDW_y9gy8qSUU8_W": {
+      "createdAt": "2025-09-05T11:44:07.519Z",
+      "description": "sdasd",
+      "duration": 9,
+      "endTime": "2025-09-05T11:44:17.006Z",
+      "id": "-OZOgDW_y9gy8qSUU8_W",
+      "isBillable": true,
+      "isRunning": false,
+      "projectId": "-OZOaadUeCYRw9lkMY6o",
+      "projectName": "Elevate",
+      "startTime": "2025-09-05T11:44:07.519Z",
+      "updatedAt": "2025-09-05T11:44:17.006Z",
+      "userId": "7SiNeK0l4hQ43I3TeSyj9F3XVMr1"
+    },
+    "-OZOgXzJzBtcybPi7L5r": {
+      "createdAt": "2025-09-05T11:45:31.342Z",
+      "description": "dfsafd",
+      "duration": 13,
+      "endTime": "2025-09-05T11:45:44.849Z",
+      "id": "-OZOgXzJzBtcybPi7L5r",
+      "isBillable": true,
+      "isRunning": false,
+      "projectId": "-OZOaadUeCYRw9lkMY6o",
+      "projectName": "Elevate",
+      "startTime": "2025-09-05T11:45:31.342Z",
+      "updatedAt": "2025-09-05T11:45:44.849Z",
+      "userId": "SKfHBOB2PLOMiTuZO14B2ZS4fsz2"
+    },
+    "-OZOhFWpelicKCvQXvLO": {
+      "createdAt": "2025-09-05T11:48:37.871Z",
+      "description": "designing",
+      "duration": 27,
+      "endTime": "2025-09-05T11:49:05.078Z",
+      "id": "-OZOhFWpelicKCvQXvLO",
+      "isBillable": true,
+      "isRunning": false,
+      "projectId": "-OZOh73o9bmo0FoYtBqO",
+      "projectName": "Design Homepage",
+      "startTime": "2025-09-05T11:48:37.871Z",
+      "updatedAt": "2025-09-05T11:49:05.078Z",
+      "userId": "7SiNeK0l4hQ43I3TeSyj9F3XVMr1"
+    },
+    "-OZOlMZSGSB9uamSNt-E": {
+      "createdAt": "2025-09-05T12:06:35.265Z",
+      "description": "gfdgsdf",
+      "duration": 26,
+      "endTime": "2025-09-05T12:07:01.980Z",
+      "id": "-OZOlMZSGSB9uamSNt-E",
+      "isBillable": true,
+      "isRunning": false,
+      "projectId": "-OZOh73o9bmo0FoYtBqO",
+      "projectName": "Design Homepage",
+      "startTime": "2025-09-05T12:06:35.265Z",
+      "updatedAt": "2025-09-05T12:07:01.980Z",
+      "userId": "0LjYCy9jQZPH3hmJ1FW2AFzeNcA2"
+    },
+    "-OZP5dY09Wrkwt0L_hRv": {
+      "createdAt": "2025-09-05T13:39:33.889Z",
+      "description": "sdad",
+      "duration": 13,
+      "endTime": "2025-09-05T13:39:47.372Z",
+      "id": "-OZP5dY09Wrkwt0L_hRv",
+      "isBillable": false,
+      "isRunning": false,
+      "projectId": "-OZOaadUeCYRw9lkMY6o",
+      "projectName": "Elevate",
+      "startTime": "2025-09-05T13:39:33.889Z",
+      "tags": [
+        "dsads"
+      ],
+      "updatedAt": "2025-09-05T13:39:47.373Z",
+      "userId": "7SiNeK0l4hQ43I3TeSyj9F3XVMr1"
+    },
+    "-OZSXmZOIya_iKGzmwXY": {
+      "createdAt": "2025-09-06T05:41:21.578Z",
+      "description": "dsa",
+      "duration": 87,
+      "endTime": "2025-09-06T05:42:48.863Z",
+      "id": "-OZSXmZOIya_iKGzmwXY",
+      "isBillable": true,
+      "isRunning": false,
+      "projectId": "-OZOaadUeCYRw9lkMY6o",
+      "projectName": "Elevate",
+      "startTime": "2025-09-06T05:41:21.578Z",
+      "updatedAt": "2025-09-06T05:42:48.863Z",
+      "userId": "0LjYCy9jQZPH3hmJ1FW2AFzeNcA2"
+    },
+    "-OZScqHSFJsE3Ond24sC": {
+      "createdAt": "2025-09-06T06:07:49.672Z",
+      "description": "dsafasfa",
+      "duration": 227,
+      "endTime": "2025-09-06T06:11:37.333Z",
+      "id": "-OZScqHSFJsE3Ond24sC",
+      "isBillable": true,
+      "isRunning": false,
+      "projectId": "-OZOaadUeCYRw9lkMY6o",
+      "projectName": "Elevate",
+      "startTime": "2025-09-06T06:07:49.672Z",
+      "updatedAt": "2025-09-06T06:11:37.333Z",
+      "userId": "7SiNeK0l4hQ43I3TeSyj9F3XVMr1"
+    },
+    "-OZdM47KCcX9JCpCiORT": {
+      "createdAt": "2025-09-08T12:45:40.030Z",
+      "description": "nothing lang",
+      "duration": 41,
+      "endTime": "2025-09-08T12:46:21.932Z",
+      "id": "-OZdM47KCcX9JCpCiORT",
+      "isBillable": true,
+      "isRunning": false,
+      "projectId": "-OZOaadUeCYRw9lkMY6o",
+      "projectName": "Elevate",
+      "startTime": "2025-09-08T12:45:40.030Z",
+      "tags": [
+        "ntoe"
+      ],
+      "updatedAt": "2025-09-08T12:46:21.932Z",
+      "userId": "0LjYCy9jQZPH3hmJ1FW2AFzeNcA2"
+    }
+  },
+  "users": {
+    "0LjYCy9jQZPH3hmJ1FW2AFzeNcA2": {
+      "createdAt": "2025-08-31T04:08:01.495Z",
+      "email": "tolentinochristian89@gmail.com",
+      "hourlyRate": 25,
+      "isActive": true,
+      "name": "Prince Christiane Tolentino",
+      "role": "employee",
+      "teamId": "-OZdH8aj0o45hLbojc3O",
+      "teamRole": "member",
+      "timezone": "America/New_York",
+      "uid": "0LjYCy9jQZPH3hmJ1FW2AFzeNcA2",
+      "updatedAt": "2025-09-08T12:24:19.799Z"
+    },
+    "7IE9ZOQtkpd2uhyb22EdTo9BcfJ3": {
+      "createdAt": "2025-09-08T12:22:16.936Z",
+      "email": "biancakes@gmail.com",
+      "hourlyRate": 25,
+      "isActive": true,
+      "name": "Bianca Mairah",
+      "role": "employee",
+      "teamId": "-OZdH8aj0o45hLbojc3O",
+      "teamRole": "member",
+      "timezone": "America/New_York",
+      "uid": "7IE9ZOQtkpd2uhyb22EdTo9BcfJ3",
+      "updatedAt": "2025-09-08T12:24:25.555Z"
+    },
+    "7SiNeK0l4hQ43I3TeSyj9F3XVMr1": {
+      "createdAt": "2025-08-31T04:09:00.397Z",
+      "email": "assist@nexistrydigitalsolutions.com",
+      "hourlyRate": 0,
+      "isActive": true,
+      "name": "Nica Gomez",
+      "role": "admin",
+      "timezone": "America/New_York",
+      "uid": "7SiNeK0l4hQ43I3TeSyj9F3XVMr1",
+      "updatedAt": "2025-08-31T04:09:00.397Z"
+    },
+    "SKfHBOB2PLOMiTuZO14B2ZS4fsz2": {
+      "createdAt": "2025-09-05T11:40:26.187Z",
+      "email": "info@nexistrydigitalsolutions.com",
+      "hourlyRate": 0,
+      "isActive": true,
+      "name": "Project Manager",
+      "role": "admin",
+      "teamId": "-OZdH8aj0o45hLbojc3O",
+      "teamRole": "leader",
+      "timezone": "America/New_York",
+      "uid": "SKfHBOB2PLOMiTuZO14B2ZS4fsz2",
+      "updatedAt": "2025-09-08T12:24:08.035Z"
+    }
+  }
+}
