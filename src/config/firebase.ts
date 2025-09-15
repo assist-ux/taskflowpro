@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getDatabase } from 'firebase/database'
@@ -5,14 +6,14 @@ import { getDatabase } from 'firebase/database'
 // Your Firebase configuration
 // Replace these with your actual Firebase project credentials
 const firebaseConfig = {
-  apiKey: "AIzaSyA56S8sNUAoRWHYCLJb00_7qcvIJl9KCyw",
-  authDomain: "time-tracker-system-d5cca.firebaseapp.com",
-  databaseURL: "https://time-tracker-system-d5cca-default-rtdb.firebaseio.com",
-  projectId: "time-tracker-system-d5cca",
-  storageBucket: "time-tracker-system-d5cca.firebasestorage.app",
-  messagingSenderId: "823115181841",
-  appId: "1:823115181841:web:7b7b2d72ace4fc2ee0a6b0",
-  measurementId: "G-4C77B3BT69"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase

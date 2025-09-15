@@ -40,6 +40,7 @@ A modern, Clockify-like time tracking application built with React, TypeScript, 
 ### Prerequisites
 - Node.js (v16 or higher)
 - npm or yarn
+- Firebase project (for backend functionality)
 
 ### Installation
 
@@ -54,12 +55,34 @@ A modern, Clockify-like time tracking application built with React, TypeScript, 
    npm install
    ```
 
-3. **Start the development server**
+3. **Set up environment variables**
+   
+   Run the setup script to create your environment file:
+   ```bash
+   npm run setup-env
+   ```
+   
+   Then update the `.env.local` file with your actual Firebase configuration:
+   ```bash
+   # Firebase Configuration
+   VITE_FIREBASE_API_KEY=your_api_key_here
+   VITE_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
+   VITE_FIREBASE_DATABASE_URL=https://your_project_id-default-rtdb.firebaseio.com
+   VITE_FIREBASE_PROJECT_ID=your_project_id
+   VITE_FIREBASE_STORAGE_BUCKET=your_project_id.firebasestorage.app
+   VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+   VITE_FIREBASE_APP_ID=your_app_id
+   VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
+   ```
+   
+   **Important**: Never commit your `.env.local` file to version control. It's already included in `.gitignore`.
+
+4. **Start the development server**
    ```bash
    npm run dev
    ```
 
-4. **Open your browser**
+5. **Open your browser**
    Navigate to `http://localhost:3000` to view the application
 
 ### Available Scripts
@@ -68,6 +91,7 @@ A modern, Clockify-like time tracking application built with React, TypeScript, 
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
 - `npm run lint` - Run ESLint
+- `npm run setup-env` - Set up environment variables file
 
 ## 🏗️ Project Structure
 
