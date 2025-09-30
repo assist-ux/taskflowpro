@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { Play, Square, Clock, DollarSign, Tag, FileText } from 'lucide-react'
-import { TimeEntry, CreateTimeEntryData, Project } from '../types'
+import { Play, Square, Clock, DollarSign, Tag, FileText, Building2 } from 'lucide-react'
+import { TimeEntry, CreateTimeEntryData, Project, Client } from '../types'
 import { timeEntryService } from '../services/timeEntryService'
 import { projectService } from '../services/projectService'
 import { useAuth } from '../contexts/AuthContext'
@@ -16,6 +16,8 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
   const [elapsedTime, setElapsedTime] = useState(0)
   const [currentEntry, setCurrentEntry] = useState<TimeEntry | null>(null)
   const [projects, setProjects] = useState<Project[]>([])
+  const [clients, setClients] = useState<Client[]>([]) // Add clients state
+  const [selectedClientId, setSelectedClientId] = useState<string>('') // Add selected client state
   const [formData, setFormData] = useState<CreateTimeEntryData>({
     projectId: '',
     description: '',
@@ -29,10 +31,60 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const startTimeRef = useRef<Date | null>(null)
 
+  // Filter projects based on selected client
+  const filteredProjects = selectedClientId 
+    ? projects.filter(project => project.clientId === selectedClientId)
+    : projects
+
   useEffect(() => {
     loadInitialData()
-    loadRunningEntry()
-  }, [])
+    // Subscribe to real-time running time entry updates
+    let unsubscribe: (() => void) | null = null
+    
+    if (currentUser) {
+      // Cast to any to access the real-time method added via Object.assign
+      const realtimeService = timeEntryService as any
+      unsubscribe = realtimeService.subscribeToRunningTimeEntry(currentUser.uid, (runningEntry: TimeEntry | null) => {
+        if (runningEntry) {
+          // If projectName is missing but projectId exists, try to get it from projects
+          if (!runningEntry.projectName && runningEntry.projectId) {
+            const project = projects.find(p => p.id === runningEntry.projectId)
+            if (project) {
+              runningEntry.projectName = project.name
+            }
+          }
+          
+          setCurrentEntry(runningEntry)
+          setIsRunning(true)
+          const startTime = new Date(runningEntry.startTime)
+          startTimeRef.current = startTime
+          const now = new Date()
+          const elapsed = Math.floor((now.getTime() - startTime.getTime()) / 1000)
+          setElapsedTime(Math.max(0, elapsed))
+        } else {
+          // No running entry found - timer was stopped
+          setCurrentEntry(null)
+          setIsRunning(false)
+          setElapsedTime(0)
+          startTimeRef.current = null
+          // Reset form for next entry
+          setFormData({
+            projectId: '',
+            description: '',
+            isBillable: false,
+            tags: []
+          })
+          setSelectedClientId('') // Reset client selection
+        }
+      })
+    }
+    
+    return () => {
+      if (unsubscribe) {
+        unsubscribe()
+      }
+    }
+  }, [currentUser, projects])
 
   useEffect(() => {
     if (isRunning && startTimeRef.current) {
@@ -59,51 +111,47 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
     if (!currentUser) return
     
     try {
-      const projectsData = await projectService.getProjects()
+      // Load both clients and projects
+      const [clientsData, projectsData] = await Promise.all([
+        currentUser?.companyId 
+          ? projectService.getClientsForCompany(currentUser.companyId)
+          : projectService.getClients(),
+        currentUser?.companyId 
+          ? projectService.getProjectsForCompany(currentUser.companyId)
+          : projectService.getProjects()
+      ])
+      
+      setClients(clientsData)
       setProjects(projectsData)
     } catch (error) {
-      console.error('Error loading projects:', error)
+      console.error('Error loading data:', error)
     }
   }
 
-  const loadRunningEntry = async () => {
-    if (!currentUser) return
-    
-    try {
-      const runningEntry = await timeEntryService.getRunningTimeEntry(currentUser.uid)
-      if (runningEntry) {
-        // If projectName is missing but projectId exists, try to get it from projects
-        if (!runningEntry.projectName && runningEntry.projectId) {
-          const project = projects.find(p => p.id === runningEntry.projectId)
-          if (project) {
-            runningEntry.projectName = project.name
-          }
-        }
-        
-        setCurrentEntry(runningEntry)
-        setIsRunning(true)
-        const startTime = new Date(runningEntry.startTime)
-        startTimeRef.current = startTime
-        const now = new Date()
-        const elapsed = Math.floor((now.getTime() - startTime.getTime()) / 1000)
-        setElapsedTime(Math.max(0, elapsed)) // Ensure non-negative
-      }
-    } catch (error) {
-      console.error('Error loading running entry:', error)
+  // Effect to reset project when client changes
+  useEffect(() => {
+    if (selectedClientId) {
+      // If a client is selected, reset project selection
+      setFormData(prev => ({ ...prev, projectId: '' }))
     }
-  }
+  }, [selectedClientId])
 
   const startTimer = async () => {
     if (!currentUser) return
     
-    // Validate required fields
+    // Validate required fields before starting
+    if (!selectedClientId) {
+      setError('Please select a client before starting the timer')
+      return
+    }
+    
     if (!formData.projectId) {
-      setError('Please select a project')
+      setError('Please select a project before starting the timer')
       return
     }
     
     if (!formData.description || !formData.description.trim()) {
-      setError('Please enter a description')
+      setError('Please enter a description before starting the timer')
       return
     }
     
@@ -111,38 +159,35 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
     setError('')
     
     try {
-      // Get the project name before creating the entry
-      const selectedProject = projects.find(p => p.id === formData.projectId)
-      const projectName = selectedProject?.name
-      
-      const entryId = await timeEntryService.createTimeEntry(formData, currentUser.uid, projectName)
-      const newEntry: TimeEntry = {
-        id: entryId,
-        userId: currentUser.uid,
-        projectId: formData.projectId,
-        projectName: projectName,
-        description: formData.description,
-        startTime: new Date(),
-        duration: 0,
-        isRunning: true,
-        isBillable: formData.isBillable || false,
-        tags: formData.tags,
-        createdAt: new Date(),
-        updatedAt: new Date()
+      // Check if there's already a running timer before creating a new one
+      const existingRunningEntry = await timeEntryService.getRunningTimeEntry(currentUser.uid)
+      if (existingRunningEntry) {
+        setError('Timer is already running. Please stop the current timer before starting a new one.')
+        setLoading(false)
+        return
       }
       
-      setCurrentEntry(newEntry)
-      setIsRunning(true)
-      startTimeRef.current = new Date()
-      setElapsedTime(0)
+      // Create entry with minimal data - project and description can be added later
+      const minimalEntryData: CreateTimeEntryData = {
+        projectId: formData.projectId || undefined,
+        description: formData.description || undefined,
+        isBillable: formData.isBillable || false,
+        tags: formData.tags || [],
+        clientId: selectedClientId || undefined // Add clientId
+      }
       
-      // Reset form for next entry
-      setFormData({
-        projectId: '',
-        description: '',
-        isBillable: false,
-        tags: []
-      })
+      // Get the project name if project is selected
+      const selectedProject = formData.projectId ? projects.find(p => p.id === formData.projectId) : undefined
+      const projectName = selectedProject?.name
+      
+      // Get the client name
+      const selectedClient = selectedClientId ? clients.find(c => c.id === selectedClientId) : undefined
+      const clientName = selectedClient?.name
+      
+      const entryId = await timeEntryService.createTimeEntry(minimalEntryData, currentUser.uid, projectName, currentUser.companyId, clientName)
+      
+      // Real-time subscription will handle the state updates
+      // No need to manually set state here
       
       if (onTimeUpdate) {
         const summary = await timeEntryService.getTimeSummary(currentUser.uid)
@@ -158,15 +203,48 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
   const stopTimer = async () => {
     if (!currentEntry) return
     
+    // Validate required fields before stopping
+    if (!selectedClientId) {
+      setError('Please select a client before stopping the timer')
+      return
+    }
+    
+    if (!formData.projectId) {
+      setError('Please select a project before stopping the timer')
+      return
+    }
+    
+    if (!formData.description || !formData.description.trim()) {
+      setError('Please enter a description before stopping the timer')
+      return
+    }
+    
     setLoading(true)
     setError('')
     
     try {
+      // Update the entry with the final project and description before stopping
+      const selectedProject = formData.projectId ? projects.find(p => p.id === formData.projectId) : undefined
+      const projectName = selectedProject?.name
+      
+      // Get the client name
+      const selectedClient = selectedClientId ? clients.find(c => c.id === selectedClientId) : undefined
+      const clientName = selectedClient?.name
+      
+      await timeEntryService.updateTimeEntry(currentEntry.id, {
+        projectId: formData.projectId,
+        description: formData.description.trim(),
+        isBillable: formData.isBillable,
+        tags: formData.tags,
+        projectName: projectName,
+        clientId: selectedClientId, // Add clientId
+        clientName: clientName // Add clientName
+      })
+      
       await timeEntryService.stopTimeEntry(currentEntry.id)
-      setIsRunning(false)
-      setCurrentEntry(null)
-      setElapsedTime(0)
-      startTimeRef.current = null
+      
+      // Real-time subscription will handle state updates automatically
+      // No need to manually reset state here
       
       if (onTimeUpdate) {
         const summary = await timeEntryService.getTimeSummary(currentUser!.uid)
@@ -209,6 +287,12 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
     }))
   }
 
+  const getClientName = (clientId?: string) => {
+    if (!clientId) return 'No client'
+    const client = clients.find(c => c.id === clientId)
+    return client?.name || 'Unknown client'
+  }
+
   const getProjectName = (projectId?: string) => {
     if (!projectId) return 'No project'
     const project = projects.find(p => p.id === projectId)
@@ -217,21 +301,22 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
 
   return (
     <div className="space-y-6">
+
       {/* Error Message */}
       {error && (
-        <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <Clock className="h-5 w-5 text-red-500 flex-shrink-0" />
-          <p className="text-sm text-red-700">{error}</p>
+        <div className="flex items-center space-x-2 p-3 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-lg">
+          <Clock className="h-5 w-5 text-red-500 dark:text-red-400 flex-shrink-0" />
+          <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
         </div>
       )}
 
       {/* Timer Display */}
       <div className="card text-center">
         <div className="mb-6">
-          <div className="text-6xl font-mono font-bold text-primary-600 mb-2">
+          <div className="text-6xl font-mono font-bold text-primary-600 dark:text-primary-400 mb-2">
             {formatElapsedTime(elapsedTime)}
           </div>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-gray-400">
             {isRunning ? 'Timer is running...' : 'Ready to track time'}
           </p>
         </div>
@@ -241,8 +326,9 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
           {!isRunning ? (
             <button
               onClick={startTimer}
-              disabled={loading || !formData.projectId || !formData.description || !formData.description.trim()}
+              disabled={loading || isRunning || !selectedClientId || !formData.projectId || !formData.description || !formData.description.trim()}
               className="btn-primary flex items-center space-x-2 px-8 py-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              title={!selectedClientId || !formData.projectId || !formData.description || !formData.description.trim() ? "Please fill in all required fields" : isRunning ? "Timer is already running" : "Start tracking time"}
             >
               <Play className="h-5 w-5" />
               <span>Start Timer</span>
@@ -250,8 +336,9 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
           ) : (
             <button
               onClick={stopTimer}
-              disabled={loading}
-              className="btn-danger flex items-center space-x-2 px-8 py-3 text-lg"
+              disabled={loading || !selectedClientId || !formData.projectId || !formData.description || !formData.description.trim()}
+              className="btn-danger flex items-center space-x-2 px-8 py-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              title={!selectedClientId || !formData.projectId || !formData.description || !formData.description.trim() ? "Please fill in all required fields" : "Stop tracking time"}
             >
               <Square className="h-5 w-5" />
               <span>Stop Timer</span>
@@ -263,42 +350,48 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
       {/* Current Entry Info */}
       {currentEntry && (
         <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Current Entry</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Current Entry</h3>
           <div className="space-y-3">
             <div className="flex items-center space-x-2">
-              <FileText className="h-4 w-4 text-gray-500" />
-              <span className="text-sm text-gray-600">
-                <strong>Project:</strong> {getProjectName(currentEntry.projectId)}
+              <Building2 className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                <strong>Client:</strong> {currentEntry.clientName || getClientName(currentEntry.clientId)}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <FileText className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                <strong>Project:</strong> {currentEntry.projectName || getProjectName(currentEntry.projectId)}
               </span>
             </div>
             {currentEntry.description && (
               <div className="flex items-center space-x-2">
-                <FileText className="h-4 w-4 text-gray-500" />
-                <span className="text-sm text-gray-600">
+                <FileText className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                <span className="text-sm text-gray-600 dark:text-gray-400">
                   <strong>Description:</strong> {currentEntry.description}
                 </span>
               </div>
             )}
             <div className="flex items-center space-x-2">
-              <Clock className="h-4 w-4 text-gray-500" />
-              <span className="text-sm text-gray-600">
+              <Clock className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+              <span className="text-sm text-gray-600 dark:text-gray-400">
                 <strong>Started:</strong> {currentEntry.startTime ? formatDateTime(currentEntry.startTime) : '--'}
               </span>
             </div>
             {currentEntry.isBillable && (
               <div className="flex items-center space-x-2">
-                <DollarSign className="h-4 w-4 text-green-500" />
-                <span className="text-sm text-green-600 font-medium">Billable</span>
+                <DollarSign className="h-4 w-4 text-green-500 dark:text-green-400" />
+                <span className="text-sm text-green-600 dark:text-green-400 font-medium">Billable</span>
               </div>
             )}
             {currentEntry.tags && currentEntry.tags.length > 0 && (
               <div className="flex items-center space-x-2">
-                <Tag className="h-4 w-4 text-gray-500" />
+                <Tag className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                 <div className="flex flex-wrap gap-1">
                   {currentEntry.tags.map((tag, index) => (
                     <span
                       key={index}
-                      className="px-2 py-1 bg-primary-100 text-primary-700 text-xs rounded-full"
+                      className="px-2 py-1 bg-primary-100 dark:bg-primary-800 text-primary-700 dark:text-primary-300 text-xs rounded-full"
                     >
                       {tag}
                     </span>
@@ -311,48 +404,91 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
       )}
 
       {/* Timer Setup Form */}
-      {!isRunning && (
-        <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Timer Setup</h3>
+      <div className="card">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          {isRunning ? 'Complete Timer Details' : 'Timer Setup'}
+        </h3>
+        {isRunning && (
+          <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
+            <p className="text-sm text-yellow-800 dark:text-yellow-200">
+              <strong>Timer is running!</strong> Please fill in all details before stopping.
+            </p>
+          </div>
+        )}
           <div className="space-y-4">
+            {/* Client Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Client <span className="text-red-500 dark:text-red-400">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Building2 className="h-4 w-4 text-gray-400" />
+                </div>
+                <select
+                  value={selectedClientId}
+                  onChange={(e) => {
+                    setSelectedClientId(e.target.value)
+                    // Reset project selection when client changes
+                    setFormData(prev => ({ ...prev, projectId: '' }))
+                  }}
+                  className="input pl-10"
+                  required
+                >
+                  <option value="">Select a client</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             {/* Project Selection */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Project <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Project <span className="text-red-500 dark:text-red-400">*</span>
               </label>
               <select
                 value={formData.projectId || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, projectId: e.target.value || undefined }))}
                 className="input"
                 required
+                disabled={!selectedClientId} // Disable project selection until client is selected
               >
                 <option value="">Select a project</option>
-                {projects.map((project) => (
+                {filteredProjects.map((project) => (
                   <option key={project.id} value={project.id}>
                     {project.name}
                   </option>
                 ))}
               </select>
+              {!selectedClientId && (
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Please select a client first
+                </p>
+              )}
             </div>
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Description <span className="text-red-500 dark:text-red-400">*</span>
               </label>
               <input
                 type="text"
                 value={formData.description || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value || undefined }))}
                 className="input"
-                placeholder="What are you working on?"
+                placeholder="What are you working on? (required to stop)"
                 required
               />
             </div>
 
             {/* Tags */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Tags (Optional)
               </label>
               <div className="flex space-x-2 mb-2">
@@ -377,13 +513,13 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
                   {formData.tags.map((tag, index) => (
                     <span
                       key={index}
-                      className="inline-flex items-center space-x-1 px-2 py-1 bg-primary-100 text-primary-700 text-sm rounded-full"
+                      className="inline-flex items-center space-x-1 px-2 py-1 bg-primary-100 dark:bg-primary-800 text-primary-700 dark:text-primary-300 text-sm rounded-full"
                     >
                       <span>{tag}</span>
                       <button
                         type="button"
                         onClick={() => removeTag(tag)}
-                        className="hover:text-primary-900"
+                        className="hover:text-primary-900 dark:hover:text-primary-200"
                       >
                         ×
                       </button>
@@ -400,15 +536,16 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
                 id="isBillable"
                 checked={formData.isBillable || false}
                 onChange={(e) => setFormData(prev => ({ ...prev, isBillable: e.target.checked }))}
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
               />
-              <label htmlFor="isBillable" className="text-sm font-medium text-gray-700">
+              <label htmlFor="isBillable" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 This is billable time
               </label>
             </div>
           </div>
         </div>
-      )}
+
+
     </div>
   )
 }

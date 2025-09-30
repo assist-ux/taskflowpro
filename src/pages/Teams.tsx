@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { 
   Plus, 
   Search, 
@@ -9,13 +9,22 @@ import {
   Trash2, 
   UserPlus,
   Settings,
-  BarChart3
+  BarChart3,
+  Clock,
+  TrendingUp,
+  Filter,
+  Calendar,
+  DollarSign,
+  Activity
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { teamService } from '../services/teamService'
 import { Team, TeamMember, TeamStats } from '../types'
 import TeamModal from '../components/teams/TeamModal'
 import TeamMemberModal from '../components/teams/TeamMemberModal'
+import SimpleChart from '../components/charts/SimpleChart'
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths } from 'date-fns'
+import { formatSecondsToHHMMSS } from '../utils'
 
 export default function Teams() {
   const { currentUser } = useAuth()
@@ -29,38 +38,102 @@ export default function Teams() {
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null)
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null)
   const [error, setError] = useState('')
+  
+  // Time tracking states
+  const [timeFilter, setTimeFilter] = useState<'this-week' | 'last-week' | 'this-month' | 'custom'>('this-week')
+  const [customStartDate, setCustomStartDate] = useState<Date>(new Date())
+  const [customEndDate, setCustomEndDate] = useState<Date>(new Date())
+  const [showTimeChart, setShowTimeChart] = useState(false)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const chartRef = useRef<HTMLDivElement>(null)
+  
+  // Team filter states
+  const [teamFilter, setTeamFilter] = useState<string>('all')
+  const [showTeamFilter, setShowTeamFilter] = useState(false)
+  const [leaderFilter, setLeaderFilter] = useState<string>('all')
+  const [memberCountFilter, setMemberCountFilter] = useState<string>('all')
+  const [activityFilter, setActivityFilter] = useState<string>('all')
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null)
 
   useEffect(() => {
     loadData()
   }, [])
 
+  useEffect(() => {
+    if (teams.length > 0) {
+      loadTeamStats()
+    }
+  }, [teams, timeFilter, customStartDate, customEndDate])
+
   const loadData = async () => {
     setLoading(true)
     try {
-      const teamsData = await teamService.getTeams()
+      // Use company-scoped team loading for multi-tenant isolation
+      const teamsData = currentUser?.companyId 
+        ? await teamService.getTeamsForCompany(currentUser.companyId)
+        : await teamService.getTeams()
       setTeams(teamsData)
 
-      // Load members and stats for each team
+      // Load members for each team
       const membersData: { [teamId: string]: TeamMember[] } = {}
-      const statsData: { [teamId: string]: TeamStats } = {}
-
       for (const team of teamsData) {
-        const [members, stats] = await Promise.all([
-          teamService.getTeamMembers(team.id),
-          teamService.getTeamStats(team.id)
-        ])
+        const members = await teamService.getTeamMembers(team.id)
         membersData[team.id] = members
-        statsData[team.id] = stats
       }
-
       setTeamMembers(membersData)
-      setTeamStats(statsData)
     } catch (error) {
       setError('Failed to load teams')
       console.error('Error loading data:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadTeamStats = async () => {
+    try {
+      const { startDate, endDate } = getDateRange()
+      const statsData: { [teamId: string]: TeamStats } = {}
+
+      for (const team of teams) {
+        const stats = await teamService.getTeamStats(team.id, startDate, endDate)
+        statsData[team.id] = stats
+      }
+
+      setTeamStats(statsData)
+    } catch (error) {
+      console.error('Error loading team stats:', error)
+    }
+  }
+
+  const getDateRange = () => {
+    const now = new Date()
+    let startDate: Date
+    let endDate: Date
+
+    switch (timeFilter) {
+      case 'this-week':
+        startDate = startOfWeek(now, { weekStartsOn: 1 }) // Monday
+        endDate = endOfWeek(now, { weekStartsOn: 1 })
+        break
+      case 'last-week':
+        const lastWeek = subWeeks(now, 1)
+        startDate = startOfWeek(lastWeek, { weekStartsOn: 1 })
+        endDate = endOfWeek(lastWeek, { weekStartsOn: 1 })
+        break
+      case 'this-month':
+        startDate = startOfMonth(now)
+        endDate = endOfMonth(now)
+        break
+      case 'custom':
+        startDate = customStartDate
+        endDate = customEndDate
+        break
+      default:
+        startDate = startOfWeek(now, { weekStartsOn: 1 })
+        endDate = endOfWeek(now, { weekStartsOn: 1 })
+    }
+
+    return { startDate, endDate }
   }
 
   const handleCreateTeam = () => {
@@ -107,33 +180,216 @@ export default function Teams() {
     }
   }
 
-  const filteredTeams = teams.filter(team => 
-    team.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    team.description?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const getTeamTimeData = (team: Team) => {
+    const stats = teamStats[team.id]
+    if (!stats) return { totalHours: 0, billableHours: 0, nonBillableHours: 0, totalTimeEntries: 0 }
+    
+    return {
+      totalHours: stats.totalHours,
+      billableHours: stats.billableHours,
+      nonBillableHours: stats.nonBillableHours,
+      totalTimeEntries: stats.totalTimeEntries,
+      averageHoursPerMember: stats.averageHoursPerMember,
+      mostActiveMember: stats.mostActiveMember
+    }
+  }
+
+  const getTimeChartData = () => {
+    const chartData = teams.map(team => {
+      const timeData = getTeamTimeData(team)
+      return {
+        name: team.name,
+        hours: timeData.totalHours,
+        billableHours: timeData.billableHours,
+        nonBillableHours: timeData.nonBillableHours
+      }
+    }).filter(data => data.hours > 0)
+
+    return {
+      labels: chartData.map(item => item.name),
+      datasets: [
+        {
+          label: 'Total Hours',
+          data: chartData.map(item => item.hours),
+          backgroundColor: 'rgba(59, 130, 246, 0.5)',
+          borderColor: 'rgba(59, 130, 246, 1)',
+        },
+        {
+          label: 'Billable Hours',
+          data: chartData.map(item => item.billableHours),
+          backgroundColor: 'rgba(34, 197, 94, 0.5)',
+          borderColor: 'rgba(34, 197, 94, 1)',
+        }
+      ]
+    }
+  }
+
+  const getOverallStats = () => {
+    const totalHours = teams.reduce((sum, team) => {
+      const timeData = getTeamTimeData(team)
+      return sum + timeData.totalHours
+    }, 0)
+
+    const totalBillableHours = teams.reduce((sum, team) => {
+      const timeData = getTeamTimeData(team)
+      return sum + timeData.billableHours
+    }, 0)
+
+    const totalTimeEntries = teams.reduce((sum, team) => {
+      const timeData = getTeamTimeData(team)
+      return sum + timeData.totalTimeEntries
+    }, 0)
+
+    const activeTeams = teams.filter(team => {
+      const timeData = getTeamTimeData(team)
+      return timeData.totalHours > 0
+    }).length
+
+    return {
+      totalHours,
+      totalBillableHours,
+      totalTimeEntries,
+      activeTeams
+    }
+  }
+
+  const getPeriodText = () => {
+    switch (timeFilter) {
+      case 'this-week':
+        return 'This Week'
+      case 'last-week':
+        return 'Last Week'
+      case 'this-month':
+        return 'This Month'
+      case 'custom':
+        return `${format(customStartDate, 'MMM dd')} - ${format(customEndDate, 'MMM dd, yyyy')}`
+      default:
+        return 'This Week'
+    }
+  }
+
+  const getActiveFilterCount = () => {
+    let count = 0
+    if (teamFilter !== 'all') count++
+    if (leaderFilter !== 'all') count++
+    if (memberCountFilter !== 'all') count++
+    if (activityFilter !== 'all') count++
+    if (searchTerm.trim() !== '') count++
+    return count
+  }
 
   const isUserTeamLeader = (team: Team) => {
-    return currentUser?.uid === team.leaderId
+    const isLeader = currentUser?.uid === team.leaderId;
+    
+    // Debug logging to understand the issue
+    console.log('Debug Team Leadership Check:', {
+      teamName: team.name,
+      teamLeaderId: team.leaderId,
+      teamLeaderName: team.leaderName,
+      currentUserId: currentUser?.uid,
+      currentUserName: currentUser?.name,
+      currentUserEmail: currentUser?.email,
+      isLeader
+    });
+    
+    return isLeader;
   }
+
+  const isUserSuperAdmin = () => {
+    return currentUser?.role === 'root' || currentUser?.role === 'admin';
+  }
+
+  const canViewTeamDetails = (team: Team) => {
+    // Team leaders and super admins can view team details
+    return isUserTeamLeader(team) || isUserSuperAdmin();
+  }
+
+  const canManageTeam = (team: Team) => {
+    // Only team leaders can manage teams (edit/delete)
+    return isUserTeamLeader(team);
+  }
+
+  const toggleDropdown = (teamId: string) => {
+    setOpenDropdown(openDropdown === teamId ? null : teamId);
+  }
+
+  const closeDropdown = () => {
+    setOpenDropdown(null);
+  }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (openDropdown) {
+        const target = event.target as Element
+        if (!target.closest('.dropdown-container')) {
+          closeDropdown()
+        }
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [openDropdown])
+
+  const filteredTeams = teams.filter(team => {
+    // Search filter
+    const matchesSearch = team.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      team.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    // Team filter
+    const matchesTeamFilter = teamFilter === 'all' || team.id === teamFilter
+    
+    // Leader filter
+    const matchesLeaderFilter = leaderFilter === 'all' || team.leaderId === leaderFilter
+    
+    // Member count filter
+    const members = teamMembers[team.id] || []
+    const memberCount = members.length
+    let matchesMemberCountFilter = true
+    if (memberCountFilter === '1-3') {
+      matchesMemberCountFilter = memberCount >= 1 && memberCount <= 3
+    } else if (memberCountFilter === '4-6') {
+      matchesMemberCountFilter = memberCount >= 4 && memberCount <= 6
+    } else if (memberCountFilter === '7+') {
+      matchesMemberCountFilter = memberCount >= 7
+    }
+    
+    // Activity filter
+    const timeData = getTeamTimeData(team)
+    let matchesActivityFilter = true
+    if (activityFilter === 'active') {
+      matchesActivityFilter = timeData.totalHours > 0
+    } else if (activityFilter === 'inactive') {
+      matchesActivityFilter = timeData.totalHours === 0
+    }
+    
+    return matchesSearch && matchesTeamFilter && matchesLeaderFilter && matchesMemberCountFilter && matchesActivityFilter
+  })
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading teams...</p>
+          <p className="text-gray-600 dark:text-gray-400">Loading teams...</p>
         </div>
       </div>
     )
   }
+
+  const overallStats = getOverallStats()
+  const chartData = getTimeChartData()
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Teams</h1>
-          <p className="text-gray-600">Manage your teams and members</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Teams</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your teams and track their productivity</p>
         </div>
         
         <button
@@ -145,36 +401,308 @@ export default function Teams() {
         </button>
       </div>
 
-      {/* Error Message */}
-      {error && (
-        <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <Users className="h-5 w-5 text-red-500 flex-shrink-0" />
-          <p className="text-sm text-red-700">{error}</p>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+              <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Teams</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{teams.length}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+              <Activity className="h-6 w-6 text-green-600 dark:text-green-400" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Teams</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{overallStats.activeTeams}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
+              <Clock className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Time</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatSecondsToHHMMSS(overallStats.totalHours * 3600)}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
+              <DollarSign className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Billable Time</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatSecondsToHHMMSS(overallStats.totalBillableHours * 3600)}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Time Filter and Chart Toggle */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
+          <div className="flex flex-col lg:flex-row gap-4 flex-1">
+            {/* Time Period Filter */}
+            <div className="flex items-center space-x-2">
+              <Clock className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+              <select
+                value={timeFilter}
+                onChange={(e) => setTimeFilter(e.target.value as any)}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              >
+                <option value="this-week">This Week</option>
+                <option value="last-week">Last Week</option>
+                <option value="this-month">This Month</option>
+                <option value="custom">Custom Range</option>
+              </select>
+            </div>
+
+            {/* Custom Date Range */}
+            {timeFilter === 'custom' && (
+              <div className="flex items-center space-x-2">
+                <input
+                  type="date"
+                  value={customStartDate.toISOString().split('T')[0]}
+                  onChange={(e) => setCustomStartDate(new Date(e.target.value))}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                />
+                <span className="text-gray-500 dark:text-gray-400">to</span>
+                <input
+                  type="date"
+                  value={customEndDate.toISOString().split('T')[0]}
+                  onChange={(e) => setCustomEndDate(new Date(e.target.value))}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                />
+              </div>
+            )}
+
+            {/* Chart Toggle */}
+            <button
+              onClick={() => setShowTimeChart(!showTimeChart)}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                showTimeChart 
+                  ? 'bg-primary-500 text-white' 
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              <BarChart3 className="h-4 w-4" />
+              <span>{showTimeChart ? 'Hide Chart' : 'Show Time Chart'}</span>
+            </button>
+
+            {/* View Mode Toggle */}
+            <div className="flex border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`px-3 py-2 ${viewMode === 'grid' ? 'bg-primary-500 text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'}`}
+              >
+                <BarChart3 className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-2 ${viewMode === 'list' ? 'bg-primary-500 text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'}`}
+              >
+                <Users className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Period Display */}
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            {getPeriodText()}
+          </div>
+        </div>
+      </div>
+
+      {/* Time Chart */}
+      {showTimeChart && chartData.labels.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6" ref={chartRef}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Team Time Rendered</h3>
+            <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                <span>Total Hours</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 bg-green-500 rounded"></div>
+                <span>Billable Hours</span>
+              </div>
+            </div>
+          </div>
+          <SimpleChart
+            data={chartData}
+            type="bar"
+            height={300}
+          />
         </div>
       )}
 
-      {/* Search */}
-      <div className="flex-1">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search teams..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="input pl-10"
-          />
+      {/* Error Message */}
+      {error && (
+        <div className="flex items-center space-x-2 p-3 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-lg">
+          <Users className="h-5 w-5 text-red-500 dark:text-red-400 flex-shrink-0" />
+          <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
         </div>
+      )}
+
+      {/* Search and Filters */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* Search */}
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+              <input
+                type="text"
+                placeholder="Search teams by name or description..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+              />
+            </div>
+          </div>
+
+          {/* Team Filter */}
+          <div className="lg:w-64">
+            <div className="flex items-center space-x-2">
+              <Filter className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+              <select
+                value={teamFilter}
+                onChange={(e) => setTeamFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              >
+                <option value="all">All Teams</option>
+                {teams.map(team => (
+                  <option key={team.id} value={team.id}>
+                    {team.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Filter Toggle */}
+          <button
+            onClick={() => setShowTeamFilter(!showTeamFilter)}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+              showTeamFilter 
+                ? 'bg-primary-500 text-white' 
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+            }`}
+          >
+            <Filter className="h-4 w-4" />
+            <span>Filters</span>
+            {getActiveFilterCount() > 0 && (
+              <span className="ml-1 px-2 py-0.5 text-xs bg-red-500 text-white rounded-full">
+                {getActiveFilterCount()}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Advanced Filters */}
+        {showTeamFilter && (
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Team Leader Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Team Leader
+                </label>
+                <select 
+                  value={leaderFilter}
+                  onChange={(e) => setLeaderFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="all">All Leaders</option>
+                  {teams.map(team => (
+                    <option key={team.id} value={team.leaderId}>
+                      {team.leaderName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Member Count Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Member Count
+                </label>
+                <select 
+                  value={memberCountFilter}
+                  onChange={(e) => setMemberCountFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="all">Any Size</option>
+                  <option value="1-3">1-3 Members</option>
+                  <option value="4-6">4-6 Members</option>
+                  <option value="7+">7+ Members</option>
+                </select>
+              </div>
+
+              {/* Activity Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Activity Level
+                </label>
+                <select 
+                  value={activityFilter}
+                  onChange={(e) => setActivityFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="all">All Teams</option>
+                  <option value="active">Active (with time entries)</option>
+                  <option value="inactive">Inactive (no time entries)</option>
+                </select>
+              </div>
+            </div>
+            
+            {/* Clear Filters Button */}
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Showing {filteredTeams.length} of {teams.length} teams
+                </div>
+                <button
+                  onClick={() => {
+                    setTeamFilter('all')
+                    setLeaderFilter('all')
+                    setMemberCountFilter('all')
+                    setActivityFilter('all')
+                    setSearchTerm('')
+                  }}
+                  className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Clear All Filters
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Teams Grid */}
       {filteredTeams.length === 0 ? (
         <div className="text-center py-12">
-          <div className="p-4 bg-gray-100 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-            <Users className="h-8 w-8 text-gray-400" />
+          <div className="p-4 bg-gray-100 dark:bg-gray-700 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+            <Users className="h-8 w-8 text-gray-400 dark:text-gray-500" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No teams found</h3>
-          <p className="text-gray-500 mb-4">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No teams found</h3>
+          <p className="text-gray-500 dark:text-gray-400 mb-4">
             {searchTerm 
               ? 'Try adjusting your search'
               : 'Get started by creating your first team'
@@ -206,20 +734,70 @@ export default function Teams() {
                       style={{ backgroundColor: team.color }}
                     />
                     <div>
-                      <h3 className="font-semibold text-gray-900">{team.name}</h3>
-                      <p className="text-sm text-gray-500">{team.leaderName}</p>
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100">{team.name}</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{team.leaderName}</p>
                     </div>
                   </div>
-                  <div className="relative">
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <MoreVertical className="h-4 w-4 text-gray-500" />
+                  <div className="relative dropdown-container">
+                    <button 
+                      onClick={() => toggleDropdown(team.id)}
+                      className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                    >
+                      <MoreVertical className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                     </button>
+                    
+                    {/* Dropdown Menu */}
+                    {openDropdown === team.id && (
+                      <div className="absolute right-0 top-8 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 py-1 z-50">
+                        {canManageTeam(team) ? (
+                          <>
+                            <button
+                              onClick={() => {
+                                handleEditTeam(team);
+                                closeDropdown();
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center space-x-2"
+                            >
+                              <Edit className="h-4 w-4" />
+                              <span>Edit Team</span>
+                            </button>
+                            <div className="border-t border-gray-100 dark:border-gray-600 my-1"></div>
+                            <button
+                              onClick={() => {
+                                handleDeleteTeam(team);
+                                closeDropdown();
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 transition-colors flex items-center space-x-2"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              <span>Delete Team</span>
+                            </button>
+                          </>
+                        ) : canViewTeamDetails(team) ? (
+                          <button
+                            onClick={() => {
+                              // Future: Navigate to team details page
+                              console.log('View team details:', team.id);
+                              closeDropdown();
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center space-x-2"
+                          >
+                            <BarChart3 className="h-4 w-4" />
+                            <span>View Details</span>
+                          </button>
+                        ) : (
+                          <div className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+                            Only team leaders can manage teams
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Team Description */}
                 {team.description && (
-                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 line-clamp-2">
                     {team.description}
                   </p>
                 )}
@@ -227,25 +805,63 @@ export default function Teams() {
                 {/* Team Stats */}
                 {stats && (
                   <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="text-center p-3 bg-gray-50 rounded-lg">
-                      <p className="text-2xl font-bold text-gray-900">{stats.totalMembers}</p>
-                      <p className="text-xs text-gray-500">Members</p>
+                    <div className="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.totalMembers}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Members</p>
                     </div>
-                    <div className="text-center p-3 bg-gray-50 rounded-lg">
-                      <p className="text-2xl font-bold text-gray-900">{stats.totalTasks}</p>
-                      <p className="text-xs text-gray-500">Tasks</p>
+                    <div className="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.totalTasks}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Tasks</p>
                     </div>
                   </div>
                 )}
 
+                {/* Time Tracking Stats */}
+                {(() => {
+                  const timeData = getTeamTimeData(team)
+                  return timeData.totalHours > 0 ? (
+                    <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900 rounded-lg border border-blue-200 dark:border-blue-700">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">Time Rendered</h4>
+                        <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-lg font-bold text-blue-900 dark:text-blue-100">{formatSecondsToHHMMSS(timeData.totalHours * 3600)}</p>
+                          <p className="text-xs text-blue-600 dark:text-blue-400">Total Time</p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold text-green-700 dark:text-green-400">{formatSecondsToHHMMSS(timeData.billableHours * 3600)}</p>
+                          <p className="text-xs text-green-600 dark:text-green-400">Billable</p>
+                        </div>
+                      </div>
+                      {timeData.mostActiveMember && (
+                        <div className="mt-2 pt-2 border-t border-blue-200 dark:border-blue-700">
+                          <p className="text-xs text-blue-600 dark:text-blue-400">
+                            Most Active: <span className="font-medium">{timeData.mostActiveMember.userName}</span> ({formatSecondsToHHMMSS(timeData.mostActiveMember.hours * 3600)})
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Time Rendered</h4>
+                        <Clock className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                      </div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">No time tracked in selected period</p>
+                    </div>
+                  )
+                })()}
+
                 {/* Team Members */}
                 <div className="mb-4">
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-medium text-gray-900">Members</h4>
+                    <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">Members</h4>
                     {isLeader && (
                       <button
                         onClick={() => handleAddMember(team)}
-                        className="text-xs text-primary-600 hover:text-primary-700 flex items-center space-x-1"
+                        className="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center space-x-1"
                       >
                         <UserPlus className="h-3 w-3" />
                         <span>Add</span>
@@ -256,24 +872,24 @@ export default function Teams() {
                     {members.slice(0, 3).map((member) => (
                       <div key={member.id} className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
-                          <div className="w-6 h-6 bg-primary-100 rounded-full flex items-center justify-center">
-                            <span className="text-xs font-medium text-primary-600">
+                          <div className="w-6 h-6 bg-primary-100 dark:bg-primary-800 rounded-full flex items-center justify-center">
+                            <span className="text-xs font-medium text-primary-600 dark:text-primary-300">
                               {member.userName.charAt(0)}
                             </span>
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-gray-900">{member.userName}</p>
-                            <p className="text-xs text-gray-500">{member.userEmail}</p>
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{member.userName}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{member.userEmail}</p>
                           </div>
                         </div>
                         <div className="flex items-center space-x-1">
                           {member.teamRole === 'leader' && (
-                            <Crown className="h-3 w-3 text-yellow-500" />
+                            <Crown className="h-3 w-3 text-yellow-500 dark:text-yellow-400" />
                           )}
                           {isLeader && (
                             <button
                               onClick={() => handleEditMember(team, member)}
-                              className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
+                              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                             >
                               <Edit className="h-3 w-3" />
                             </button>
@@ -282,31 +898,35 @@ export default function Teams() {
                       </div>
                     ))}
                     {members.length > 3 && (
-                      <p className="text-xs text-gray-500 text-center">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
                         +{members.length - 3} more members
                       </p>
                     )}
                   </div>
                 </div>
 
-                {/* Team Actions */}
-                <div className="flex space-x-2 pt-4 border-t border-gray-100">
+                {/* Team Actions - View Details or Add Member */}
+                <div className="flex space-x-2 pt-4 border-t border-gray-100 dark:border-gray-700">
                   {isLeader && (
-                    <>
-                      <button
-                        onClick={() => handleEditTeam(team)}
-                        className="flex-1 px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center space-x-1"
-                      >
-                        <Edit className="h-3 w-3" />
-                        <span>Edit</span>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteTeam(team)}
-                        className="px-3 py-2 text-sm border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition-colors"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    </>
+                    <button
+                      onClick={() => handleAddMember(team)}
+                      className="flex-1 px-3 py-2 text-sm border border-primary-300 dark:border-primary-600 text-primary-700 dark:text-primary-300 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900 transition-colors flex items-center justify-center space-x-1"
+                    >
+                      <UserPlus className="h-3 w-3" />
+                      <span>Add Member</span>
+                    </button>
+                  )}
+                  {(isLeader || isUserSuperAdmin()) && (
+                    <button
+                      onClick={() => {
+                        // Future: Navigate to team details page
+                        console.log('View team details:', team.id);
+                      }}
+                      className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center space-x-1"
+                    >
+                      <BarChart3 className="h-3 w-3" />
+                      <span>View Details</span>
+                    </button>
                   )}
                 </div>
               </div>
@@ -321,6 +941,8 @@ export default function Teams() {
         onClose={() => setShowTeamModal(false)}
         onSuccess={loadData}
         team={selectedTeam}
+        onAddMember={handleAddMember}
+        onEditMember={handleEditMember}
       />
       
       <TeamMemberModal

@@ -27,8 +27,8 @@ class LoggingService {
         message,
         action,
         details: details || null,
-        userId: userId || null,
-        userName: userName || null,
+        userId: userId || undefined,
+        userName: userName || undefined,
         ipAddress: this.getClientIP(),
         userAgent: navigator.userAgent
       }

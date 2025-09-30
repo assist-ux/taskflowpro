@@ -46,6 +46,13 @@ export default function MessagingWidget({ teamId, teamName }: MessagingWidgetPro
     }
   }, [teamId, currentTeamId, setCurrentTeamId])
 
+  // Clear messages when no team is selected
+  useEffect(() => {
+    if (!currentTeamId) {
+      // This will be handled by the context, but we can ensure UI state is clean
+    }
+  }, [currentTeamId])
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -201,7 +208,10 @@ export default function MessagingWidget({ teamId, teamName }: MessagingWidgetPro
                 </div>
               </div>
             ) : (
-              messages.map((message) => (
+              messages.filter(message => {
+                // Only show messages from the current team
+                return message.teamId === currentTeamId
+              }).map((message) => (
               <div
                 key={message.id}
                 className={`flex ${message.senderId === currentUser?.uid ? 'justify-end' : 'justify-start'}`}

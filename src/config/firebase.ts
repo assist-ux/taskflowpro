@@ -2,6 +2,7 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getDatabase } from 'firebase/database'
+import { getFirestore } from 'firebase/firestore'
 
 // Your Firebase configuration
 // Replace these with your actual Firebase project credentials
@@ -16,7 +17,7 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-// Initialize Firebase
+// Initialize Firebase 
 const app = initializeApp(firebaseConfig)
 
 // Initialize Firebase Authentication and get a reference to the service
@@ -24,5 +25,8 @@ export const auth = getAuth(app)
 
 // Initialize Firebase Realtime Database and get a reference to the service
 export const database = getDatabase(app)
+
+// Initialize Firestore and get a reference to the service
+export const db = getFirestore(app)
 
 export default app

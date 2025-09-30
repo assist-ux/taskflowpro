@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
-import { X, Calendar, User, Clock, Flag, Tag } from 'lucide-react'
-import { Task, TaskStatus, TaskPriority, CreateTaskData, UpdateTaskData, Project } from '../../types'
+import { X, Users, Building2 } from 'lucide-react'
+import { Task, TaskStatus, TaskPriority, CreateTaskData, UpdateTaskData, Project, User, Team } from '../../types'
 import { projectService } from '../../services/projectService'
+import { userService } from '../../services/userService'
+import { teamService } from '../../services/teamService'
+import { useAuth } from '../../contexts/AuthContext'
 
 interface TaskModalProps {
   isOpen: boolean
@@ -12,12 +15,12 @@ interface TaskModalProps {
   priorities: TaskPriority[]
 }
 
-const PRIORITY_OPTIONS = [
-  { value: 'low', label: 'Low', color: 'text-gray-600' },
-  { value: 'medium', label: 'Medium', color: 'text-blue-600' },
-  { value: 'high', label: 'High', color: 'text-orange-600' },
-  { value: 'urgent', label: 'Urgent', color: 'text-red-600' }
-]
+// const PRIORITY_OPTIONS = [
+//   { value: 'low', label: 'Low', color: 'text-gray-600' },
+//   { value: 'medium', label: 'Medium', color: 'text-blue-600' },
+//   { value: 'high', label: 'High', color: 'text-orange-600' },
+//   { value: 'urgent', label: 'Urgent', color: 'text-red-600' }
+// ]
 
 export default function TaskModal({ 
   isOpen, 
@@ -27,6 +30,7 @@ export default function TaskModal({
   statuses, 
   priorities 
 }: TaskModalProps) {
+  const { currentUser } = useAuth()
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -35,17 +39,22 @@ export default function TaskModal({
     priorityId: priorities[0]?.id || '',
     assigneeId: '',
     assigneeName: '',
+    teamId: '',
     dueDate: '',
     estimatedHours: '',
     tags: [] as string[]
   })
   const [projects, setProjects] = useState<Project[]>([])
+  const [users, setUsers] = useState<User[]>([])
+  const [teams, setTeams] = useState<Team[]>([])
+  const [userTeams, setUserTeams] = useState<Team[]>([]) // Teams the current user belongs to
   const [loading, setLoading] = useState(false)
   const [tagInput, setTagInput] = useState('')
+  const [assigneeType, setAssigneeType] = useState<'user' | 'team'>('user')
 
   useEffect(() => {
     if (isOpen) {
-      loadProjects()
+      loadData()
       if (task) {
         setFormData({
           title: task.title,
@@ -55,33 +64,127 @@ export default function TaskModal({
           priorityId: task.priority.id,
           assigneeId: task.assigneeId || '',
           assigneeName: task.assigneeName || '',
+          teamId: '',
           dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
           estimatedHours: task.estimatedHours?.toString() || '',
           tags: task.tags || []
         })
       } else {
+        // For employees, automatically assign to themselves
+        const defaultAssigneeId = currentUser?.role === 'employee' ? currentUser.uid : ''
+        const defaultAssigneeName = currentUser?.role === 'employee' ? currentUser.name : ''
+        
         setFormData({
           title: '',
           description: '',
           projectId: '',
           statusId: statuses[0]?.id || '',
           priorityId: priorities[0]?.id || '',
-          assigneeId: '',
-          assigneeName: '',
+          assigneeId: defaultAssigneeId,
+          assigneeName: defaultAssigneeName,
+          teamId: '',
           dueDate: '',
           estimatedHours: '',
           tags: []
         })
       }
     }
-  }, [isOpen, task, statuses, priorities])
+  }, [isOpen, task, statuses, priorities, currentUser])
 
-  const loadProjects = async () => {
+  const loadData = async () => {
     try {
-      const projectsData = await projectService.getProjects()
+      console.log('TaskModal - Loading data for user:', {
+        userId: currentUser?.uid,
+        role: currentUser?.role,
+        companyId: currentUser?.companyId
+      })
+      
+      // Load projects - all authenticated users can access projects
+      const projectsData = currentUser?.companyId 
+        ? await projectService.getProjectsForCompany(currentUser.companyId)
+        : await projectService.getProjects()
+      
+      let usersData: User[] = []
+      let teamsData: Team[] = []
+      let userTeamsData: Team[] = []
+      
+      // Only load users and teams if user has permission (not regular employees)
+      if (currentUser?.role && ['admin', 'super_admin', 'hr', 'root'].includes(currentUser.role) || currentUser?.teamRole === 'leader') {
+        try {
+          [usersData, teamsData] = await Promise.all([
+            currentUser?.companyId 
+              ? userService.getUsersForCompany(currentUser.companyId)
+              : userService.getAllUsers(),
+            currentUser?.companyId 
+              ? teamService.getTeamsForCompany(currentUser.companyId)
+              : teamService.getTeams()
+          ])
+        } catch (error) {
+          console.warn('Could not load users/teams (insufficient permissions):', error)
+          // For employees, only include their own user data if available
+          if (currentUser) {
+            usersData = [{
+              id: currentUser.uid,
+              name: currentUser.name,
+              email: currentUser.email,
+              role: currentUser.role,
+              companyId: currentUser.companyId,
+              teamId: currentUser.teamId,
+              teamRole: currentUser.teamRole,
+              timezone: 'America/New_York',
+              isActive: true,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }]
+          }
+        }
+      } else {
+        // For employees, only include their own user data
+        if (currentUser) {
+          usersData = [{
+            id: currentUser.uid,
+            name: currentUser.name,
+            email: currentUser.email,
+            role: currentUser.role,
+            companyId: currentUser.companyId,
+            teamId: currentUser.teamId,
+            teamRole: currentUser.teamRole,
+            timezone: 'America/New_York',
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }]
+        }
+        console.log('Employee user - skipping team/user loading, creating self-assignment data')
+      }
+      
+      // Load teams the current user belongs to (for all user types)
+      if (currentUser) {
+        try {
+          userTeamsData = await teamService.getUserTeams(currentUser.uid)
+          console.log('User teams data:', userTeamsData)
+        } catch (error) {
+          console.warn('Could not load user teams:', error)
+          userTeamsData = []
+        }
+      }
+      
+      console.log('TaskModal - Loaded data:', {
+        projects: projectsData.length,
+        users: usersData.length,
+        teams: teamsData.length,
+        userTeams: userTeamsData.length,
+        projectsList: projectsData.map(p => ({ id: p.id, name: p.name, companyId: (p as any).companyId })),
+        userHasCompanyId: !!currentUser?.companyId,
+        userRole: currentUser?.role
+      })
+      
       setProjects(projectsData)
+      setUsers(usersData)
+      setTeams(teamsData)
+      setUserTeams(userTeamsData)
     } catch (error) {
-      console.error('Error loading projects:', error)
+      console.error('Error loading data:', error)
     }
   }
 
@@ -90,16 +193,65 @@ export default function TaskModal({
     setLoading(true)
 
     try {
-      const taskData = {
+      // Handle team assignment - if team is selected, add assignee to team
+      if (assigneeType === 'team' && formData.teamId && formData.assigneeId) {
+        try {
+          const selectedUser = users.find(u => u.id === formData.assigneeId)
+          const selectedTeam = teams.find(t => t.id === formData.teamId)
+          
+          if (selectedUser && selectedTeam) {
+            // Check if user is already in the team
+            const teamMembers = await teamService.getTeamMembers(formData.teamId)
+            const isUserInTeam = teamMembers.some(member => member.userId === formData.assigneeId)
+            
+            if (!isUserInTeam) {
+              // Add user to team
+              await teamService.addTeamMember(
+                formData.teamId,
+                { userId: formData.assigneeId, role: 'member' },
+                selectedUser.name,
+                selectedUser.email
+              )
+            }
+          }
+        } catch (error) {
+          console.error('Error adding user to team:', error)
+          // Continue with task creation even if team assignment fails
+        }
+      }
+
+      const taskData: any = {
         ...formData,
         estimatedHours: formData.estimatedHours ? parseFloat(formData.estimatedHours) : undefined,
-        dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined,
         status: statuses.find(s => s.id === formData.statusId)!,
         priority: priorities.find(p => p.id === formData.priorityId)!,
         projectName: projects.find(p => p.id === formData.projectId)?.name || ''
       }
 
-      await onSave(taskData)
+      // Only include dueDate if a valid date was selected
+      if (formData.dueDate && formData.dueDate.trim() !== '') {
+        const dueDateObj = new Date(formData.dueDate)
+        // Check if the date is valid
+        if (!isNaN(dueDateObj.getTime())) {
+          taskData.dueDate = dueDateObj
+        }
+      }
+
+      // Clean the taskData to remove undefined values before saving
+      const cleanTaskData: any = {
+        ...taskData,
+        status: taskData.status.id,
+        priority: taskData.priority.id
+      }
+      
+      // Remove undefined values to prevent Firebase errors
+      Object.keys(cleanTaskData).forEach(key => {
+        if (cleanTaskData[key] === undefined) {
+          delete cleanTaskData[key]
+        }
+      })
+
+      await onSave(cleanTaskData)
       onClose()
     } catch (error) {
       console.error('Error saving task:', error)
@@ -129,14 +281,14 @@ export default function TaskModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             {task ? 'Edit Task' : 'Create New Task'}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-gray-100 transition-colors"
           >
             <X className="h-6 w-6" />
           </button>
@@ -145,14 +297,14 @@ export default function TaskModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Title */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Task Title *
             </label>
             <input
               type="text"
               value={formData.title}
               onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               placeholder="Enter task title"
               required
             />
@@ -160,13 +312,13 @@ export default function TaskModal({
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Description
             </label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               rows={3}
               placeholder="Enter task description"
             />
@@ -175,13 +327,13 @@ export default function TaskModal({
           {/* Project and Status */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Project *
               </label>
               <select
                 value={formData.projectId}
                 onChange={(e) => setFormData(prev => ({ ...prev, projectId: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 required
               >
                 <option value="">Select a project</option>
@@ -194,13 +346,13 @@ export default function TaskModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Status
               </label>
               <select
                 value={formData.statusId}
                 onChange={(e) => setFormData(prev => ({ ...prev, statusId: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               >
                 {statuses.map(status => (
                   <option key={status.id} value={status.id}>
@@ -211,62 +363,196 @@ export default function TaskModal({
             </div>
           </div>
 
-          {/* Priority and Assignee */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Priority */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Priority
+            </label>
+            <select
+              value={formData.priorityId}
+              onChange={(e) => setFormData(prev => ({ ...prev, priorityId: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            >
+              {priorities.map(priority => (
+                <option key={priority.id} value={priority.id}>
+                  {priority.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Assignment Type Selection - Only show for non-employees */}
+          {currentUser?.role !== 'employee' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Priority
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Assignment Type
+              </label>
+              <div className="flex space-x-4">
+                <label className="flex items-center text-gray-700 dark:text-gray-300">
+                  <input
+                    type="radio"
+                    name="assigneeType"
+                    value="user"
+                    checked={assigneeType === 'user'}
+                    onChange={(e) => setAssigneeType(e.target.value as 'user' | 'team')}
+                    className="mr-2"
+                  />
+                  <Users className="h-4 w-4 mr-1" />
+                  Assign to User
+                </label>
+                <label className="flex items-center text-gray-700 dark:text-gray-300">
+                  <input
+                    type="radio"
+                    name="assigneeType"
+                    value="team"
+                    checked={assigneeType === 'team'}
+                    onChange={(e) => setAssigneeType(e.target.value as 'user' | 'team')}
+                    className="mr-2"
+                  />
+                  <Building2 className="h-4 w-4 mr-1" />
+                  Assign to Team
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Assignee Selection - Only show for non-employees */}
+          {currentUser?.role !== 'employee' && (
+            <div className="grid grid-cols-2 gap-4">
+              {assigneeType === 'user' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Assignee
+                  </label>
+                  <select
+                    value={formData.assigneeId}
+                    onChange={(e) => {
+                      const selectedUser = users.find(u => u.id === e.target.value)
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        assigneeId: e.target.value,
+                        assigneeName: selectedUser?.name || ''
+                      }))
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="">Select a user</option>
+                    {users.map(user => (
+                      <option key={user.id} value={user.id}>
+                        {user.name} ({user.role})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Team
+                    </label>
+                    <select
+                      value={formData.teamId}
+                      onChange={(e) => setFormData(prev => ({ ...prev, teamId: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    >
+                      <option value="">Select a team</option>
+                      {teams.map(team => (
+                        <option key={team.id} value={team.id}>
+                          {team.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      User to Add to Team
+                    </label>
+                    <select
+                      value={formData.assigneeId}
+                      onChange={(e) => {
+                        const selectedUser = users.find(u => u.id === e.target.value)
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          assigneeId: e.target.value,
+                          assigneeName: selectedUser?.name || ''
+                        }))
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      disabled={!formData.teamId}
+                    >
+                      <option value="">Select a user</option>
+                      {users.map(user => (
+                        <option key={user.id} value={user.id}>
+                          {user.name} ({user.role})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          
+          {/* Show assigned user info for employees */}
+          {currentUser?.role === 'employee' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Assigned To
+              </label>
+              <div className="px-3 py-2 bg-gray-50 dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-lg text-gray-700 dark:text-gray-200">
+                {currentUser.name} (You)
+              </div>
+            </div>
+          )}
+
+          {/* Team Selection for Employees */}
+          {currentUser?.role === 'employee' && userTeams.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Team *
               </label>
               <select
-                value={formData.priorityId}
-                onChange={(e) => setFormData(prev => ({ ...prev, priorityId: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={formData.teamId}
+                onChange={(e) => setFormData(prev => ({ ...prev, teamId: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                required={currentUser?.role === 'employee'}
               >
-                {priorities.map(priority => (
-                  <option key={priority.id} value={priority.id}>
-                    {priority.name}
+                <option value="">Select a team</option>
+                {userTeams.map(team => (
+                  <option key={team.id} value={team.id}>
+                    {team.name}
                   </option>
                 ))}
               </select>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Select the team this task belongs to. You can only select teams you're a member of.
+              </p>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Assignee
-              </label>
-              <input
-                type="text"
-                value={formData.assigneeName}
-                onChange={(e) => setFormData(prev => ({ ...prev, assigneeName: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter assignee name"
-              />
-            </div>
-          </div>
+          )}
 
           {/* Due Date and Estimated Hours */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Due Date
               </label>
               <input
                 type="date"
                 value={formData.dueDate}
                 onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Estimated Hours
               </label>
               <input
                 type="number"
                 value={formData.estimatedHours}
                 onChange={(e) => setFormData(prev => ({ ...prev, estimatedHours: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 placeholder="0"
                 min="0"
                 step="0.5"
@@ -276,20 +562,20 @@ export default function TaskModal({
 
           {/* Tags */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Tags
             </label>
             <div className="flex flex-wrap gap-2 mb-2">
               {formData.tags.map((tag, index) => (
                 <span
                   key={index}
-                  className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded-full"
+                  className="inline-flex items-center px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-sm rounded-full"
                 >
                   {tag}
                   <button
                     type="button"
                     onClick={() => handleRemoveTag(tag)}
-                    className="ml-1 text-blue-600 hover:text-blue-800"
+                    className="ml-1 text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-100"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -302,13 +588,13 @@ export default function TaskModal({
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 placeholder="Add a tag"
               />
               <button
                 type="button"
                 onClick={handleAddTag}
-                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                className="px-3 py-2 bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors"
               >
                 Add
               </button>
@@ -316,11 +602,11 @@ export default function TaskModal({
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+          <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-gray-700">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              className="px-4 py-2 text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-600 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors"
             >
               Cancel
             </button>

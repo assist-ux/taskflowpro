@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Eye, EyeOff, Mail, Lock, User, AlertCircle, CheckCircle } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { SignupCredentials } from '../../types'
+import { getRoleDisplayName, getRoleDescription } from '../../utils/permissions'
 
 interface SignupFormProps {
   onSwitchToLogin: () => void
@@ -95,7 +96,7 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
     <div className="w-full max-w-md mx-auto">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h1>
-        <p className="text-gray-600">Join Clockistry and start tracking your time</p>
+        <p className="text-gray-600">Join Task Flow Pro and start tracking your time</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -159,13 +160,11 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
             disabled={loading}
           >
             <option value="employee">Employee</option>
-            <option value="admin">Administrator</option>
+            <option value="hr">HR</option>
+            <option value="admin">Admin</option>
           </select>
           <p className="text-sm text-gray-500 mt-1">
-            {credentials.role === 'employee' 
-              ? 'Employees can track time and manage their own entries'
-              : 'Admins can manage projects, users, and view all data'
-            }
+            {getRoleDescription(credentials.role)}
           </p>
         </div>
 

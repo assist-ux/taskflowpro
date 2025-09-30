@@ -1,21 +1,30 @@
-import { ref, set, get, push, remove, update } from 'firebase/database'
+import { ref, set, get, push, remove, update, onValue } from 'firebase/database'
 import { database } from '../config/firebase'
 import { Project, Client, CreateProjectData, CreateClientData } from '../types'
 
 export const projectService = {
   // Projects
-  async createProject(projectData: CreateProjectData, userId: string): Promise<string> {
+  async createProject(projectData: CreateProjectData, userId: string, companyId?: string | null): Promise<string> {
     const projectRef = push(ref(database, 'projects'))
     const newProject: Project = {
       ...projectData,
       id: projectRef.key!,
       isArchived: false,
       createdBy: userId,
+      // @ts-ignore allow optional in persisted record
+      companyId: companyId ?? undefined,
       createdAt: new Date(),
       updatedAt: new Date()
     }
     
-    await set(projectRef, newProject)
+    // Convert dates to ISO strings for Firebase storage
+    const projectDataToSave: any = {
+      ...newProject,
+      createdAt: newProject.createdAt.toISOString(),
+      updatedAt: newProject.updatedAt.toISOString()
+    }
+    
+    await set(projectRef, projectDataToSave)
     return projectRef.key!
   },
 
@@ -42,30 +51,73 @@ export const projectService = {
     return []
   },
 
-  async getProjectById(projectId: string): Promise<Project | null> {
-    const projectRef = ref(database, `projects/${projectId}`)
-    const snapshot = await get(projectRef)
+  // Get projects for specific company (multi-tenant safe)
+  async getProjectsForCompany(companyId: string | null): Promise<Project[]> {
+    const projectsRef = ref(database, 'projects')
+    const snapshot = await get(projectsRef)
     
     if (snapshot.exists()) {
-      const project = snapshot.val()
-      return {
-        ...project,
-        startDate: project.startDate ? new Date(project.startDate) : undefined,
-        endDate: project.endDate ? new Date(project.endDate) : undefined,
-        createdAt: new Date(project.createdAt),
-        updatedAt: new Date(project.updatedAt)
-      }
+      const projects = snapshot.val()
+      return Object.values(projects)
+        .map((project: any) => ({
+          ...project,
+          startDate: project.startDate ? new Date(project.startDate) : undefined,
+          endDate: project.endDate ? new Date(project.endDate) : undefined,
+          createdAt: new Date(project.createdAt),
+          updatedAt: new Date(project.updatedAt)
+        }))
+        .filter((project: Project) => {
+          // Filter by company and active status
+          return !project.isArchived && (project as any).companyId === companyId
+        })
+        .sort((a: Project, b: Project) => b.createdAt.getTime() - a.createdAt.getTime())
     }
     
-    return null
+    return []
+  },
+
+  async getProjectById(projectId: string): Promise<Project | null> {
+    try {
+      const projectRef = ref(database, `projects/${projectId}`)
+      const snapshot = await get(projectRef)
+      
+      if (snapshot.exists()) {
+        const project = snapshot.val()
+        console.log('Project data for ID', projectId, ':', project)
+        return {
+          ...project,
+          startDate: project.startDate ? new Date(project.startDate) : undefined,
+          endDate: project.endDate ? new Date(project.endDate) : undefined,
+          createdAt: new Date(project.createdAt),
+          updatedAt: new Date(project.updatedAt)
+        }
+      }
+      
+      console.log('No project found for ID:', projectId)
+      return null
+    } catch (error) {
+      console.error('Error getting project by ID:', error)
+      return null
+    }
   },
 
   async updateProject(projectId: string, updates: Partial<CreateProjectData>): Promise<void> {
     const projectRef = ref(database, `projects/${projectId}`)
-    await update(projectRef, {
-      ...updates,
-      updatedAt: new Date()
+    
+    // Filter out undefined values and convert dates to ISO strings for Firebase storage
+    const updatesToSave: any = {
+      updatedAt: new Date().toISOString()
+    }
+    
+    // Only include defined values
+    Object.keys(updates).forEach(key => {
+      const value = updates[key as keyof CreateProjectData]
+      if (value !== undefined) {
+        updatesToSave[key] = value
+      }
     })
+    
+    await update(projectRef, updatesToSave)
   },
 
   async deleteProject(projectId: string): Promise<void> {
@@ -82,18 +134,51 @@ export const projectService = {
   },
 
   // Clients
-  async createClient(clientData: CreateClientData, userId: string): Promise<string> {
+  async createClient(clientData: CreateClientData, userId: string, companyId?: string | null): Promise<string> {
     const clientRef = push(ref(database, 'clients'))
     const newClient: Client = {
       ...clientData,
       id: clientRef.key!,
       isArchived: false,
       createdBy: userId,
+      // @ts-ignore optional on persisted record
+      companyId: companyId ?? undefined,
       createdAt: new Date(),
       updatedAt: new Date()
     }
     
-    await set(clientRef, newClient)
+    // Filter out undefined values and convert dates to ISO strings for Firebase storage
+    const clientDataToSave: any = {
+      id: newClient.id,
+      name: newClient.name,
+      email: newClient.email,
+      country: newClient.country,
+      timezone: newClient.timezone,
+      clientType: newClient.clientType,
+      hourlyRate: newClient.hourlyRate,
+      phone: newClient.phone,
+      company: newClient.company,
+      address: newClient.address,
+      // Persist if provided
+      companyId: companyId ?? undefined,
+      isArchived: newClient.isArchived,
+      createdBy: newClient.createdBy,
+      createdAt: newClient.createdAt.toISOString(),
+      updatedAt: newClient.updatedAt.toISOString()
+    }
+    
+    // Only include optional fields if they are defined
+    if (newClient.hoursPerWeek !== undefined) {
+      clientDataToSave.hoursPerWeek = newClient.hoursPerWeek
+    }
+    if (newClient.startDate !== undefined) {
+      clientDataToSave.startDate = newClient.startDate.toISOString()
+    }
+    if (newClient.endDate !== undefined) {
+      clientDataToSave.endDate = newClient.endDate.toISOString()
+    }
+    
+    await set(clientRef, clientDataToSave)
     return clientRef.key!
   },
 
@@ -107,11 +192,38 @@ export const projectService = {
         .map((client: any) => ({
           ...client,
           createdAt: new Date(client.createdAt),
-          updatedAt: new Date(client.updatedAt)
+          updatedAt: new Date(client.updatedAt),
+          startDate: client.startDate ? new Date(client.startDate) : undefined,
+          endDate: client.endDate ? new Date(client.endDate) : undefined
         }))
         .filter((client: Client) => 
           !client.isArchived
         )
+        .sort((a: Client, b: Client) => a.name.localeCompare(b.name))
+    }
+    
+    return []
+  },
+
+  // Get clients for specific company (multi-tenant safe)
+  async getClientsForCompany(companyId: string | null): Promise<Client[]> {
+    const clientsRef = ref(database, 'clients')
+    const snapshot = await get(clientsRef)
+    
+    if (snapshot.exists()) {
+      const clients = snapshot.val()
+      return Object.values(clients)
+        .map((client: any) => ({
+          ...client,
+          createdAt: new Date(client.createdAt),
+          updatedAt: new Date(client.updatedAt),
+          startDate: client.startDate ? new Date(client.startDate) : undefined,
+          endDate: client.endDate ? new Date(client.endDate) : undefined
+        }))
+        .filter((client: Client) => {
+          // Filter by company and active status
+          return !client.isArchived && (client as any).companyId === companyId
+        })
         .sort((a: Client, b: Client) => a.name.localeCompare(b.name))
     }
     
@@ -127,7 +239,9 @@ export const projectService = {
       return {
         ...client,
         createdAt: new Date(client.createdAt),
-        updatedAt: new Date(client.updatedAt)
+        updatedAt: new Date(client.updatedAt),
+        startDate: client.startDate ? new Date(client.startDate) : undefined,
+        endDate: client.endDate ? new Date(client.endDate) : undefined
       }
     }
     
@@ -136,10 +250,26 @@ export const projectService = {
 
   async updateClient(clientId: string, updates: Partial<CreateClientData>): Promise<void> {
     const clientRef = ref(database, `clients/${clientId}`)
-    await update(clientRef, {
-      ...updates,
-      updatedAt: new Date()
+    
+    // Filter out undefined values and convert dates to ISO strings for Firebase storage
+    const updatesToSave: any = {
+      updatedAt: new Date().toISOString()
+    }
+    
+    // Only include defined values
+    Object.keys(updates).forEach(key => {
+      const value = updates[key as keyof CreateClientData]
+      if (value !== undefined) {
+        if (key === 'startDate' || key === 'endDate') {
+          // Convert dates to ISO strings
+          updatesToSave[key] = value instanceof Date ? value.toISOString() : value
+        } else {
+          updatesToSave[key] = value
+        }
+      }
     })
+    
+    await update(clientRef, updatesToSave)
   },
 
   async deleteClient(clientId: string): Promise<void> {
@@ -153,5 +283,58 @@ export const projectService = {
       isArchived: true,
       updatedAt: new Date()
     })
+  },
+
+  // Real-time listeners
+  subscribeToProjects(callback: (projects: Project[]) => void): () => void {
+    const projectsRef = ref(database, 'projects')
+    
+    const unsubscribe = onValue(projectsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const projects = snapshot.val()
+        const formattedProjects = Object.values(projects)
+          .map((project: any) => ({
+            ...project,
+            startDate: project.startDate ? new Date(project.startDate) : undefined,
+            endDate: project.endDate ? new Date(project.endDate) : undefined,
+            createdAt: new Date(project.createdAt),
+            updatedAt: new Date(project.updatedAt)
+          }))
+          .filter((project: Project) => !project.isArchived)
+          .sort((a: Project, b: Project) => b.createdAt.getTime() - a.createdAt.getTime())
+        
+        callback(formattedProjects)
+      } else {
+        callback([])
+      }
+    })
+    
+    return unsubscribe
+  },
+
+  subscribeToClients(callback: (clients: Client[]) => void): () => void {
+    const clientsRef = ref(database, 'clients')
+    
+    const unsubscribe = onValue(clientsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const clients = snapshot.val()
+        const formattedClients = Object.values(clients)
+          .map((client: any) => ({
+            ...client,
+            createdAt: new Date(client.createdAt),
+            updatedAt: new Date(client.updatedAt),
+            startDate: client.startDate ? new Date(client.startDate) : undefined,
+            endDate: client.endDate ? new Date(client.endDate) : undefined
+          }))
+          .filter((client: Client) => !client.isArchived)
+          .sort((a: Client, b: Client) => a.name.localeCompare(b.name))
+        
+        callback(formattedClients)
+      } else {
+        callback([])
+      }
+    })
+    
+    return unsubscribe
   }
 }

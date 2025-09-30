@@ -54,10 +54,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         name: credentials.name,
         email: credentials.email,
         role: credentials.role,
+        companyId: credentials.role === 'root' ? null : undefined, // Root doesn't belong to any company
         teamId: null,
         teamRole: null,
         timezone: 'America/New_York',
-        hourlyRate: credentials.role === 'admin' ? 0 : 25, // Default rates
+        hourlyRate: credentials.role === 'admin' || credentials.role === 'root' ? 0 : 25, // Default rates
         isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -71,6 +72,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         email: credentials.email,
         role: credentials.role,
         name: credentials.name,
+        companyId: credentials.role === 'root' ? null : undefined,
         teamId: null,
         teamRole: null
       })
@@ -80,7 +82,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error) {
       console.error('Error during signup:', error)
       // Log failed signup attempt
-      await loggingService.logAuthEvent('signup', credentials.email, 'Unknown', false, { error: error.message })
+      await loggingService.logAuthEvent('signup', credentials.email, 'Unknown', false, { error: (error as Error).message })
       throw error
     }
   }
@@ -106,6 +108,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           email: userData.email,
           role: userData.role,
           name: userData.name,
+          companyId: userData.companyId || null,
           teamId: userData.teamId || null,
           teamRole: userData.teamRole || null
         })
@@ -118,7 +121,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error) {
       console.error('Error during login:', error)
       // Log failed login attempt
-      await loggingService.logAuthEvent('login', credentials.email, 'Unknown', false, { error: error.message })
+      await loggingService.logAuthEvent('login', credentials.email, 'Unknown', false, { error: (error as Error).message })
       throw error
     }
   }
@@ -156,6 +159,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               email: userData.email,
               role: userData.role,
               name: userData.name,
+              companyId: userData.companyId || null,
               teamId: userData.teamId || null,
               teamRole: userData.teamRole || null
             })
@@ -182,7 +186,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   )
 }

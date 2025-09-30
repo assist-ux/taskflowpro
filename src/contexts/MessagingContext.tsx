@@ -44,23 +44,52 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
     }
   }, [currentUser])
 
+  // Clear messages when user changes
+  useEffect(() => {
+    if (!currentUser) {
+      setMessages([])
+      setTeamChats([])
+      setCurrentTeamId(null)
+    }
+  }, [currentUser])
+
   // Subscribe to messages when team changes
   useEffect(() => {
     if (currentTeamId && currentUser) {
       setIsLoading(true)
       
-      const unsubscribe = messagingService.subscribeToTeamMessages(
-        currentTeamId,
-        (newMessages) => {
-          setMessages(newMessages)
-          setIsLoading(false)
-        }
-      )
+      // Verify user has access to this team before subscribing
+      messagingService.verifyTeamAccess(currentUser.uid, currentTeamId)
+        .then(hasAccess => {
+          if (hasAccess) {
+            const unsubscribe = messagingService.subscribeToTeamMessages(
+              currentTeamId,
+              (newMessages) => {
+                setMessages(newMessages)
+                setIsLoading(false)
+              }
+            )
 
-      return () => {
-        unsubscribe()
-        setMessages([])
-      }
+            return () => {
+              unsubscribe()
+              setMessages([])
+            }
+          } else {
+            console.warn('User does not have access to team:', currentTeamId)
+            // Force clear the current team ID if user doesn't have access
+            setCurrentTeamId(null)
+            setMessages([])
+            setIsLoading(false)
+            // Reload team chats to ensure we have the current membership
+            loadTeamChats()
+          }
+        })
+        .catch(error => {
+          console.error('Error verifying team access:', error)
+          setCurrentTeamId(null)
+          setMessages([])
+          setIsLoading(false)
+        })
     } else {
       setMessages([])
     }
@@ -73,6 +102,13 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
       setIsLoading(true)
       const chats = await messagingService.getUserTeamChats(currentUser.uid)
       setTeamChats(chats)
+      
+      // If currently selected team is not in the new list, clear it
+      if (currentTeamId && !chats.some(chat => chat.teamId === currentTeamId)) {
+        console.warn('Current team is no longer accessible, clearing selection')
+        setCurrentTeamId(null)
+        setMessages([])
+      }
       
       // Automatically select the first team if no team is currently selected
       if (chats.length > 0 && !currentTeamId) {
@@ -89,6 +125,16 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
     if (!currentTeamId || !currentUser || !content.trim()) return
 
     try {
+      // Verify user still has access to this team before sending
+      const hasAccess = await messagingService.verifyTeamAccess(currentUser.uid, currentTeamId)
+      if (!hasAccess) {
+        console.error('Access denied: User is not a member of this team')
+        // Force refresh team chats and clear current team
+        setCurrentTeamId(null)
+        loadTeamChats()
+        throw new Error('You are not a member of this team')
+      }
+
       const messageData: any = {
         teamId: currentTeamId,
         content: content.trim()

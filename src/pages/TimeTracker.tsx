@@ -94,7 +94,7 @@ export default function TimeTrackerPage() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading time tracker...</p>
+          <p className="text-gray-600 dark:text-gray-400">Loading time tracker...</p>
         </div>
       </div>
     )
@@ -107,8 +107,8 @@ export default function TimeTrackerPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Time Tracker</h1>
-          <p className="text-gray-600">Track your time and monitor productivity</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Time Tracker</h1>
+          <p className="text-gray-600 dark:text-gray-400">Track your time and monitor productivity</p>
         </div>
       </div>
 
@@ -117,22 +117,22 @@ export default function TimeTrackerPage() {
         {/* Daily Time */}
         <div 
           className={`card cursor-pointer transition-all duration-200 ${
-            activeTab === 'today' ? 'ring-2 ring-primary-500 bg-primary-50' : 'hover:shadow-md'
+            activeTab === 'today' ? 'ring-2 ring-primary-500 bg-primary-50 dark:bg-primary-900' : 'hover:shadow-md'
           }`}
           onClick={() => setActiveTab('today')}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Today</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Today</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {formatTimeFromSeconds(timeSummary?.today.total || 0)}
               </p>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 {timeSummary?.today.entries || 0} entries
               </p>
             </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <Clock className="h-6 w-6 text-blue-600" />
+            <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
+              <Clock className="h-6 w-6 text-blue-600 dark:text-blue-400" />
             </div>
           </div>
         </div>
@@ -140,22 +140,22 @@ export default function TimeTrackerPage() {
         {/* Weekly Time */}
         <div 
           className={`card cursor-pointer transition-all duration-200 ${
-            activeTab === 'week' ? 'ring-2 ring-primary-500 bg-primary-50' : 'hover:shadow-md'
+            activeTab === 'week' ? 'ring-2 ring-primary-500 bg-primary-50 dark:bg-primary-900' : 'hover:shadow-md'
           }`}
           onClick={() => setActiveTab('week')}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">This Week</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">This Week</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {formatTimeFromSeconds(timeSummary?.thisWeek.total || 0)}
               </p>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 {timeSummary?.thisWeek.entries || 0} entries
               </p>
             </div>
-            <div className="p-3 bg-green-100 rounded-lg">
-              <Calendar className="h-6 w-6 text-green-600" />
+            <div className="p-3 bg-green-100 dark:bg-green-900 rounded-lg">
+              <Calendar className="h-6 w-6 text-green-600 dark:text-green-400" />
             </div>
           </div>
         </div>
@@ -163,22 +163,22 @@ export default function TimeTrackerPage() {
         {/* Monthly Time */}
         <div 
           className={`card cursor-pointer transition-all duration-200 ${
-            activeTab === 'month' ? 'ring-2 ring-primary-500 bg-primary-50' : 'hover:shadow-md'
+            activeTab === 'month' ? 'ring-2 ring-primary-500 bg-primary-50 dark:bg-primary-900' : 'hover:shadow-md'
           }`}
           onClick={() => setActiveTab('month')}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">This Month</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">This Month</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {formatTimeFromSeconds(timeSummary?.thisMonth.total || 0)}
               </p>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 {timeSummary?.thisMonth.entries || 0} entries
               </p>
             </div>
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <BarChart3 className="h-6 w-6 text-purple-600" />
+            <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-lg">
+              <BarChart3 className="h-6 w-6 text-purple-600 dark:text-purple-400" />
             </div>
           </div>
         </div>
@@ -187,12 +187,12 @@ export default function TimeTrackerPage() {
       {/* Active Tab Stats */}
       <div className="card">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {getTabLabel(activeTab)} Overview
           </h2>
           <div className="flex items-center space-x-2">
             {React.createElement(getTabIcon(activeTab), {
-              className: "h-5 w-5 text-primary-600"
+              className: "h-5 w-5 text-primary-600 dark:text-primary-400"
             })}
           </div>
         </div>
@@ -200,36 +200,36 @@ export default function TimeTrackerPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Total Time */}
           <div className="text-center">
-            <div className="p-4 bg-primary-100 rounded-lg w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-              <Clock className="h-8 w-8 text-primary-600" />
+            <div className="p-4 bg-primary-100 dark:bg-primary-900 rounded-lg w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+              <Clock className="h-8 w-8 text-primary-600 dark:text-primary-400" />
             </div>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               {formatTimeFromSeconds(stats.total)}
             </p>
-            <p className="text-sm text-gray-600">Total Time</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Total Time</p>
           </div>
 
           {/* Billable Time */}
           <div className="text-center">
-            <div className="p-4 bg-green-100 rounded-lg w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-              <DollarSign className="h-8 w-8 text-green-600" />
+            <div className="p-4 bg-green-100 dark:bg-green-900 rounded-lg w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+              <DollarSign className="h-8 w-8 text-green-600 dark:text-green-400" />
             </div>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               {formatTimeFromSeconds(stats.billable)}
             </p>
-            <p className="text-sm text-gray-600">Billable Time</p>
-            <p className="text-xs text-green-600 font-medium">
+            <p className="text-sm text-gray-600 dark:text-gray-400">Billable Time</p>
+            <p className="text-xs text-green-600 dark:text-green-400 font-medium">
               ${calculateEarnings(stats.billable).toFixed(2)} earned
             </p>
           </div>
 
           {/* Entries Count */}
           <div className="text-center">
-            <div className="p-4 bg-purple-100 rounded-lg w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-              <Target className="h-8 w-8 text-purple-600" />
+            <div className="p-4 bg-purple-100 dark:bg-purple-900 rounded-lg w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+              <Target className="h-8 w-8 text-purple-600 dark:text-purple-400" />
             </div>
-            <p className="text-2xl font-bold text-gray-900">{stats.entries}</p>
-            <p className="text-sm text-gray-600">Time Entries</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.entries}</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Time Entries</p>
           </div>
         </div>
       </div>
@@ -240,39 +240,39 @@ export default function TimeTrackerPage() {
       {/* Recent Entries */}
       {recentEntries.length > 0 && (
         <div className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Entries</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Recent Entries</h2>
           <div className="space-y-3">
             {recentEntries.map((entry) => (
               <div
                 key={entry.id}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
               >
                 <div className="flex items-center space-x-3">
                   <div className="flex items-center space-x-2">
                     {entry.isRunning ? (
                       <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
                     ) : (
-                      <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+                      <div className="w-3 h-3 bg-gray-400 dark:bg-gray-500 rounded-full"></div>
                     )}
-                    <span className="text-sm font-medium text-gray-900">
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                       {entry.projectName || 'No project'}
                     </span>
                   </div>
                   {entry.description && (
-                    <span className="text-sm text-gray-600 truncate max-w-xs">
+                    <span className="text-sm text-gray-600 dark:text-gray-400 truncate max-w-xs">
                       {entry.description}
                     </span>
                   )}
                 </div>
                 <div className="flex items-center space-x-4">
-                  <span className="text-sm font-mono text-gray-900">
+                  <span className="text-sm font-mono text-gray-900 dark:text-gray-100">
                     {formatTimeFromSeconds(entry.duration)}
                   </span>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
                     {formatDate(entry.startTime)}
                   </span>
                   {entry.isBillable && (
-                    <DollarSign className="h-4 w-4 text-green-500" />
+                    <DollarSign className="h-4 w-4 text-green-500 dark:text-green-400" />
                   )}
                 </div>
               </div>
@@ -282,14 +282,14 @@ export default function TimeTrackerPage() {
       )}
 
       {/* Quick Tips */}
-      <div className="card bg-gradient-to-r from-primary-50 to-blue-50 border-primary-200">
+      <div className="card bg-gradient-to-r from-primary-50 to-blue-50 dark:from-primary-900 dark:to-blue-900 border-primary-200 dark:border-primary-700">
         <div className="flex items-start space-x-3">
-          <div className="p-2 bg-primary-100 rounded-lg">
-            <Zap className="h-5 w-5 text-primary-600" />
+          <div className="p-2 bg-primary-100 dark:bg-primary-800 rounded-lg">
+            <Zap className="h-5 w-5 text-primary-600 dark:text-primary-400" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900 mb-2">Quick Tips</h3>
-            <ul className="text-sm text-gray-600 space-y-1">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Quick Tips</h3>
+            <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
               <li>• Start a timer before beginning any task</li>
               <li>• Add descriptions to remember what you worked on</li>
               <li>• Use tags to categorize your work</li>

@@ -86,13 +86,8 @@ export const formatDurationToHHMMSS = (duration: number): string => {
   }
   
   // Based on the database, durations are stored in seconds
-  // If duration is very large (> 10000), it might be milliseconds, so convert to seconds
-  // Otherwise, treat as seconds
-  if (duration > 10000) {
-    return formatSecondsToHHMMSS(duration / 1000)
-  } else {
-    return formatSecondsToHHMMSS(duration)
-  }
+  // Always treat as seconds - the previous logic was incorrect
+  return formatSecondsToHHMMSS(duration)
 }
 
 export const formatRelativeTime = (date: Date): string => {

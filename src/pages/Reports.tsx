@@ -80,14 +80,14 @@ export default function Reports() {
       }
       
       const analytics: TimeAnalytics = {
-        totalTime: periodData.total,
-        billableTime: periodData.billable,
-        nonBillableTime: periodData.total - periodData.billable,
-        totalEntries: periodData.entries,
-        averageSessionLength: periodData.entries > 0 ? periodData.total / periodData.entries : 0,
+        totalTime: periodData.total || 0,
+        billableTime: periodData.billable || 0,
+        nonBillableTime: Math.max(0, (periodData.total || 0) - (periodData.billable || 0)),
+        totalEntries: periodData.entries || 0,
+        averageSessionLength: (periodData.entries || 0) > 0 ? (periodData.total || 0) / (periodData.entries || 1) : 0,
         mostProductiveDay: 'Monday', // Will be calculated properly later
         mostProductiveHour: 9, // Will be calculated properly later
-        totalEarnings: (periodData.billable / 3600) * 25
+        totalEarnings: ((periodData.billable || 0) / 3600) * 25
       }
       
       const [projectStats, dailyStats, projectsData] = await Promise.all([
@@ -176,7 +176,7 @@ export default function Reports() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading reports...</p>
+          <p className="text-gray-600 dark:text-gray-400">Loading reports...</p>
         </div>
       </div>
     )
@@ -187,8 +187,8 @@ export default function Reports() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
-          <p className="text-gray-600">Track your productivity and time insights</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Reports & Analytics</h1>
+          <p className="text-gray-600 dark:text-gray-400">Track your productivity and time insights</p>
         </div>
         
         <div className="flex space-x-3">
@@ -226,8 +226,8 @@ export default function Reports() {
             onClick={() => handlePeriodChange(period)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               selectedPeriod === period
-                ? 'bg-primary-100 text-primary-700 border border-primary-200'
-                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-700'
+                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
             }`}
           >
             {period.charAt(0).toUpperCase() + period.slice(1)}
@@ -238,10 +238,10 @@ export default function Reports() {
       {/* Filters */}
       {showFilters && (
         <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Filters</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Filters</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Projects
               </label>
               <select
@@ -262,7 +262,7 @@ export default function Reports() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Time Type
               </label>
               <select
@@ -276,7 +276,7 @@ export default function Reports() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Date Range
               </label>
               <div className="flex space-x-2">
@@ -349,7 +349,7 @@ export default function Reports() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Project Distribution */}
         <SimpleChart
-          data={reportsService.generateProjectChartData(projectAnalytics)}
+          data={reportsService.generateProjectChartData(projectAnalytics || [])}
           type="doughnut"
           title="Time by Project"
           height={300}
@@ -357,7 +357,7 @@ export default function Reports() {
         
         {/* Daily Time Trend */}
         <SimpleChart
-          data={reportsService.generateDailyChartData(dailyAnalytics.slice(-14))} // Last 14 days
+          data={reportsService.generateDailyChartData((dailyAnalytics || []).slice(-14))} // Last 14 days
           type="line"
           title="Daily Time Trend"
           height={300}
@@ -366,23 +366,23 @@ export default function Reports() {
 
       {/* Project Breakdown */}
       <div className="card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Project Breakdown</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Project Breakdown</h3>
         <div className="space-y-4">
-          {projectAnalytics.map((project) => (
-            <div key={project.projectId} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          {(projectAnalytics || []).map((project) => (
+            <div key={project.projectId} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <div className="flex items-center space-x-3">
                 <div
                   className="w-4 h-4 rounded-full"
-                  style={{ backgroundColor: project.color }}
+                  style={{ backgroundColor: project.color || '#6B7280' }}
                 />
                 <div>
-                  <h4 className="font-medium text-gray-900">{project.projectName}</h4>
-                  <p className="text-sm text-gray-500">{project.entries} entries</p>
+                  <h4 className="font-medium text-gray-900 dark:text-gray-100">{project.projectName || 'Unknown Project'}</h4>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{project.entries || 0} entries</p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="font-semibold text-gray-900">{formatTimeFromSeconds(project.totalTime)}</p>
-                <p className="text-sm text-gray-500">{project.percentage.toFixed(1)}%</p>
+                <p className="font-semibold text-gray-900 dark:text-gray-100">{formatTimeFromSeconds(project.totalTime || 0)}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{(project.percentage || 0).toFixed(1)}%</p>
               </div>
             </div>
           ))}
@@ -392,32 +392,32 @@ export default function Reports() {
       {/* Productivity Insights */}
       {timeAnalytics && (
         <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Productivity Insights</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Productivity Insights</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center">
-              <div className="p-4 bg-blue-100 rounded-lg w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-                <Calendar className="h-8 w-8 text-blue-600" />
+              <div className="p-4 bg-blue-100 dark:bg-blue-900 rounded-lg w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+                <Calendar className="h-8 w-8 text-blue-600 dark:text-blue-400" />
               </div>
-              <h4 className="font-semibold text-gray-900">Most Productive Day</h4>
-              <p className="text-2xl font-bold text-blue-600">{timeAnalytics.mostProductiveDay}</p>
+              <h4 className="font-semibold text-gray-900 dark:text-gray-100">Most Productive Day</h4>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{timeAnalytics.mostProductiveDay}</p>
             </div>
             
             <div className="text-center">
-              <div className="p-4 bg-green-100 rounded-lg w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-                <Clock className="h-8 w-8 text-green-600" />
+              <div className="p-4 bg-green-100 dark:bg-green-900 rounded-lg w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+                <Clock className="h-8 w-8 text-green-600 dark:text-green-400" />
               </div>
-              <h4 className="font-semibold text-gray-900">Peak Hour</h4>
-              <p className="text-2xl font-bold text-green-600">
+              <h4 className="font-semibold text-gray-900 dark:text-gray-100">Peak Hour</h4>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {timeAnalytics.mostProductiveHour}:00
               </p>
             </div>
             
             <div className="text-center">
-              <div className="p-4 bg-purple-100 rounded-lg w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-                <Award className="h-8 w-8 text-purple-600" />
+              <div className="p-4 bg-purple-100 dark:bg-purple-900 rounded-lg w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+                <Award className="h-8 w-8 text-purple-600 dark:text-purple-400" />
               </div>
-              <h4 className="font-semibold text-gray-900">Efficiency</h4>
-              <p className="text-2xl font-bold text-purple-600">
+              <h4 className="font-semibold text-gray-900 dark:text-gray-100">Efficiency</h4>
+              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                 {((timeAnalytics.billableTime / timeAnalytics.totalTime) * 100).toFixed(0)}%
               </p>
             </div>
@@ -427,26 +427,26 @@ export default function Reports() {
 
       {/* Recent Activity */}
       <div className="card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Recent Activity</h3>
         <div className="space-y-3">
-          {dailyAnalytics.slice(-7).reverse().map((day) => (
-            <div key={day.date} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+          {(dailyAnalytics || []).slice(-7).reverse().map((day) => (
+            <div key={day.date} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <div className="flex items-center space-x-3">
                 <div className="w-2 h-2 bg-primary-500 rounded-full" />
                 <div>
-                  <p className="font-medium text-gray-900">
-                    {new Date(day.date).toLocaleDateString('en-US', { 
+                  <p className="font-medium text-gray-900 dark:text-gray-100">
+                    {day.date ? new Date(day.date).toLocaleDateString('en-US', { 
                       weekday: 'long', 
                       month: 'short', 
                       day: 'numeric' 
-                    })}
+                    }) : 'Unknown Date'}
                   </p>
-                  <p className="text-sm text-gray-500">{day.entries} entries</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{day.entries || 0} entries</p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="font-semibold text-gray-900">{formatTimeFromSeconds(day.totalTime)}</p>
-                <p className="text-sm text-green-600">{formatTimeFromSeconds(day.billableTime)} billable</p>
+                <p className="font-semibold text-gray-900 dark:text-gray-100">{formatTimeFromSeconds(day.totalTime || 0)}</p>
+                <p className="text-sm text-green-600 dark:text-green-400">{formatTimeFromSeconds(day.billableTime || 0)} billable</p>
               </div>
             </div>
           ))}

@@ -1,10 +1,16 @@
-import { ref, push, get, query, orderByChild, equalTo, limitToLast, onValue, off, update, remove, set } from 'firebase/database'
+import { ref, push, set, get, query, orderByChild, equalTo, limitToLast, onValue, update, remove } from 'firebase/database'
 import { database } from '../config/firebase'
 import { Message, CreateMessageData, TeamChat } from '../types'
 
 export const messagingService = {
   // Send a message to a team
   async sendMessage(messageData: CreateMessageData, senderId: string, senderName: string, senderEmail: string): Promise<string> {
+    // Verify user has access to this team before sending
+    const hasAccess = await this.verifyTeamAccess(senderId, messageData.teamId)
+    if (!hasAccess) {
+      throw new Error('Access denied: User is not a member of this team')
+    }
+
     const messageRef = push(ref(database, 'messages'))
     const now = new Date()
     
@@ -124,6 +130,27 @@ export const messagingService = {
     })
 
     return unsubscribe
+  },
+
+  // Verify user has access to team messages
+  async verifyTeamAccess(userId: string, teamId: string): Promise<boolean> {
+    try {
+      const membersRef = ref(database, 'teamMembers')
+      const q = query(membersRef, orderByChild('userId'), equalTo(userId))
+      const snapshot = await get(q)
+      
+      if (!snapshot.exists()) {
+        return false
+      }
+      
+      const userMemberships = snapshot.val()
+      const userTeamIds = Object.values(userMemberships).map((member: any) => member.teamId)
+      
+      return userTeamIds.includes(teamId)
+    } catch (error) {
+      console.error('Error verifying team access:', error)
+      return false
+    }
   },
 
   // Edit a message

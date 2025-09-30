@@ -4,12 +4,27 @@ import { Task, CreateTaskData, UpdateTaskData, TaskStatus, TaskPriority } from '
 
 export const taskService = {
   // Tasks
-  async createTask(taskData: CreateTaskData, userId: string, userName: string): Promise<Task> {
+  async createTask(taskData: CreateTaskData, userId: string, userName: string, companyId?: string | null): Promise<Task> {
     const taskRef = push(ref(database, 'tasks'))
     
-    // Convert string IDs to objects for the Task type
-    const status = { id: taskData.status, name: '', color: '#6B7280', order: 0, isCompleted: false }
-    const priority = { id: taskData.priority, name: '', color: '#6B7280', level: 1 }
+    // Get default statuses and priorities
+    const defaultStatuses = [
+      { id: 'status_0', name: 'To Do', color: '#6B7280', order: 0, isCompleted: false },
+      { id: 'status_1', name: 'In Progress', color: '#3B82F6', order: 1, isCompleted: false },
+      { id: 'status_2', name: 'Review', color: '#F59E0B', order: 2, isCompleted: false },
+      { id: 'status_3', name: 'Done', color: '#10B981', order: 3, isCompleted: true }
+    ]
+    
+    const defaultPriorities = [
+      { id: 'priority_0', name: 'Low', color: '#6B7280', level: 1 },
+      { id: 'priority_1', name: 'Medium', color: '#F59E0B', level: 2 },
+      { id: 'priority_2', name: 'High', color: '#EF4444', level: 3 },
+      { id: 'priority_3', name: 'Urgent', color: '#DC2626', level: 4 }
+    ]
+    
+    // Find the actual status and priority objects based on the IDs provided
+    const status = defaultStatuses.find(s => s.id === taskData.status) || defaultStatuses[0]
+    const priority = defaultPriorities.find(p => p.id === taskData.priority) || defaultPriorities[0]
     
     const newTask: Task = {
       ...taskData,
@@ -22,17 +37,45 @@ export const taskService = {
       createdByName: userName,
       createdAt: new Date(),
       updatedAt: new Date(),
-      tags: [],
+      tags: taskData.tags || [],
       attachments: [],
       comments: [],
-      timeEntries: []
+      timeEntries: [],
+      // @ts-ignore optional in persisted record
+      companyId: companyId ?? undefined
     }
     
-    await set(taskRef, newTask)
+    // Convert data for Firebase (handle Date objects and undefined values)
+    const taskDataForFirebase: any = {
+      ...newTask,
+      // Save status and priority in the format that getTasks expects
+      status: { statusId: status.id },
+      priority: { priorityId: priority.id },
+      createdAt: newTask.createdAt.toISOString(),
+      updatedAt: newTask.updatedAt.toISOString()
+    }
+    
+    // Handle optional date fields - convert to ISO string or omit if undefined
+    if (newTask.dueDate && newTask.dueDate instanceof Date && !isNaN(newTask.dueDate.getTime())) {
+      taskDataForFirebase.dueDate = newTask.dueDate.toISOString()
+    }
+    
+    if (newTask.completedAt && newTask.completedAt instanceof Date && !isNaN(newTask.completedAt.getTime())) {
+      taskDataForFirebase.completedAt = newTask.completedAt.toISOString()
+    }
+    
+    // Remove undefined values to prevent Firebase errors
+    Object.keys(taskDataForFirebase).forEach(key => {
+      if (taskDataForFirebase[key] === undefined) {
+        delete taskDataForFirebase[key]
+      }
+    })
+    
+    await set(taskRef, taskDataForFirebase)
     return newTask
   },
 
-  async getTasks(projectId?: string, userId?: string): Promise<Task[]> {
+  async getTasks(projectId?: string, userId?: string, companyId?: string | null): Promise<Task[]> {
     const tasksRef = ref(database, 'tasks')
     const snapshot = await get(tasksRef)
     
@@ -72,9 +115,18 @@ export const taskService = {
         }
       }) as Task[]
       
-      // Filter by user - users can only see their own tasks
+      // Company scope if provided by caller
+      if (companyId) {
+        // Only show tasks that explicitly belong to this company
+        taskList = taskList.filter(task => (task as any).companyId === companyId)
+      } else {
+        // If no companyId filter specified, show tasks without companyId (legacy data)
+        taskList = taskList.filter(task => !(task as any).companyId)
+      }
+
+      // Filter by user - users can only see tasks assigned to them
       if (userId) {
-        taskList = taskList.filter(task => task.createdBy === userId)
+        taskList = taskList.filter(task => task.assigneeId === userId)
       }
       
       // Filter by project
@@ -89,7 +141,7 @@ export const taskService = {
   },
 
   // Get tasks for team members (for team leaders)
-  async getTeamTasks(teamId: string, projectId?: string): Promise<Task[]> {
+  async getTeamTasks(teamId: string, projectId?: string, companyId?: string | null): Promise<Task[]> {
     const { teamService } = await import('./teamService')
     const teamMembers = await teamService.getTeamMembers(teamId)
     const teamMemberIds = teamMembers.map(member => member.userId)
@@ -133,8 +185,17 @@ export const taskService = {
         }
       }) as Task[]
       
-      // Filter by team members
-      taskList = taskList.filter(task => teamMemberIds.includes(task.createdBy))
+      // Company scope
+      if (companyId) {
+        // Only show tasks that explicitly belong to this company
+        taskList = taskList.filter(task => (task as any).companyId === companyId)
+      } else {
+        // If no companyId filter specified, show tasks without companyId (legacy data)
+        taskList = taskList.filter(task => !(task as any).companyId)
+      }
+
+      // Filter by team members (tasks assigned to team members)
+      taskList = taskList.filter(task => task.assigneeId && teamMemberIds.includes(task.assigneeId))
       
       // Filter by project
       if (projectId) {
@@ -166,10 +227,25 @@ export const taskService = {
       firebaseUpdates.priority = { priorityId: updates.priority }
     }
     
-    await update(taskRef, {
-      ...firebaseUpdates,
+    // Filter out undefined values and convert dates to ISO strings
+    const updatesToSave: any = {
       updatedAt: new Date().toISOString()
+    }
+    
+    // Only include defined values
+    Object.keys(firebaseUpdates).forEach(key => {
+      const value = firebaseUpdates[key]
+      if (value !== undefined) {
+        if (key === 'dueDate') {
+          // Convert date to ISO string or null
+          updatesToSave[key] = value instanceof Date ? value.toISOString() : value
+        } else {
+          updatesToSave[key] = value
+        }
+      }
     })
+    
+    await update(taskRef, updatesToSave)
   },
 
   async deleteTask(taskId: string): Promise<void> {

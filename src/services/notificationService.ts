@@ -1,59 +1,120 @@
-import { useNotifications } from '../contexts/NotificationContext'
+import { TimeEntry } from '../types'
 
-export const notificationService = {
-  // Add a notification (this would typically be called from components)
-  addNotification: (notification: {
-    title: string
-    message: string
-    type: 'info' | 'success' | 'warning' | 'error'
-    actionUrl?: string
-  }) => {
-    // This will be called from components that have access to the notification context
-    console.log('Notification would be added:', notification)
-  },
-
-  // Sample notifications for demonstration
-  getSampleNotifications: () => [
-    {
-      title: 'Welcome to Clockistry!',
-      message: 'Start tracking your time by creating a new time entry.',
-      type: 'info' as const,
-      actionUrl: '/tracker'
-    },
-    {
-      title: 'Time Entry Completed',
-      message: 'Your 2-hour session on "Website Redesign" has been saved.',
-      type: 'success' as const,
-      actionUrl: '/tracker'
-    },
-    {
-      title: 'Project Deadline Approaching',
-      message: 'The "Mobile App Development" project deadline is in 3 days.',
-      type: 'warning' as const,
-      actionUrl: '/projects'
-    },
-    {
-      title: 'Team Member Added',
-      message: 'John Doe has been added to your team.',
-      type: 'info' as const,
-      actionUrl: '/teams'
-    }
-  ]
+export interface TimerNotificationData {
+  entryId: string
+  projectName: string
+  description: string
+  startTime: Date
+  isBillable: boolean
 }
 
-// Hook to easily add notifications from components
-export const useNotificationService = () => {
-  const { addNotification } = useNotifications()
-  
-  return {
-    addNotification,
-    addSuccessNotification: (title: string, message: string, actionUrl?: string) => 
-      addNotification({ title, message, type: 'success', actionUrl }),
-    addErrorNotification: (title: string, message: string, actionUrl?: string) => 
-      addNotification({ title, message, type: 'error', actionUrl }),
-    addWarningNotification: (title: string, message: string, actionUrl?: string) => 
-      addNotification({ title, message, type: 'warning', actionUrl }),
-    addInfoNotification: (title: string, message: string, actionUrl?: string) => 
-      addNotification({ title, message, type: 'info', actionUrl })
+class NotificationService {
+  private notification: Notification | null = null
+  private isSupported: boolean = false
+  private permission: NotificationPermission = 'default'
+
+  constructor() {
+    this.isSupported = 'Notification' in window
+    this.permission = this.isSupported ? Notification.permission : 'denied'
+  }
+
+  async requestPermission(): Promise<boolean> {
+    if (!this.isSupported) {
+      console.warn('Notifications are not supported in this browser')
+      return false
+    }
+
+    if (this.permission === 'granted') {
+      return true
+    }
+
+    try {
+      const permission = await Notification.requestPermission()
+      this.permission = permission
+      return permission === 'granted'
+    } catch (error) {
+      console.error('Error requesting notification permission:', error)
+      return false
+    }
+  }
+
+  async showTimerNotification(data: TimerNotificationData): Promise<void> {
+    if (!this.isSupported || this.permission !== 'granted') {
+      return
+    }
+
+    // Close existing notification
+    this.closeNotification()
+
+    try {
+      this.notification = new Notification('Task Flow Pro - Timer Running', {
+        body: `${data.projectName}: ${data.description}`,
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
+        tag: 'timer-widget',
+        requireInteraction: true,
+        silent: false,
+        data: {
+          entryId: data.entryId,
+          projectName: data.projectName,
+          description: data.description,
+          startTime: data.startTime.toISOString(),
+          isBillable: data.isBillable
+        }
+      })
+
+      // Handle notification click
+      this.notification.onclick = () => {
+        window.focus()
+        this.closeNotification()
+      }
+
+      // Handle notification close
+      this.notification.onclose = () => {
+        this.notification = null
+      }
+
+    } catch (error) {
+      console.error('Error showing timer notification:', error)
+    }
+  }
+
+  updateTimerNotification(elapsedTime: number, data: TimerNotificationData): void {
+    if (!this.notification || this.permission !== 'granted') {
+      return
+    }
+
+    const hours = Math.floor(elapsedTime / 3600)
+    const minutes = Math.floor((elapsedTime % 3600) / 60)
+    const seconds = Math.floor(elapsedTime % 60)
+    const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+
+    try {
+      // Close existing notification and create a new one with updated time
+      this.closeNotification()
+      this.showTimerNotification({
+        ...data,
+        description: `${data.description} - ${timeString}`
+      })
+    } catch (error) {
+      console.error('Error updating notification:', error)
+    }
+  }
+
+  closeNotification(): void {
+    if (this.notification) {
+      this.notification.close()
+      this.notification = null
+    }
+  }
+
+  isPermissionGranted(): boolean {
+    return this.permission === 'granted'
+  }
+
+  isNotificationSupported(): boolean {
+    return this.isSupported
   }
 }
+
+export const notificationService = new NotificationService()

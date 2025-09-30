@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { X, Calendar, DollarSign, AlertCircle } from 'lucide-react'
+import { X, AlertCircle } from 'lucide-react'
 import { Project, Client, CreateProjectData } from '../../types'
 import { projectService } from '../../services/projectService'
 import { useAuth } from '../../contexts/AuthContext'
+import { canAccessFeature } from '../../utils/permissions'
 
 interface ProjectModalProps {
   isOpen: boolean
@@ -38,9 +39,6 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
     color: PROJECT_COLORS[0],
     status: 'active',
     priority: 'medium',
-    startDate: undefined,
-    endDate: undefined,
-    budget: undefined,
     clientId: undefined
   })
   const [clients, setClients] = useState<Client[]>([])
@@ -59,9 +57,6 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
           color: project.color,
           status: project.status,
           priority: project.priority,
-          startDate: project.startDate,
-          endDate: project.endDate,
-          budget: project.budget,
           clientId: project.clientId
         })
       } else {
@@ -71,9 +66,6 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
           color: PROJECT_COLORS[0],
           status: 'active',
           priority: 'medium',
-          startDate: undefined,
-          endDate: undefined,
-          budget: undefined,
           clientId: undefined
         })
       }
@@ -94,6 +86,12 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
     e.preventDefault()
     if (!currentUser) return
 
+    // Permission check
+    if (!currentUser.role || !canAccessFeature(currentUser.role, 'projects')) {
+      setError('You do not have permission to manage projects')
+      return
+    }
+
     setLoading(true)
     setError('')
 
@@ -101,7 +99,7 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
       if (isEdit) {
         await projectService.updateProject(project.id, formData)
       } else {
-        await projectService.createProject(formData, currentUser.uid)
+        await projectService.createProject(formData, currentUser.uid, currentUser.companyId)
       }
       onSuccess()
       onClose()
@@ -120,12 +118,6 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
     }))
   }
 
-  const handleDateChange = (name: 'startDate' | 'endDate', value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [name]: value ? new Date(value) : undefined
-    }))
-  }
 
   if (!isOpen) return null
 
@@ -277,64 +269,6 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
             </div>
           </div>
 
-          {/* Dates */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-2">
-                Start Date
-              </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  id="startDate"
-                  value={formData.startDate ? formData.startDate.toISOString().split('T')[0] : ''}
-                  onChange={(e) => handleDateChange('startDate', e.target.value)}
-                  className="input pl-10"
-                  disabled={loading}
-                />
-                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-2">
-                End Date
-              </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  id="endDate"
-                  value={formData.endDate ? formData.endDate.toISOString().split('T')[0] : ''}
-                  onChange={(e) => handleDateChange('endDate', e.target.value)}
-                  className="input pl-10"
-                  disabled={loading}
-                />
-                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              </div>
-            </div>
-          </div>
-
-          {/* Budget */}
-          <div>
-            <label htmlFor="budget" className="block text-sm font-medium text-gray-700 mb-2">
-              Budget
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                id="budget"
-                name="budget"
-                value={formData.budget || ''}
-                onChange={handleInputChange}
-                className="input pl-10"
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-                disabled={loading}
-              />
-              <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            </div>
-          </div>
 
           {/* Actions */}
           <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">

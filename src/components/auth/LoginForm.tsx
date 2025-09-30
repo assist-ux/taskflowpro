@@ -3,11 +3,9 @@ import { Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { LoginCredentials } from '../../types'
 
-interface LoginFormProps {
-  onSwitchToSignup: () => void
-}
+interface LoginFormProps {}
 
-export default function LoginForm({ onSwitchToSignup }: LoginFormProps) {
+export default function LoginForm({}: LoginFormProps) {
   const [credentials, setCredentials] = useState<LoginCredentials>({
     email: '',
     password: ''
@@ -44,7 +42,7 @@ export default function LoginForm({ onSwitchToSignup }: LoginFormProps) {
     <div className="w-full max-w-md mx-auto">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
-        <p className="text-gray-600">Sign in to your Clockistry account</p>
+        <p className="text-gray-600">Sign in to your Task Flow Pro account</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -135,18 +133,16 @@ export default function LoginForm({ onSwitchToSignup }: LoginFormProps) {
         </div>
       </form>
 
-      {/* Switch to Signup */}
+      {/* Contact Admin for Account */}
       <div className="mt-8 text-center">
         <p className="text-gray-600">
           Don't have an account?{' '}
-          <button
-            type="button"
-            onClick={onSwitchToSignup}
-            className="text-primary-600 hover:text-primary-700 font-medium"
-            disabled={loading}
-          >
-            Sign up
-          </button>
+          <span className="text-primary-600 font-medium">
+            Contact your administrator
+          </span>
+        </p>
+        <p className="text-sm text-gray-500 mt-2">
+          Account creation is managed by HR and Super Admin users
         </p>
       </div>
     </div>

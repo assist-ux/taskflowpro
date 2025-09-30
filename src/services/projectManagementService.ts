@@ -86,8 +86,10 @@ class ProjectManagementService {
       ...newTask,
       createdAt: newTask.createdAt.toISOString(),
       updatedAt: newTask.updatedAt.toISOString(),
-      dueDate: newTask.dueDate?.toISOString(),
-      completedAt: newTask.completedAt?.toISOString()
+      // Only include dueDate if it exists and is a valid date
+      ...(newTask.dueDate && newTask.dueDate instanceof Date && !isNaN(newTask.dueDate.getTime()) && { dueDate: newTask.dueDate.toISOString() }),
+      // Only include completedAt if it exists and is a valid date
+      ...(newTask.completedAt && newTask.completedAt instanceof Date && !isNaN(newTask.completedAt.getTime()) && { completedAt: newTask.completedAt.toISOString() })
     })
 
     return newTask

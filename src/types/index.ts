@@ -1,4 +1,4 @@
-export type UserRole = 'employee' | 'admin'
+export type UserRole = 'employee' | 'hr' | 'admin' | 'super_admin' | 'root'
 export type TeamRole = 'member' | 'leader'
 
 export interface User {
@@ -6,9 +6,10 @@ export interface User {
   name: string
   email: string
   role: UserRole
+  companyId?: string | null
   teamId?: string | null
   teamRole?: TeamRole | null
-  avatar?: string
+  avatar?: string | null
   timezone: string
   hourlyRate?: number
   isActive: boolean
@@ -21,6 +22,7 @@ export interface AuthUser {
   email: string
   role: UserRole
   name: string
+  companyId?: string | null
   teamId?: string | null
   teamRole?: TeamRole | null
 }
@@ -57,10 +59,19 @@ export interface Project {
   updatedAt: Date
 }
 
+export type ClientType = 'full-time' | 'part-time' | 'custom' | 'gig'
+
 export interface Client {
   id: string
   name: string
-  email?: string
+  email: string
+  country: string
+  timezone: string
+  clientType: ClientType
+  hourlyRate: number // Hourly rate for this client
+  hoursPerWeek?: number // For custom type
+  startDate?: Date // For gig type
+  endDate?: Date // For gig type
   phone?: string
   company?: string
   address?: string
@@ -76,15 +87,19 @@ export interface CreateProjectData {
   color: string
   status: 'active' | 'on-hold' | 'completed' | 'cancelled'
   priority: 'low' | 'medium' | 'high' | 'urgent'
-  startDate?: Date
-  endDate?: Date
-  budget?: number
   clientId?: string
 }
 
 export interface CreateClientData {
   name: string
-  email?: string
+  email: string
+  country: string
+  timezone: string
+  clientType: ClientType
+  hourlyRate: number // Hourly rate for this client
+  hoursPerWeek?: number // For custom type
+  startDate?: Date // For gig type
+  endDate?: Date // For gig type
   phone?: string
   company?: string
   address?: string
@@ -94,8 +109,11 @@ export interface CreateClientData {
 export interface TimeEntry {
   id: string
   userId: string
+  companyId?: string
   projectId?: string
   projectName?: string
+  clientId?: string // Add clientId field
+  clientName?: string // Add clientName field
   description?: string
   startTime: Date
   endTime?: Date
@@ -112,6 +130,7 @@ export interface CreateTimeEntryData {
   description?: string
   isBillable?: boolean
   tags?: string[]
+  clientId?: string // Add clientId field
 }
 
 export interface TimerState {
@@ -216,6 +235,7 @@ export interface Task {
   id: string
   title: string
   description?: string
+  notes?: string
   projectId: string
   projectName: string
   status: TaskStatus
@@ -238,6 +258,7 @@ export interface Task {
   attachments: TaskAttachment[]
   comments: TaskComment[]
   timeEntries: string[] // Array of time entry IDs
+  teamId?: string // Add teamId field
 }
 
 export interface TaskStatus {
@@ -276,6 +297,40 @@ export interface TaskComment {
   mentions: string[] // Array of user IDs mentioned
   parentCommentId?: string
   replies?: TaskComment[]
+}
+
+export interface Mention {
+  id: string
+  userId: string
+  userName: string
+  userEmail: string
+  startIndex: number
+  endIndex: number
+}
+
+export interface MentionSuggestion {
+  id: string
+  name: string
+  email: string
+  avatar?: string
+  role: string
+}
+
+export interface MentionNotification {
+  id: string
+  type: 'mention'
+  title: string
+  message: string
+  mentionedBy: string
+  mentionedByName: string
+  contextType: 'comment' | 'note' | 'task'
+  contextId: string
+  contextTitle: string
+  taskId?: string
+  projectId?: string
+  isRead: boolean
+  createdAt: Date
+  actionUrl: string
 }
 
 export interface ProjectBoard {
@@ -325,11 +380,13 @@ export interface CreateTaskData {
   estimatedHours?: number
   tags: string[]
   parentTaskId?: string
+  teamId?: string
 }
 
 export interface UpdateTaskData {
   title?: string
   description?: string
+  notes?: string
   status?: string
   priority?: string
   assigneeId?: string
@@ -339,6 +396,8 @@ export interface UpdateTaskData {
   tags?: string[]
   isCompleted?: boolean
   parentTaskId?: string
+  comments?: TaskComment[]
+  teamId?: string // Add teamId field
 }
 
 export interface CreateBoardData {
@@ -421,6 +480,7 @@ export interface Team {
   leaderName: string
   leaderEmail: string
   color: string
+  companyId?: string | null
   isActive: boolean
   memberCount: number
   createdBy: string
@@ -468,6 +528,23 @@ export interface TeamStats {
   overdueTasks: number
   totalTimeLogged: number
   averageTaskCompletion: number
+  // Time tracking data
+  totalHours: number
+  billableHours: number
+  nonBillableHours: number
+  totalTimeEntries: number
+  averageHoursPerMember: number
+  mostActiveMember?: {
+    userId: string
+    userName: string
+    hours: number
+  }
+  timeByProject: {
+    projectId: string
+    projectName: string
+    hours: number
+    percentage: number
+  }[]
 }
 
 // Messaging Types
@@ -518,4 +595,187 @@ export interface CreateMessageData {
   type?: 'text' | 'system' | 'file'
   replyTo?: string
   attachments?: Omit<MessageAttachment, 'id' | 'uploadedAt'>[]
+}
+
+// Feedback Types
+export interface Feedback {
+  id: string
+  title: string
+  content: string
+  category: FeedbackCategory
+  priority: FeedbackPriority
+  status: FeedbackStatus
+  authorId: string
+  authorName: string
+  authorEmail: string
+  authorRole: UserRole
+  createdAt: Date
+  updatedAt: Date
+  votes: FeedbackVote[]
+  comments: FeedbackComment[]
+  isAnonymous: boolean
+  tags: string[]
+  attachments?: FeedbackAttachment[]
+}
+
+export interface FeedbackComment {
+  id: string
+  feedbackId: string
+  content: string
+  authorId: string
+  authorName: string
+  authorEmail: string
+  authorRole: UserRole
+  createdAt: Date
+  updatedAt: Date
+  isEdited: boolean
+  editedAt?: Date
+  parentCommentId?: string
+  replies?: FeedbackComment[]
+  mentions: string[] // Array of user IDs mentioned
+}
+
+export interface FeedbackVote {
+  id: string
+  feedbackId: string
+  userId: string
+  userName: string
+  voteType: 'upvote' | 'downvote'
+  createdAt: Date
+}
+
+export interface FeedbackAttachment {
+  id: string
+  name: string
+  url: string
+  type: string
+  size: number
+  uploadedBy: string
+  uploadedAt: Date
+}
+
+export type FeedbackCategory = 
+  | 'bug' 
+  | 'feature-request' 
+  | 'improvement' 
+  | 'question' 
+  | 'complaint' 
+  | 'compliment' 
+  | 'other'
+
+export type FeedbackPriority = 'low' | 'medium' | 'high' | 'urgent'
+
+export type FeedbackStatus = 
+  | 'open' 
+  | 'in-progress' 
+  | 'under-review' 
+  | 'resolved' 
+  | 'closed' 
+  | 'duplicate'
+
+export interface CreateFeedbackData {
+  title: string
+  content: string
+  category: FeedbackCategory
+  priority: FeedbackPriority
+  isAnonymous?: boolean
+  tags?: string[]
+}
+
+export interface UpdateFeedbackData {
+  title?: string
+  content?: string
+  category?: FeedbackCategory
+  priority?: FeedbackPriority
+  status?: FeedbackStatus
+  tags?: string[]
+}
+
+export interface CreateFeedbackCommentData {
+  content: string
+  parentCommentId?: string
+  mentions?: string[]
+}
+
+export interface UpdateFeedbackCommentData {
+  content: string
+}
+
+export interface FeedbackFilters {
+  category?: FeedbackCategory[]
+  priority?: FeedbackPriority[]
+  status?: FeedbackStatus[]
+  authorId?: string
+  tags?: string[]
+  search?: string
+  dateFrom?: Date
+  dateTo?: Date
+  sortBy?: 'newest' | 'oldest' | 'most-voted' | 'least-voted' | 'most-commented' | 'least-commented'
+}
+
+export interface FeedbackStats {
+  total: number
+  open: number
+  inProgress: number
+  resolved: number
+  closed: number
+  byCategory: {
+    [key in FeedbackCategory]: number
+  }
+  byPriority: {
+    [key in FeedbackPriority]: number
+  }
+  mostActiveUsers: {
+    userId: string
+    userName: string
+    count: number
+  }[]
+  recentActivity: {
+    feedbackId: string
+    title: string
+    action: string
+    user: string
+    timestamp: Date
+  }[]
+}
+
+// Calendar Types
+export interface CalendarEvent {
+  id: string
+  title: string
+  description?: string
+  startTime: Date
+  endTime: Date
+  duration: number // in seconds
+  projectId?: string
+  projectName?: string
+  isBillable: boolean
+  tags?: string[]
+  color?: string
+  type: 'timeEntry' | 'task' | 'meeting' | 'break'
+}
+
+export interface CalendarDay {
+  date: Date
+  isCurrentMonth: boolean
+  isToday: boolean
+  isSelected: boolean
+  events: CalendarEvent[]
+  totalDuration: number
+  billableDuration: number
+}
+
+export interface CalendarView {
+  type: 'month' | 'week' | 'day'
+  currentDate: Date
+  startDate: Date
+  endDate: Date
+}
+
+export interface CalendarFilters {
+  projectIds?: string[]
+  billableOnly?: boolean
+  tags?: string[]
+  showTasks?: boolean
+  showTimeEntries?: boolean
 }

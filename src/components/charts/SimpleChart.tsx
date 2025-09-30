@@ -21,7 +21,7 @@ export default function SimpleChart({ data, type, title, height = 300 }: SimpleC
   
   if (validData.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64 text-gray-500">
+      <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
         <div className="text-center">
           <div className="text-lg font-medium">No Data Available</div>
           <div className="text-sm">Unable to render chart with current data</div>
@@ -35,47 +35,129 @@ export default function SimpleChart({ data, type, title, height = 300 }: SimpleC
   const range = maxValue - minValue || 1
 
   const renderBarChart = () => {
+    const validData = data.datasets[0].data.filter(v => !isNaN(v) && isFinite(v))
+    const maxValue = validData.length > 0 ? Math.max(...validData) : 1
+    const chartHeight = 300
+    
+    // Ensure minimum height for visibility - use a more reasonable minimum
+    const adjustedMaxValue = Math.max(maxValue, 1) // At least 1 hour for better scaling
+    
+    // Generate Y-axis labels that match the actual data range
+    const yAxisLabels = []
+    const numLabels = 5
+    for (let i = 0; i <= numLabels; i++) {
+      const value = (adjustedMaxValue * i) / numLabels
+      yAxisLabels.push(value)
+    }
+    
+    // Use the actual max value for scaling (no buffer needed)
+    const displayMaxValue = adjustedMaxValue
+    
     return (
-      <div className="space-y-2">
-        {data.labels.map((label, index) => {
-          const value = data.datasets[0].data[index]
-          const isValidValue = !isNaN(value) && isFinite(value)
-          const width = isValidValue ? `${((value - minValue) / range) * 100}%` : '0%'
+      <div className="relative w-full">
+        {/* Y-axis labels */}
+        <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-xs text-gray-500 dark:text-gray-400 -ml-12 w-10">
+          {yAxisLabels.map((value, i) => (
+            <span key={i} className="text-right">
+              {(() => {
+                const totalSeconds = Math.round(value * 3600)
+                const h = Math.floor(totalSeconds / 3600)
+                const m = Math.floor((totalSeconds % 3600) / 60)
+                const s = totalSeconds % 60
+                return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+              })()}
+            </span>
+          ))}
+        </div>
+        
+        {/* Chart area */}
+        <div className="ml-12 mr-2">
+          {/* Grid lines */}
+          <div className="absolute inset-0 flex flex-col justify-between">
+            {yAxisLabels.map((_, i) => (
+              <div key={i} className="border-t border-gray-200 dark:border-gray-600"></div>
+            ))}
+          </div>
           
-          return (
-            <div key={index} className="space-y-1">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 truncate max-w-32">{label}</span>
-                <span className="font-medium">
-                  {isValidValue ? `${value.toFixed(1)}h` : 'N/A'}
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-3">
-                <div
-                  className="h-3 rounded-full transition-all duration-500"
-                  style={{
-                    width,
-                    backgroundColor: Array.isArray(data.datasets[0].backgroundColor)
-                      ? data.datasets[0].backgroundColor[index]
-                      : data.datasets[0].backgroundColor || '#3B82F6'
-                  }}
-                />
-              </div>
-            </div>
-          )
-        })}
+          {/* Bars container with better spacing */}
+          <div className="relative flex items-end justify-between px-1 gap-1" style={{ height: `${height - 50}px` }}>
+            {data.labels.map((label, index) => {
+              const value = data.datasets[0].data[index]
+              const isValidValue = !isNaN(value) && isFinite(value)
+              
+              // Calculate bar height as percentage of the display range
+              const barHeightPercentage = isValidValue ? (value / displayMaxValue) * 100 : 0
+              const barHeight = `${Math.max(barHeightPercentage, 0)}%`
+              const hours = isValidValue ? value : 0
+              
+              // Debug logging (remove in production)
+              if (isValidValue && value > 0) {
+                console.log(`Bar ${index} (${label}): value=${value.toFixed(2)}h, displayMax=${displayMaxValue.toFixed(2)}h, height=${barHeightPercentage.toFixed(1)}%, barHeight=${barHeight}, containerHeight=256px`)
+              }
+              
+              return (
+                <div key={index} className="flex flex-col items-center flex-1 min-w-0 h-full">
+                  {/* Value above bar */}
+                  <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 text-center whitespace-nowrap">
+                    {isValidValue ? (() => {
+                      const totalSeconds = Math.round(hours * 3600)
+                      const h = Math.floor(totalSeconds / 3600)
+                      const m = Math.floor((totalSeconds % 3600) / 60)
+                      const s = totalSeconds % 60
+                      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+                    })() : '00:00:00'}
+                  </div>
+                  
+                  {/* Bar container - positioned at bottom */}
+                  <div className="flex-1 flex items-end w-full">
+                    <div
+                      className="w-full rounded-t transition-all duration-500"
+                      style={{
+                        height: barHeight,
+                        backgroundColor: Array.isArray(data.datasets[0].backgroundColor)
+                          ? data.datasets[0].backgroundColor[index]
+                          : data.datasets[0].backgroundColor || '#3B82F6',
+                        minHeight: isValidValue && barHeightPercentage > 0 ? '8px' : '0px',
+                        width: '100%'
+                      }}
+                    />
+                  </div>
+                  
+                  {/* Day label */}
+                  <div className="text-xs text-gray-600 dark:text-gray-400 mt-2 text-center whitespace-nowrap">
+                    {label}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </div>
     )
   }
 
   const renderLineChart = () => {
-    const points = data.labels.map((_, index) => {
-      const x = (index / (data.labels.length - 1)) * 100
+    // Filter out invalid data points and ensure we have valid coordinates
+    const validPoints = data.labels.map((_, index) => {
+      const x = (index / Math.max(data.labels.length - 1, 1)) * 100
       const value = data.datasets[0].data[index]
-      const isValidValue = !isNaN(value) && isFinite(value)
+      const isValidValue = !isNaN(value) && isFinite(value) && value >= 0
       const y = isValidValue ? 100 - (((value - minValue) / range) * 100) : 100
-      return `${x},${y}`
-    }).join(' ')
+      return { x, y, isValid: isValidValue, value }
+    }).filter(point => point.isValid)
+
+    if (validPoints.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
+          <div className="text-center">
+            <div className="text-lg font-medium">No Valid Data</div>
+            <div className="text-sm">Unable to render line chart</div>
+          </div>
+        </div>
+      )
+    }
+
+    const points = validPoints.map(point => `${point.x},${point.y}`).join(' ')
 
     return (
       <div className="relative">
@@ -95,69 +177,102 @@ export default function SimpleChart({ data, type, title, height = 300 }: SimpleC
               y1={`${y}%`}
               x2="100%"
               y2={`${y}%`}
-              stroke="#E5E7EB"
+              stroke="currentColor"
+              className="text-gray-200 dark:text-gray-600"
               strokeWidth="1"
             />
           ))}
           
-          {/* Area under curve */}
-          <polygon
-            points={`0,100 ${points} 100,100`}
-            fill="url(#gradient)"
-          />
+          {/* Area under curve - only if we have valid points */}
+          {validPoints.length > 0 && (
+            <polygon
+              points={`0,100 ${points} 100,100`}
+              fill="url(#gradient)"
+            />
+          )}
           
-          {/* Line */}
-          <polyline
-            points={points}
-            fill="none"
-            stroke={Array.isArray(data.datasets[0].borderColor) ? data.datasets[0].borderColor[0] : data.datasets[0].borderColor || '#3B82F6'}
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+          {/* Line - only if we have valid points */}
+          {validPoints.length > 0 && (
+            <polyline
+              points={points}
+              fill="none"
+              stroke={Array.isArray(data.datasets[0].borderColor) ? data.datasets[0].borderColor[0] : data.datasets[0].borderColor || '#3B82F6'}
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
           
-          {/* Data points */}
-          {data.labels.map((_, index) => {
-            const x = (index / (data.labels.length - 1)) * 100
-            const value = data.datasets[0].data[index]
-            const isValidValue = !isNaN(value) && isFinite(value)
-            const y = isValidValue ? 100 - (((value - minValue) / range) * 100) : 100
-            
-            if (!isValidValue) return null
-            
-            return (
-              <circle
-                key={index}
-                cx={`${x}%`}
-                cy={`${y}%`}
-                r="4"
-                fill={Array.isArray(data.datasets[0].borderColor) ? data.datasets[0].borderColor[0] : data.datasets[0].borderColor || '#3B82F6'}
-                className="hover:r-6 transition-all"
-              />
-            )
-          })}
+          {/* Data points - only valid ones */}
+          {validPoints.map((point, index) => (
+            <circle
+              key={index}
+              cx={`${point.x}%`}
+              cy={`${point.y}%`}
+              r="4"
+              fill={Array.isArray(data.datasets[0].borderColor) ? data.datasets[0].borderColor[0] : data.datasets[0].borderColor || '#3B82F6'}
+              className="hover:r-6 transition-all"
+            />
+          ))}
         </svg>
         
         {/* Y-axis labels */}
-        <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-xs text-gray-500 -ml-8">
-          <span>{maxValue.toFixed(1)}h</span>
-          <span>{((maxValue + minValue) / 2).toFixed(1)}h</span>
-          <span>{minValue.toFixed(1)}h</span>
+        <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-xs text-gray-500 dark:text-gray-400 -ml-8">
+          <span>{(() => {
+            const totalSeconds = Math.round(maxValue * 3600)
+            const h = Math.floor(totalSeconds / 3600)
+            const m = Math.floor((totalSeconds % 3600) / 60)
+            const s = totalSeconds % 60
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+          })()}</span>
+          <span>{(() => {
+            const midValue = (maxValue + minValue) / 2
+            const totalSeconds = Math.round(midValue * 3600)
+            const h = Math.floor(totalSeconds / 3600)
+            const m = Math.floor((totalSeconds % 3600) / 60)
+            const s = totalSeconds % 60
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+          })()}</span>
+          <span>{(() => {
+            const totalSeconds = Math.round(minValue * 3600)
+            const h = Math.floor(totalSeconds / 3600)
+            const m = Math.floor((totalSeconds % 3600) / 60)
+            const s = totalSeconds % 60
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+          })()}</span>
         </div>
       </div>
     )
   }
 
   const renderDoughnutChart = () => {
-    const total = data.datasets[0].data.reduce((sum, value) => sum + value, 0)
+    // Filter out invalid data and ensure we have valid values
+    const validData = data.datasets[0].data.filter(value => !isNaN(value) && isFinite(value) && value >= 0)
+    const validLabels = data.labels.filter((_, index) => {
+      const value = data.datasets[0].data[index]
+      return !isNaN(value) && isFinite(value) && value >= 0
+    })
+    
+    if (validData.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
+          <div className="text-center">
+            <div className="text-lg font-medium">No Valid Data</div>
+            <div className="text-sm">Unable to render doughnut chart</div>
+          </div>
+        </div>
+      )
+    }
+
+    const total = validData.reduce((sum, value) => sum + value, 0)
     let cumulativePercentage = 0
 
     return (
       <div className="relative w-full h-full flex items-center justify-center">
         <svg width="200" height="200" className="transform -rotate-90">
-          {data.labels.map((_, index) => {
-            const value = data.datasets[0].data[index]
-            const percentage = (value / total) * 100
+          {validLabels.map((_, index) => {
+            const value = validData[index]
+            const percentage = total > 0 ? (value / total) * 100 : 0
             const startAngle = (cumulativePercentage / 100) * 360
             const endAngle = ((cumulativePercentage + percentage) / 100) * 360
             
@@ -201,8 +316,14 @@ export default function SimpleChart({ data, type, title, height = 300 }: SimpleC
         {/* Center text */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center">
-            <div className="text-2xl font-bold text-gray-900">{total.toFixed(1)}h</div>
-            <div className="text-sm text-gray-500">Total</div>
+            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{(() => {
+              const totalSeconds = Math.round(total * 3600)
+              const h = Math.floor(totalSeconds / 3600)
+              const m = Math.floor((totalSeconds % 3600) / 60)
+              const s = totalSeconds % 60
+              return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+            })()}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">Total</div>
           </div>
         </div>
       </div>
@@ -223,9 +344,9 @@ export default function SimpleChart({ data, type, title, height = 300 }: SimpleC
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
       {title && (
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">{title}</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{title}</h3>
       )}
       <div style={{ height: `${height}px` }}>
         {renderChart()}
@@ -240,7 +361,7 @@ export default function SimpleChart({ data, type, title, height = 300 }: SimpleC
                 className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: Array.isArray(dataset.borderColor) ? dataset.borderColor[0] : dataset.borderColor || (Array.isArray(dataset.backgroundColor) ? dataset.backgroundColor[0] : dataset.backgroundColor) }}
               />
-              <span className="text-sm text-gray-600">{dataset.label}</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">{dataset.label}</span>
             </div>
           ))}
         </div>

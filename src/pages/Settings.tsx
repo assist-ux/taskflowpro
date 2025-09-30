@@ -1,29 +1,42 @@
 import { useState, useEffect } from 'react'
 import { 
-  Database, 
-  Download, 
-  Upload, 
-  FileText, 
-  Settings as SettingsIcon, 
+  Save, 
+  Lock, 
+  Eye, 
+  EyeOff, 
   User, 
-  Bell, 
-  Shield, 
-  Trash2, 
-  RefreshCw,
+  Settings as SettingsIcon,
+  Bell,
+  Palette,
+  Globe,
+  Clock as ClockIcon,
   AlertTriangle,
+  Database,
+  FileText,
+  Shield,
   CheckCircle,
-  Clock,
-  HardDrive,
   Activity,
-  Save,
-  Eye,
-  EyeOff
+  Mail,
+  Download,
+  Upload,
+  Trash
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
-import { database } from '../config/firebase'
-import { ref, get, set, remove } from 'firebase/database'
+import { update, get, set } from 'firebase/database'
+import { ref } from 'firebase/database'
 import { format, isValid } from 'date-fns'
+import { database } from '../config/firebase'
 import { loggingService, SystemLog } from '../services/loggingService'
+import { formatDurationToHHMMSS } from '../utils'
+import { useTheme } from '../contexts/ThemeContext'
+import { canViewHourlyRates } from '../utils/permissions'
+import { 
+  EmailAuthProvider, 
+  reauthenticateWithCredential, 
+  updatePassword,
+  reauthenticateWithCredential as reauth 
+} from 'firebase/auth'
+import { auth } from '../config/firebase'
 
 interface BackupData {
   users: any
@@ -43,16 +56,34 @@ interface BackupData {
 
 export default function Settings() {
   const { currentUser } = useAuth()
-  const [activeTab, setActiveTab] = useState<'general' | 'database' | 'logs' | 'security' | 'notifications'>('general')
+  const { isDarkMode, toggleDarkMode } = useTheme()
+  const [activeTab, setActiveTab] = useState<'profile' | 'general' | 'database' | 'logs' | 'security' | 'notifications'>('profile')
   const [loading, setLoading] = useState(false)
   const [logs, setLogs] = useState<SystemLog[]>([])
   const [backupData, setBackupData] = useState<BackupData | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   
+  // Profile settings
+  const [profileData, setProfileData] = useState({
+    name: currentUser?.name || '',
+    email: currentUser?.email || '',
+    timezone: 'America/New_York',
+    hourlyRate: 25
+  })
+  
+  // Password change
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  })
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  
   // General settings
   const [generalSettings, setGeneralSettings] = useState({
-    appName: 'Clockistry',
+    appName: 'Task Flow Pro',
     timezone: 'UTC',
     dateFormat: 'MM/dd/yyyy',
     timeFormat: '12h',
@@ -83,6 +114,7 @@ export default function Settings() {
   useEffect(() => {
     loadSettings()
     loadLogs()
+    loadUserProfile()
     
     // Add a test log entry when settings page loads (for testing)
     if (currentUser) {
@@ -101,13 +133,34 @@ export default function Settings() {
       setLoading(false)
     }
   }
+  
+  const loadUserProfile = async () => {
+    if (!currentUser) return
+    
+    try {
+      const userRef = ref(database, `users/${currentUser.uid}`)
+      const snapshot = await get(userRef)
+      
+      if (snapshot.exists()) {
+        const userData = snapshot.val()
+        setProfileData({
+          name: userData.name || currentUser.name || '',
+          email: userData.email || currentUser.email || '',
+          timezone: userData.timezone || 'America/New_York',
+          hourlyRate: userData.hourlyRate || 25
+        })
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error)
+    }
+  }
 
   const loadLogs = async () => {
     try {
       setLoading(true)
       
-      // Check if user is admin before trying to load logs
-      if (currentUser?.role !== 'admin') {
+      // Check if user is admin or root before trying to load logs
+      if (currentUser?.role !== 'admin' && currentUser?.role !== 'root') {
         setLogs([])
         return
       }
@@ -323,6 +376,88 @@ export default function Settings() {
       setLoading(false)
     }
   }
+  
+  const handleUpdateProfile = async () => {
+    if (!currentUser) return
+    
+    try {
+      setLoading(true)
+      
+      // Update user profile in database
+      const userRef = ref(database, `users/${currentUser.uid}`)
+      const updates = {
+        name: profileData.name,
+        timezone: profileData.timezone,
+        hourlyRate: profileData.hourlyRate,
+        updatedAt: new Date().toISOString()
+      }
+      
+      await update(userRef, updates)
+      
+      // Log the profile update
+      await loggingService.logUserAction('profile_update', 'User profile updated', currentUser.uid, currentUser.name || 'Unknown')
+      
+      showMessage('success', 'Profile updated successfully!')
+    } catch (error) {
+      console.error('Profile update error:', error)
+      showMessage('error', 'Failed to update profile')
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  const handleChangePassword = async () => {
+    if (!currentUser || !auth.currentUser) return
+    
+    try {
+      // Validation
+      if (passwordData.newPassword !== passwordData.confirmPassword) {
+        showMessage('error', 'New passwords do not match')
+        return
+      }
+      
+      if (passwordData.newPassword.length < 6) {
+        showMessage('error', 'Password must be at least 6 characters long')
+        return
+      }
+      
+      setLoading(true)
+      
+      // Re-authenticate user first
+      const credential = EmailAuthProvider.credential(
+        auth.currentUser.email!,
+        passwordData.currentPassword
+      )
+      
+      await reauthenticateWithCredential(auth.currentUser, credential)
+      
+      // Update password
+      await updatePassword(auth.currentUser, passwordData.newPassword)
+      
+      // Clear password form
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      })
+      
+      // Log the password change
+      await loggingService.logUserAction('password_change', 'User password changed', currentUser.uid, currentUser.name || 'Unknown')
+      
+      showMessage('success', 'Password changed successfully!')
+    } catch (error: any) {
+      console.error('Password change error:', error)
+      if (error.code === 'auth/wrong-password') {
+        showMessage('error', 'Current password is incorrect')
+      } else if (error.code === 'auth/weak-password') {
+        showMessage('error', 'New password is too weak')
+      } else {
+        showMessage('error', 'Failed to change password')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const getLogLevelColor = (level: string) => {
     switch (level) {
@@ -369,8 +504,8 @@ export default function Settings() {
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Settings</h1>
-        <p className="text-gray-600">Manage your application preferences, database, and system configuration.</p>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Settings</h1>
+        <p className="text-gray-600 dark:text-gray-400">Manage your application preferences, database, and system configuration.</p>
       </div>
 
       {/* Message */}
@@ -388,9 +523,10 @@ export default function Settings() {
       )}
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 mb-8">
+      <div className="border-b border-gray-200 dark:border-gray-700 mb-8">
         <nav className="flex space-x-8">
           {[
+            { id: 'profile', name: 'Profile', icon: User },
             { id: 'general', name: 'General', icon: SettingsIcon },
             { id: 'database', name: 'Database', icon: Database },
             { id: 'logs', name: 'System Logs', icon: FileText },
@@ -402,8 +538,8 @@ export default function Settings() {
               onClick={() => setActiveTab(tab.id as any)}
               className={`flex items-center space-x-2 py-4 border-b-2 font-medium text-sm ${
                 activeTab === tab.id
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
               }`}
             >
               <tab.icon className="h-4 w-4" />
@@ -415,27 +551,177 @@ export default function Settings() {
 
       {/* Tab Content */}
       <div className="space-y-6">
+        {/* Profile Settings */}
+        {activeTab === 'profile' && (
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Profile Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Full Name</label>
+                  <input
+                    type="text"
+                    value={profileData.name}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    placeholder="Enter your full name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      value={profileData.email}
+                      className="w-full px-3 py-2 pl-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-600 text-gray-500 dark:text-gray-400"
+                      disabled
+                    />
+                    <Mail className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Email cannot be changed here. Contact support if needed.</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Timezone</label>
+                  <select
+                    value={profileData.timezone}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, timezone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="America/New_York">Eastern Time</option>
+                    <option value="America/Chicago">Central Time</option>
+                    <option value="America/Denver">Mountain Time</option>
+                    <option value="America/Los_Angeles">Pacific Time</option>
+                    <option value="UTC">UTC</option>
+                    <option value="Europe/London">London</option>
+                    <option value="Europe/Paris">Paris</option>
+                    <option value="Asia/Tokyo">Tokyo</option>
+                    <option value="Asia/Shanghai">Shanghai</option>
+                    <option value="Australia/Sydney">Sydney</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Hourly Rate ($)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={profileData.hourlyRate}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, hourlyRate: parseFloat(e.target.value) || 0 }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    placeholder="25.00"
+                  />
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={handleUpdateProfile}
+                  disabled={loading}
+                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 flex items-center space-x-2"
+                >
+                  <Save className="h-4 w-4" />
+                  <span>Save Profile</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Password Change Section */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Change Password</h3>
+              <div className="space-y-4 max-w-md">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Password</label>
+                  <div className="relative">
+                    <input
+                      type={showCurrentPassword ? 'text' : 'password'}
+                      value={passwordData.currentPassword}
+                      onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                      className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      placeholder="Enter current password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                    >
+                      {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">New Password</label>
+                  <div className="relative">
+                    <input
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                      className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      placeholder="Enter new password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                    >
+                      {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Confirm New Password</label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                      className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      placeholder="Confirm new password"
+                    />
+                    <Lock className="h-4 w-4 text-gray-400 absolute right-3 top-2.5" />
+                  </div>
+                </div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  <p>Password requirements:</p>
+                  <ul className="list-disc list-inside mt-1 space-y-1">
+                    <li>At least 6 characters long</li>
+                    <li>Use a strong, unique password</li>
+                  </ul>
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={handleChangePassword}
+                  disabled={loading || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center space-x-2"
+                >
+                  <Lock className="h-4 w-4" />
+                  <span>Change Password</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* General Settings */}
         {activeTab === 'general' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Application Settings</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Application Settings</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Application Name</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Application Name</label>
                   <input
                     type="text"
                     value={generalSettings.appName}
                     onChange={(e) => setGeneralSettings(prev => ({ ...prev, appName: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Timezone</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Timezone</label>
                   <select
                     value={generalSettings.timezone}
                     onChange={(e) => setGeneralSettings(prev => ({ ...prev, timezone: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   >
                     <option value="UTC">UTC</option>
                     <option value="America/New_York">Eastern Time</option>
@@ -445,11 +731,11 @@ export default function Settings() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date Format</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Date Format</label>
                   <select
                     value={generalSettings.dateFormat}
                     onChange={(e) => setGeneralSettings(prev => ({ ...prev, dateFormat: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   >
                     <option value="MM/dd/yyyy">MM/DD/YYYY</option>
                     <option value="dd/MM/yyyy">DD/MM/YYYY</option>
@@ -457,15 +743,45 @@ export default function Settings() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Time Format</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Time Format</label>
                   <select
                     value={generalSettings.timeFormat}
                     onChange={(e) => setGeneralSettings(prev => ({ ...prev, timeFormat: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   >
                     <option value="12h">12 Hour</option>
                     <option value="24h">24 Hour</option>
                   </select>
+                </div>
+              </div>
+              
+              {/* Theme Settings */}
+              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <h4 className="text-md font-medium text-gray-900 dark:text-gray-100 mb-4">Appearance</h4>
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-gray-200 dark:bg-gray-600 rounded-lg">
+                      <SettingsIcon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100">Dark Mode</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {isDarkMode ? 'Currently using dark theme' : 'Currently using light theme'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={toggleDarkMode}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                      isDarkMode ? 'bg-primary-600' : 'bg-gray-200'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        isDarkMode ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
                 </div>
               </div>
               <div className="mt-6 flex justify-end">
@@ -485,8 +801,8 @@ export default function Settings() {
         {/* Database Settings */}
         {activeTab === 'database' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Database Management</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Database Management</h3>
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
                   <div className="flex items-center space-x-3">
@@ -544,22 +860,22 @@ export default function Settings() {
         {/* System Logs */}
         {activeTab === 'logs' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">System Logs</h3>
-                {currentUser?.role === 'admin' && (
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">System Logs</h3>
+                {(currentUser?.role === 'admin' || currentUser?.role === 'root') && (
                   <button
                     onClick={handleClearLogs}
                     className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg flex items-center space-x-2"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash className="h-4 w-4" />
                     <span>Clear Logs</span>
                   </button>
                 )}
               </div>
               
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {currentUser?.role !== 'admin' ? (
+                {(currentUser?.role !== 'admin' && currentUser?.role !== 'root') ? (
                   <div className="text-center py-8 text-gray-500">
                     <Shield className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                     <p className="font-medium">Admin Access Required</p>
@@ -598,8 +914,8 @@ export default function Settings() {
         {/* Security Settings */}
         {activeTab === 'security' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Security Settings</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Security Settings</h3>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Session Timeout (minutes)</label>
@@ -665,8 +981,8 @@ export default function Settings() {
         {/* Notification Settings */}
         {activeTab === 'notifications' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Notification Preferences</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Notification Preferences</h3>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
