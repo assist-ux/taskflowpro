@@ -5,7 +5,8 @@ import {
   DollarSign,
   BarChart3,
   Target,
-  Zap
+  Zap,
+  Trash2
 } from 'lucide-react'
 import TimeTracker from '../components/TimeTracker'
 import { TimeSummary, TimeEntry } from '../types'
@@ -16,9 +17,12 @@ import { formatTimeFromSeconds, formatDate } from '../utils'
 export default function TimeTrackerPage() {
   const { currentUser } = useAuth()
   const [timeSummary, setTimeSummary] = useState<TimeSummary | null>(null)
+  const [allEntries, setAllEntries] = useState<TimeEntry[]>([])
   const [recentEntries, setRecentEntries] = useState<TimeEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'today' | 'week' | 'month'>('today')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [entriesPerPage] = useState(10)
 
   useEffect(() => {
     loadTimeData()
@@ -34,7 +38,11 @@ export default function TimeTrackerPage() {
         timeEntryService.getTimeEntries(currentUser.uid)
       ])
       setTimeSummary(summary)
-      setRecentEntries(entries.slice(0, 10)) // Show last 10 entries
+      setAllEntries(entries)
+      // Show first page of entries
+      const indexOfLastEntry = currentPage * entriesPerPage
+      const indexOfFirstEntry = indexOfLastEntry - entriesPerPage
+      setRecentEntries(entries.slice(indexOfFirstEntry, indexOfLastEntry))
     } catch (error) {
       console.error('Error loading time data:', error)
     } finally {
@@ -46,6 +54,16 @@ export default function TimeTrackerPage() {
     setTimeSummary(summary)
     loadTimeData() // Refresh recent entries
   }
+
+  // Pagination
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber)
+
+  // Update displayed entries when page or all entries change
+  useEffect(() => {
+    const indexOfLastEntry = currentPage * entriesPerPage
+    const indexOfFirstEntry = indexOfLastEntry - entriesPerPage
+    setRecentEntries(allEntries.slice(indexOfFirstEntry, indexOfLastEntry))
+  }, [allEntries, currentPage, entriesPerPage])
 
   const getTimeStats = () => {
     if (!timeSummary) return { total: 0, billable: 0, entries: 0 }
@@ -237,17 +255,23 @@ export default function TimeTrackerPage() {
       {/* Time Tracker Component */}
       <TimeTracker onTimeUpdate={handleTimeUpdate} />
 
-      {/* Recent Entries */}
-      {recentEntries.length > 0 && (
+      {/* Recent Entries with Pagination */}
+      {allEntries.length > 0 && (
         <div className="card">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Recent Entries</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Recent Entries</h2>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              Showing {Math.min((currentPage - 1) * entriesPerPage + 1, allEntries.length)}-
+              {Math.min(currentPage * entriesPerPage, allEntries.length)} of {allEntries.length} entries
+            </span>
+          </div>
           <div className="space-y-3">
             {recentEntries.map((entry) => (
               <div
                 key={entry.id}
                 className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
               >
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-3 flex-1 min-w-0">
                   <div className="flex items-center space-x-2">
                     {entry.isRunning ? (
                       <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
@@ -258,10 +282,27 @@ export default function TimeTrackerPage() {
                       {entry.projectName || 'No project'}
                     </span>
                   </div>
+                  {entry.clientName && (
+                    <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full">
+                      {entry.clientName}
+                    </span>
+                  )}
                   {entry.description && (
                     <span className="text-sm text-gray-600 dark:text-gray-400 truncate max-w-xs">
                       {entry.description}
                     </span>
+                  )}
+                  {entry.tags && entry.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {entry.tags.map((tag, index) => (
+                        <span
+                          key={index}
+                          className="text-xs bg-primary-100 dark:bg-primary-800 text-primary-800 dark:text-primary-200 px-2 py-1 rounded-full"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
                   )}
                 </div>
                 <div className="flex items-center space-x-4">
@@ -271,13 +312,97 @@ export default function TimeTrackerPage() {
                   <span className="text-xs text-gray-500 dark:text-gray-400">
                     {formatDate(entry.startTime)}
                   </span>
-                  {entry.isBillable && (
-                    <DollarSign className="h-4 w-4 text-green-500 dark:text-green-400" />
-                  )}
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={entry.isBillable || false}
+                      onChange={async (e) => {
+                        try {
+                          await timeEntryService.updateTimeEntry(entry.id, {
+                            isBillable: e.target.checked
+                          });
+                          // Refresh the data
+                          loadTimeData();
+                        } catch (error) {
+                          console.error('Error updating billable status:', error);
+                        }
+                      }}
+                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded"
+                    />
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Billable</span>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (window.confirm('Are you sure you want to delete this time entry?')) {
+                        try {
+                          await timeEntryService.deleteTimeEntry(entry.id);
+                          // Refresh the data
+                          loadTimeData();
+                        } catch (error) {
+                          console.error('Error deleting time entry:', error);
+                        }
+                      }
+                    }}
+                    className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 rounded"
+                    title="Delete entry"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             ))}
           </div>
+          {/* Pagination */}
+          {allEntries.length > entriesPerPage && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="text-sm text-gray-700 dark:text-gray-300">
+                Page {currentPage} of {Math.ceil(allEntries.length / entriesPerPage)}
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => paginate(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className={`px-3 py-1 rounded-md text-sm ${
+                    currentPage === 1
+                      ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+                      : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'
+                  }`}
+                >
+                  Previous
+                </button>
+                
+                {/* Page numbers - show up to 5 pages */}
+                {Array.from({ length: Math.min(5, Math.ceil(allEntries.length / entriesPerPage)) }, (_, i) => {
+                  const pageNum = i + 1;
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => paginate(pageNum)}
+                      className={`px-3 py-1 rounded-md text-sm ${
+                        currentPage === pageNum
+                          ? 'bg-primary-600 text-white'
+                          : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+                
+                <button
+                  onClick={() => paginate(currentPage + 1)}
+                  disabled={currentPage === Math.ceil(allEntries.length / entriesPerPage)}
+                  className={`px-3 py-1 rounded-md text-sm ${
+                    currentPage === Math.ceil(allEntries.length / entriesPerPage)
+                      ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+                      : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'
+                  }`}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -93,6 +93,14 @@ export default function TaskViewModal({
       await taskService.updateTask(task.id, { notes })
 
       // Process mentions in notes and create notifications
+      console.log('Processing mentions in task notes:', {
+        notes,
+        userId: currentUser.uid,
+        userName: currentUser.name || 'Unknown User',
+        taskId: task.id,
+        taskTitle: task.title,
+        projectId: task.projectId
+      });
       await mentionNotificationService.processMentions(
         notes,
         currentUser.uid,
@@ -142,6 +150,14 @@ export default function TaskViewModal({
       } as any)
 
       // Process mentions and create notifications
+      console.log('Processing mentions in task comment:', {
+        comment: newComment.trim(),
+        userId: currentUser.uid,
+        userName: currentUser.name || 'Unknown User',
+        taskId: task.id,
+        taskTitle: task.title,
+        projectId: task.projectId
+      });
       await mentionNotificationService.processMentions(
         newComment.trim(),
         currentUser.uid,
@@ -418,7 +434,7 @@ export default function TaskViewModal({
                           <MentionInput
                             value={newComment}
                             onChange={handleCommentChange}
-                            projectId={task.projectId}
+                            teamId={task.projectId}
                             currentUserId={currentUser?.uid}
                             onKeyPress={(e) => e.key === 'Enter' && handleAddComment()}
                             placeholder="Type a message... Use @ to mention someone"
@@ -443,7 +459,7 @@ export default function TaskViewModal({
                           <MentionInput
                             value={notes}
                             onChange={handleNotesChange}
-                            projectId={task.projectId}
+                            teamId={task.projectId}
                             currentUserId={currentUser?.uid}
                             onBlur={handleNotesUpdate}
                             placeholder="Add collaborative notes here... Use @ to mention team members"

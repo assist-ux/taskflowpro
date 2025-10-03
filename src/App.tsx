@@ -17,15 +17,19 @@ import Calendar from './pages/Calendar'
 import Reports from './pages/Reports'
 import TaskManagement from './pages/ProjectManagement'
 import Teams from './pages/Teams'
+import TeamDetails from './pages/TeamDetails'
 import Billing from './pages/Billing'
 import Feedbacks from './pages/Feedbacks'
 import AdminDashboard from './pages/AdminDashboard'
 import Settings from './pages/Settings'
 import SystemSettings from './pages/SystemSettings'
+import SoundTestPage from './pages/SoundTestPage'
 import Auth from './pages/Auth'
 import Landing from './pages/Landing'
 import About from './pages/About'
 import MessagingWidget from './components/messaging/MessagingWidget'
+import TestNotifications from './pages/TestNotifications'
+import DemoPage from './pages/DemoPage'
 
 function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -105,6 +109,11 @@ function AppContent() {
                 <Teams />
               </ProtectedRoute>
             } />
+            <Route path="/teams/:teamId" element={
+              <ProtectedRoute>
+                <TeamDetails />
+              </ProtectedRoute>
+            } />
             <Route path="/billing" element={
               <ProtectedRoute>
                 <Billing />
@@ -128,6 +137,21 @@ function AppContent() {
             <Route path="/system" element={
               <ProtectedRoute>
                 <SystemSettings />
+              </ProtectedRoute>
+            } />
+            <Route path="/sound-test" element={
+              <ProtectedRoute>
+                <TestNotifications />
+              </ProtectedRoute>
+            } />
+            <Route path="/demo" element={
+              <ProtectedRoute>
+                <DemoPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/chat" element={
+              <ProtectedRoute>
+                <Dashboard />
               </ProtectedRoute>
             } />
             <Route path="*" element={<Navigate to="/" replace />} />

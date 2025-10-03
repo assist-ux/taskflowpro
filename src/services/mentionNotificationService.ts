@@ -8,7 +8,7 @@ class MentionNotificationService {
     mentionedUserId: string,
     mentionedBy: string,
     mentionedByName: string,
-    contextType: 'comment' | 'note' | 'task',
+    contextType: 'comment' | 'note' | 'task' | 'message',
     contextId: string,
     contextTitle: string,
     taskId?: string,
@@ -17,31 +17,69 @@ class MentionNotificationService {
     try {
       const actionUrl = this.generateActionUrl(contextType, contextId, taskId, projectId)
       
+      // Create more specific messages based on context
+      let message = '';
+      switch (contextType) {
+        case 'comment':
+          message = `${mentionedByName} mentioned you in a comment`;
+          break;
+        case 'note':
+          message = `${mentionedByName} mentioned you in notes`;
+          break;
+        case 'task':
+          message = `${mentionedByName} mentioned you in a task`;
+          break;
+        case 'message':
+          message = `${mentionedByName} mentioned you in a message`;
+          break;
+        default:
+          message = `${mentionedByName} mentioned you`;
+      }
+      
       const notification: Omit<MentionNotification, 'id'> = {
         type: 'mention',
         title: `${mentionedByName} mentioned you`,
-        message: `You were mentioned in ${contextType === 'comment' ? 'a comment' : contextType === 'note' ? 'notes' : 'a task'}`,
+        message,
         mentionedBy,
         mentionedByName,
         contextType,
         contextId,
         contextTitle,
-        taskId,
-        projectId,
         isRead: false,
         createdAt: new Date(),
         actionUrl
       }
 
+      // Only add optional fields if they have values
+      if (taskId) {
+        (notification as any).taskId = taskId
+      }
+      if (projectId) {
+        (notification as any).projectId = projectId
+      }
+
       const notificationsRef = ref(database, 'mentionNotifications')
       const newNotificationRef = push(notificationsRef)
       
-      await update(newNotificationRef, {
+      // Create a clean object for Firebase update without undefined values
+      const notificationToSave: any = {
         ...notification,
         id: newNotificationRef.key,
         mentionedUserId, // Store the user ID for querying
         createdAt: notification.createdAt.toISOString()
-      })
+      }
+      
+      await update(newNotificationRef, notificationToSave)
+      
+      console.log('Mention notification created:', {
+        mentionedUserId,
+        mentionedBy,
+        mentionedByName,
+        contextType,
+        contextId,
+        contextTitle,
+        message
+      });
     } catch (error) {
       console.error('Error creating mention notification:', error)
       throw error
@@ -117,9 +155,20 @@ class MentionNotificationService {
     }
   }
 
+  // Get unread mention notifications
+  async getUnreadMentionNotifications(userId: string): Promise<MentionNotification[]> {
+    try {
+      const notifications = await this.getMentionNotifications(userId)
+      return notifications.filter(n => !n.isRead)
+    } catch (error) {
+      console.error('Error getting unread mention notifications:', error)
+      return []
+    }
+  }
+
   // Generate action URL based on context
   private generateActionUrl(
-    contextType: 'comment' | 'note' | 'task',
+    contextType: 'comment' | 'note' | 'task' | 'message',
     contextId: string,
     taskId?: string,
     projectId?: string
@@ -128,6 +177,10 @@ class MentionNotificationService {
       case 'comment':
       case 'note':
         return taskId ? `/management?task=${taskId}` : '/management'
+      case 'message':
+        // For messages, we want to open the chat widget
+        // We'll pass the projectId (teamId) as a parameter
+        return projectId ? `/chat?team=${projectId}` : '/chat'
       case 'task':
         return `/management?task=${contextId}`
       default:
@@ -140,49 +193,94 @@ class MentionNotificationService {
     text: string,
     mentionedBy: string,
     mentionedByName: string,
-    contextType: 'comment' | 'note' | 'task',
+    contextType: 'comment' | 'note' | 'task' | 'message',
     contextId: string,
     contextTitle: string,
     taskId?: string,
-    projectId?: string
+    projectId?: string,
+    // Optional explicit mentions parameter
+    explicitMentions?: string[]
   ): Promise<void> {
     try {
-      // Extract mentioned usernames from text (including multi-word usernames)
-      const mentionRegex = /@([^\s\n\r@]+(?:\s+[^\s\n\r@]+)*)/g
-      const mentions: string[] = []
-      let match
+      console.log('=== processMentions called ===');
+      console.log('Text:', text);
+      console.log('MentionedBy:', mentionedBy);
+      console.log('MentionedByName:', mentionedByName);
+      console.log('ContextType:', contextType);
+      console.log('ContextId:', contextId);
+      console.log('ContextTitle:', contextTitle);
+      console.log('TaskId:', taskId);
+      console.log('ProjectId:', projectId);
+      console.log('Explicit mentions:', explicitMentions);
+      
+      // Use explicit mentions if provided, otherwise extract from text
+      let mentions: string[] = [];
+      if (explicitMentions && explicitMentions.length > 0) {
+        mentions = explicitMentions;
+        console.log('Using explicit mentions:', mentions);
+      } else {
+        console.log('Extracting mentions from text');
+        // Improved regex to match @username with better handling of edge cases
+        // Matches @ followed by alphanumeric characters, underscores, hyphens, and spaces
+        // Stops at word boundary or specific punctuation
+        const mentionRegex = /@([\w\-]+(?:\s+[\w\-]+)*)(?=\s|[.,;:!?()\\[\\]{}<>\"']|$)/g;
+        let match;
 
-      while ((match = mentionRegex.exec(text)) !== null) {
-        mentions.push(match[1])
+        while ((match = mentionRegex.exec(text)) !== null) {
+          // The captured group is the mention without the @
+          const mention = match[1].trim();
+          if (mention) {
+            mentions.push(mention);
+          }
+        }
       }
+      
+      console.log('Final mentions to process:', mentions);
 
-      if (mentions.length === 0) return
+      if (mentions.length === 0) {
+        console.log('No mentions found in text');
+        return;
+      }
 
       let usersToNotify = [];
       
-      // Get all users to find mentioned user IDs
-      const { userService } = await import('./userService')
-      const users = await userService.getAllUsers()
-      
-      // If we have a projectId, filter users based on team membership
+      // Always use team-based filtering to respect permissions
       if (projectId) {
-        const { teamService } = await import('./teamService')
-        const mentionableUsers = await teamService.getMentionableUsers(projectId, mentionedBy)
-        usersToNotify = mentionableUsers
+        console.log('Filtering users based on team membership for projectId:', projectId);
+        const { teamService } = await import('./teamService');
+        try {
+          const mentionableUsers = await teamService.getMentionableUsers(projectId, mentionedBy);
+          usersToNotify = mentionableUsers;
+          console.log('Mentionable users for notification:', mentionableUsers);
+        } catch (teamError) {
+          console.error('Error getting mentionable users from team service:', teamError);
+          usersToNotify = [];
+        }
       } else {
-        // Fallback to all users if no projectId
-        usersToNotify = users.map(user => ({
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role
-        }))
+        // If no projectId, try to get team members using teamService
+        // This is for cases like chat messages where we might not have a projectId
+        console.log('No projectId provided, attempting to get team members');
+        try {
+          const { teamService } = await import('./teamService');
+          // We'll need to get the user's team context differently
+          // For now, we'll skip processing if we don't have proper context
+          console.log('Skipping mention processing due to missing team context');
+          usersToNotify = [];
+        } catch (teamError) {
+          console.error('Error accessing team service:', teamError);
+          usersToNotify = [];
+        }
       }
+      
+      console.log('Users to notify:', usersToNotify);
       
       // Create notifications for each mentioned user
       const notificationPromises = mentions.map(async (username) => {
-        const user = usersToNotify.find(u => u.name === username)
+        console.log(`Processing mention for username: ${username}`);
+        const user = usersToNotify.find(u => u.name === username);
         if (user && user.id !== mentionedBy) { // Don't notify the person who mentioned
+          console.log(`Creating notification for user: ${user.name} (${user.id})`);
+          console.log(`User ${user.name} (${user.id}) was mentioned by ${mentionedByName} (${mentionedBy}) in ${contextType}: ${contextTitle}`);
           await this.createMentionNotification(
             user.id,
             mentionedBy,
@@ -192,17 +290,19 @@ class MentionNotificationService {
             contextTitle,
             taskId,
             projectId
-          )
-        } else if (!user && users.some(u => u.name === username)) {
+          );
+        } else if (!user && usersToNotify.some(u => u.name === username)) {
           // User exists but is not mentionable (not in the same team)
-          console.log(`User ${username} cannot be mentioned as they are not in the same team`)
+          console.log(`User ${username} cannot be mentioned as they are not in the same team`);
+        } else {
+          console.log(`User ${username} not found or not mentionable`);
         }
-      })
+      });
 
-      await Promise.all(notificationPromises)
+      await Promise.all(notificationPromises);
     } catch (error) {
-      console.error('Error processing mentions:', error)
-      throw error
+      console.error('Error processing mentions:', error);
+      throw error;
     }
   }
 }

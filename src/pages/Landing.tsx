@@ -190,10 +190,15 @@ const Landing = () => {
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <Clock className="h-8 w-8 text-blue-600" />
+                <img 
+                  src="https://storage.googleapis.com/msgsndr/nb61f4OQ7o9Wsxx0zOsY/media/68df3ae78db305b0e463f363.svg" 
+                  alt="Task Flow Pro Logo" 
+                  className="h-10 w-auto"
+                />
               </div>
               <div className="ml-3">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Task Flow Pro</h1>
+                <p className="text-xs text-gray-600 dark:text-gray-400">Powered by Nexistry Digital Solutions</p>
               </div>
             </div>
             <div className="hidden lg:flex items-center space-x-8">

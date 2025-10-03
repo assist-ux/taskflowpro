@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import { useAuth } from './AuthContext'
 import { messagingService } from '../services/messagingService'
 import { Message, TeamChat, CreateMessageData } from '../types'
+import { playNotificationSound, playMessageSentSound } from '../utils/soundUtils'
 
 interface MessagingContextType {
   currentTeamId: string | null
@@ -9,11 +10,16 @@ interface MessagingContextType {
   messages: Message[]
   teamChats: TeamChat[]
   isLoading: boolean
-  sendMessage: (content: string, replyTo?: string) => Promise<void>
+  sendMessage: (content: string, replyTo?: string, mentions?: string[]) => Promise<void>
   editMessage: (messageId: string, newContent: string) => Promise<void>
   deleteMessage: (messageId: string) => Promise<void>
   addReaction: (messageId: string, emoji: string) => Promise<void>
   loadTeamChats: () => Promise<void>
+  unreadCounts: Record<string, number> // Track unread messages per team
+  markMessagesAsRead: (teamId: string) => void // Mark messages as read for a team
+  lastReadTimestamps: Record<string, number> // Track last read timestamp per team
+  isMessagingWidgetOpen: boolean // Track if messaging widget is open
+  setIsMessagingWidgetOpen: (isOpen: boolean) => void // Set messaging widget open state
 }
 
 const MessagingContext = createContext<MessagingContextType | undefined>(undefined)
@@ -35,7 +41,32 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [teamChats, setTeamChats] = useState<TeamChat[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
+  const [lastMessageIds, setLastMessageIds] = useState<Record<string, string>>({}) // Track last message ID per team
+  const [lastReadTimestamps, setLastReadTimestamps] = useState<Record<string, number>>({}) // Track last read timestamp per team
+  const [isMessagingWidgetOpen, setIsMessagingWidgetOpen] = useState(false) // Track if messaging widget is open
   const { currentUser } = useAuth()
+
+  // Load last read timestamps from localStorage on mount
+  useEffect(() => {
+    if (currentUser) {
+      const savedTimestamps = localStorage.getItem(`lastReadTimestamps_${currentUser.uid}`)
+      if (savedTimestamps) {
+        try {
+          setLastReadTimestamps(JSON.parse(savedTimestamps))
+        } catch (e) {
+          console.error('Error parsing last read timestamps:', e)
+        }
+      }
+    }
+  }, [currentUser])
+
+  // Save last read timestamps to localStorage when they change
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`lastReadTimestamps_${currentUser.uid}`, JSON.stringify(lastReadTimestamps))
+    }
+  }, [lastReadTimestamps, currentUser])
 
   // Load team chats on mount
   useEffect(() => {
@@ -65,6 +96,34 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
             const unsubscribe = messagingService.subscribeToTeamMessages(
               currentTeamId,
               (newMessages) => {
+                // Check for new messages to play sound notifications
+                if (newMessages.length > 0) {
+                  // Find truly new messages by comparing with last known message IDs
+                  const lastMessageId = lastMessageIds[currentTeamId];
+                  const lastMessageIndex = lastMessageId 
+                    ? newMessages.findIndex(msg => msg.id === lastMessageId)
+                    : -1;
+                  
+                  // If we found the last message, check messages after it
+                  // If we didn't find it, all messages are new (initial load)
+                  const newMessageStartIndex = lastMessageIndex >= 0 
+                    ? lastMessageIndex + 1 
+                    : 0;
+                  
+                  const trulyNewMessages = newMessages.slice(newMessageStartIndex);
+                  
+                  // Removed sound notifications for new chat messages
+                  // Sounds are only played for mentions and other notifications
+                  
+                  // Update last message ID for this team
+                  if (newMessages.length > 0) {
+                    setLastMessageIds(prev => ({
+                      ...prev,
+                      [currentTeamId]: newMessages[newMessages.length - 1].id
+                    }));
+                  }
+                }
+                
                 setMessages(newMessages)
                 setIsLoading(false)
               }
@@ -93,7 +152,72 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
     } else {
       setMessages([])
     }
-  }, [currentTeamId, currentUser])
+  }, [currentTeamId, currentUser, lastMessageIds])
+
+  // Update unread counts when messages or lastReadTimestamps change
+  useEffect(() => {
+    if (currentTeamId && currentUser) {
+      // Get the last read timestamp for this team
+      const lastReadTimestamp = lastReadTimestamps[currentTeamId] || 0;
+      
+      // Count unread messages (messages sent after the last read timestamp and not sent by current user)
+      const unreadCount = messages.filter(
+        message => message.senderId !== currentUser.uid && message.timestamp.getTime() > lastReadTimestamp
+      ).length
+      
+      // Only update state if the count has changed to prevent unnecessary re-renders
+      setUnreadCounts(prev => {
+        const currentCount = prev[currentTeamId] || 0;
+        if (currentCount !== unreadCount) {
+          return {
+            ...prev,
+            [currentTeamId]: unreadCount
+          }
+        }
+        return prev
+      })
+    }
+  }, [messages.length, lastReadTimestamps, currentTeamId, currentUser]) // Use messages.length instead of messages array
+
+  // Update unread counts for all teams
+  const updateUnreadCount = (teamId: string, teamMessages: Message[]) => {
+    if (!currentUser) return
+    
+    // Get the last read timestamp for this team
+    const lastReadTimestamp = lastReadTimestamps[teamId] || 0;
+    
+    // Count unread messages (messages sent after the last read timestamp and not sent by current user)
+    const unreadCount = teamMessages.filter(
+      message => message.senderId !== currentUser.uid && message.timestamp.getTime() > lastReadTimestamp
+    ).length
+    
+    // Only update state if the count has changed to prevent unnecessary re-renders
+    setUnreadCounts(prev => {
+      if (prev[teamId] !== unreadCount) {
+        return {
+          ...prev,
+          [teamId]: unreadCount
+        }
+      }
+      return prev
+    })
+  }
+
+  // Mark messages as read for a specific team
+  const markMessagesAsRead = useCallback((teamId: string) => {
+    // Update the last read timestamp for this team
+    const now = Date.now();
+    setLastReadTimestamps(prev => ({
+      ...prev,
+      [teamId]: now
+    }))
+    
+    // Update unread count
+    setUnreadCounts(prev => ({
+      ...prev,
+      [teamId]: 0
+    }))
+  }, [])
 
   const loadTeamChats = async () => {
     if (!currentUser) return
@@ -121,7 +245,7 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
     }
   }
 
-  const sendMessage = async (content: string, replyTo?: string) => {
+  const sendMessage = async (content: string, replyTo?: string, mentions?: string[]) => {
     if (!currentTeamId || !currentUser || !content.trim()) return
 
     try {
@@ -148,8 +272,12 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
         messageData,
         currentUser.uid,
         currentUser.name,
-        currentUser.email
+        currentUser.email,
+        mentions // Pass mentions to the messaging service
       )
+      
+      // Removed sound notification when user sends a message
+      // Sound notifications are only played for mentions and other notifications
     } catch (error) {
       console.error('Error sending message:', error)
       throw error
@@ -197,7 +325,12 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
     editMessage,
     deleteMessage,
     addReaction,
-    loadTeamChats
+    loadTeamChats,
+    unreadCounts,
+    markMessagesAsRead,
+    lastReadTimestamps,
+    isMessagingWidgetOpen,
+    setIsMessagingWidgetOpen
   }
 
   return (

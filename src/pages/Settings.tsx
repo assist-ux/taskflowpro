@@ -29,7 +29,7 @@ import { database } from '../config/firebase'
 import { loggingService, SystemLog } from '../services/loggingService'
 import { formatDurationToHHMMSS } from '../utils'
 import { useTheme } from '../contexts/ThemeContext'
-import { canViewHourlyRates } from '../utils/permissions'
+import { canViewHourlyRates, canEditHourlyRates } from '../utils/permissions'
 import { 
   EmailAuthProvider, 
   reauthenticateWithCredential, 
@@ -37,6 +37,7 @@ import {
   reauthenticateWithCredential as reauth 
 } from 'firebase/auth'
 import { auth } from '../config/firebase'
+import NotificationSettings from '../components/settings/NotificationSettings'
 
 interface BackupData {
   users: any
@@ -63,6 +64,7 @@ export default function Settings() {
   const [backupData, setBackupData] = useState<BackupData | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null)
   const [showPassword, setShowPassword] = useState(false)
+  const canEditRates = currentUser?.role ? canEditHourlyRates(currentUser.role) : false
   
   // Profile settings
   const [profileData, setProfileData] = useState({
@@ -385,11 +387,16 @@ export default function Settings() {
       
       // Update user profile in database
       const userRef = ref(database, `users/${currentUser.uid}`)
-      const updates = {
+      
+      // Only include hourlyRate in updates if user has permission to edit it
+      const updates: any = {
         name: profileData.name,
         timezone: profileData.timezone,
-        hourlyRate: profileData.hourlyRate,
         updatedAt: new Date().toISOString()
+      }
+      
+      if (canEditRates) {
+        updates.hourlyRate = profileData.hourlyRate
       }
       
       await update(userRef, updates)
@@ -600,15 +607,23 @@ export default function Settings() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Hourly Rate ($)</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Hourly Rate ($)
+                    {!canEditRates && (
+                      <span className="block text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Only HR and Super Admin users can edit hourly rates
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     value={profileData.hourlyRate}
                     onChange={(e) => setProfileData(prev => ({ ...prev, hourlyRate: parseFloat(e.target.value) || 0 }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${!canEditRates ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''}`}
                     placeholder="25.00"
+                    disabled={!canEditRates}
                   />
                 </div>
               </div>
@@ -981,6 +996,10 @@ export default function Settings() {
         {/* Notification Settings */}
         {activeTab === 'notifications' && (
           <div className="space-y-6">
+            {/* Sound Notification Settings */}
+            <NotificationSettings />
+            
+            {/* Other Notification Settings */}
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Notification Preferences</h3>
               <div className="space-y-4">

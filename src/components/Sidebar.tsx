@@ -43,7 +43,7 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
 
   // If root, restrict to Admin Dashboard and System Settings (Companies)
   const navigation = currentUser?.role === 'root'
-    ? allNavigation.filter(item => ['Admin Dashboard', 'System Settings'].includes(item.name))
+    ? allNavigation.filter(item => ['Admin Dashboard', 'System Settings', 'Feedbacks'].includes(item.name))
     : allNavigation.filter(item => !item.requiredFeature || (currentUser?.role && canAccessFeature(currentUser.role, item.requiredFeature)))
 
   const isActive = (href: string) => {
@@ -71,7 +71,17 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-            <h1 className="text-xl font-bold text-primary-600 dark:text-primary-400">Task Flow Pro</h1>
+            <div className="flex items-center">
+              <img 
+                src="https://storage.googleapis.com/msgsndr/nb61f4OQ7o9Wsxx0zOsY/media/68df3ae78db305b0e463f363.svg" 
+                alt="Logo" 
+                className="h-10 w-auto"
+              />
+              <div className="ml-3">
+                <span className="text-xl font-bold text-primary-600 dark:text-primary-400">Task Flow Pro</span>
+                <p className="text-xs text-gray-600 dark:text-gray-400">Powered by Nexistry</p>
+              </div>
+            </div>
             <button
               onClick={() => setOpen(false)}
               className="lg:hidden p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"

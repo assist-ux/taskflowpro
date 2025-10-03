@@ -11,7 +11,8 @@ export interface Permission {
   canCreateUsers: boolean
   canViewUserDetails: boolean
   canManageSystemSettings: boolean
-  canViewHourlyRates: boolean  // Keep the permission but allow all roles to view
+  canViewHourlyRates: boolean
+  canEditHourlyRates: boolean  // New permission for editing hourly rates
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
@@ -26,7 +27,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
     canCreateUsers: false,
     canViewUserDetails: false,
     canManageSystemSettings: false,
-    canViewHourlyRates: false  // Only super_admin and root can view hourly rates
+    canViewHourlyRates: false,
+    canEditHourlyRates: false  // Employees cannot edit hourly rates
   },
   hr: {
     canViewBilling: false,
@@ -39,7 +41,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
     canCreateUsers: true,
     canViewUserDetails: true,
     canManageSystemSettings: false,
-    canViewHourlyRates: false  // Only super_admin and root can view hourly rates
+    canViewHourlyRates: true,  // HR can view hourly rates
+    canEditHourlyRates: true   // HR can edit hourly rates
   },
   admin: {
     canViewBilling: true,
@@ -52,7 +55,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
     canCreateUsers: true,
     canViewUserDetails: true,
     canManageSystemSettings: false,
-    canViewHourlyRates: false  // Only super_admin and root can view hourly rates
+    canViewHourlyRates: true,  // Admin can view hourly rates
+    canEditHourlyRates: true   // Admin can edit hourly rates
   },
   super_admin: {
     canViewBilling: true,
@@ -65,7 +69,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
     canCreateUsers: true,
     canViewUserDetails: true,
     canManageSystemSettings: true,
-    canViewHourlyRates: true  // Super admin can view hourly rates
+    canViewHourlyRates: true,   // Super admin can view hourly rates
+    canEditHourlyRates: true    // Super admin can edit hourly rates
   },
   root: {
     canViewBilling: true,
@@ -78,7 +83,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
     canCreateUsers: true,
     canViewUserDetails: true,
     canManageSystemSettings: true,
-    canViewHourlyRates: true  // Root can view hourly rates
+    canViewHourlyRates: true,   // Root can view hourly rates
+    canEditHourlyRates: true    // Root can edit hourly rates
   }
 }
 
@@ -112,6 +118,8 @@ export function canAccessFeature(userRole: UserRole, feature: string): boolean {
       return hasPermission(userRole, 'canManageSystemSettings')
     case 'hourly-rates':
       return hasPermission(userRole, 'canViewHourlyRates')
+    case 'edit-hourly-rates':
+      return hasPermission(userRole, 'canEditHourlyRates')  // New feature check
     default:
       return false
   }
@@ -198,7 +206,12 @@ export function canDeleteTask(userRole: UserRole, taskCreatorId: string, current
   return false;
 }
 
-// Utility function to check if user can view hourly rates (now allows all roles)
+// Utility function to check if user can view hourly rates
 export function canViewHourlyRates(userRole: UserRole): boolean {
   return hasPermission(userRole, 'canViewHourlyRates')
+}
+
+// Utility function to check if user can edit hourly rates
+export function canEditHourlyRates(userRole: UserRole): boolean {
+  return hasPermission(userRole, 'canEditHourlyRates')
 }

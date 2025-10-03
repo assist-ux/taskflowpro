@@ -9,8 +9,10 @@ interface MentionTextProps {
 export default function MentionText({ text, mentions = [], className = "" }: MentionTextProps) {
   // Parse text and replace @mentions with styled spans
   const renderTextWithMentions = (text: string) => {
-    // Updated regex to match @username with spaces, but stop at line breaks or special characters
-    const mentionRegex = /@([^\s\n\r@]+(?:\s+[^\s\n\r@]+)*)/g
+    // Improved regex to match @username with better handling of edge cases
+    // Matches @ followed by alphanumeric characters, underscores, hyphens, and spaces
+    // Stops at word boundary or specific punctuation
+    const mentionRegex = /@([\w\-]+(?:\s+[\w\-]+)*)(?=\s|[.,;:!?()\\[\\]{}<>\"']|$)/g
     const parts = text.split(mentionRegex)
     
     return parts.map((part, index) => {

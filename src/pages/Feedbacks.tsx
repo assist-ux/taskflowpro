@@ -23,7 +23,8 @@ import {
   HelpCircle,
   AlertTriangle,
   Heart,
-  MoreHorizontal
+  MoreHorizontal,
+  XCircle
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { feedbackService } from '../services/feedbackService'
@@ -163,6 +164,19 @@ export default function Feedbacks() {
     } catch (error) {
       console.error('Error removing vote:', error)
       setError('Failed to remove vote')
+    }
+  }
+
+  const handleUpdateFeedbackStatus = async (feedbackId: string, status: FeedbackStatus) => {
+    if (!currentUser) return
+
+    try {
+      setError('')
+      await feedbackService.updateFeedback(feedbackId, { status })
+      loadFeedbacks()
+    } catch (error) {
+      console.error(`Error updating feedback status to ${status}:`, error)
+      setError(`Failed to update feedback status to ${status}`)
     }
   }
 
@@ -490,6 +504,16 @@ export default function Feedbacks() {
                             {downvotes}
                           </span>
                         </div>
+                        {/* Close button for root users */}
+                        {currentUser?.role === 'root' && feedback.status !== 'closed' && (
+                          <button
+                            onClick={() => handleUpdateFeedbackStatus(feedback.id, 'closed')}
+                            className="btn-secondary text-sm flex items-center space-x-1"
+                          >
+                            <XCircle className="h-4 w-4" />
+                            <span>Close</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => {
                             setSelectedFeedback(feedback)
@@ -682,10 +706,36 @@ export default function Feedbacks() {
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(selectedFeedback.priority)}`}>
                         {selectedFeedback.priority}
                       </span>
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedFeedback.status)}`}>
-                        {getStatusIcon(selectedFeedback.status)}
-                        <span className="ml-1 capitalize">{selectedFeedback.status.replace('-', ' ')}</span>
-                      </span>
+                      {/* Status display or edit for root users */}
+                      {currentUser?.role === 'root' ? (
+                        <select
+                          value={selectedFeedback.status}
+                          onChange={(e) => handleUpdateFeedbackStatus(selectedFeedback.id, e.target.value as FeedbackStatus)}
+                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedFeedback.status as FeedbackStatus)}`}
+                        >
+                          <option value="open">Open</option>
+                          <option value="in-progress">In Progress</option>
+                          <option value="under-review">Under Review</option>
+                          <option value="resolved">Resolved</option>
+                          <option value="closed">Closed</option>
+                          <option value="duplicate">Duplicate</option>
+                        </select>
+                      ) : (
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedFeedback.status as FeedbackStatus)}`}>
+                          {getStatusIcon(selectedFeedback.status as FeedbackStatus)}
+                          <span className="ml-1 capitalize">{selectedFeedback.status.replace('-', ' ')}</span>
+                        </span>
+                      )}
+                      {/* Close button for root users in details modal */}
+                      {currentUser?.role === 'root' && selectedFeedback.status !== 'closed' && (
+                        <button
+                          onClick={() => handleUpdateFeedbackStatus(selectedFeedback.id, 'closed')}
+                          className="btn-secondary text-xs flex items-center space-x-1"
+                        >
+                          <XCircle className="h-3 w-3" />
+                          <span>Close Feedback</span>
+                        </button>
+                      )}
                     </div>
                     <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
                       {selectedFeedback.title}

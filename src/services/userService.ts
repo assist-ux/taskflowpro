@@ -6,23 +6,29 @@ import { User, UserRole } from '../types'
 export const userService = {
   // Get all users (for admin/team leader use) - with multi-tenant filtering
   async getAllUsers(): Promise<User[]> {
-    const usersRef = ref(database, 'users')
-    const snapshot = await get(usersRef)
-    
-    if (snapshot.exists()) {
-      const users = snapshot.val()
-      return Object.entries(users)
-        .map(([id, user]: [string, any]) => ({
-          ...user,
-          id: user.uid || id, // Use uid if available, otherwise use the key
-          createdAt: new Date(user.createdAt),
-          updatedAt: new Date(user.updatedAt)
-        }))
-        .filter((user: User) => user.isActive)
-        .sort((a: User, b: User) => a.name.localeCompare(b.name))
+    try {
+      const usersRef = ref(database, 'users')
+      const snapshot = await get(usersRef)
+      
+      if (snapshot.exists()) {
+        const users = snapshot.val()
+        return Object.entries(users)
+          .map(([id, user]: [string, any]) => ({
+            ...user,
+            id: user.uid || id, // Use uid if available, otherwise use the key
+            createdAt: new Date(user.createdAt),
+            updatedAt: new Date(user.updatedAt)
+          }))
+          .filter((user: User) => user.isActive)
+          .sort((a: User, b: User) => a.name.localeCompare(b.name))
+      }
+      
+      return []
+    } catch (error) {
+      console.error('Error getting all users:', error)
+      // Return empty array instead of throwing to prevent breaking the UI
+      return []
     }
-    
-    return []
   },
 
   // Get users for current company (multi-tenant safe)

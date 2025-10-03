@@ -7,7 +7,7 @@ import { teamService } from '../../services/teamService'
 interface MentionInputProps {
   value: string
   onChange: (value: string, mentions: string[]) => void
-  projectId?: string
+  teamId?: string  // Changed from projectId to teamId for clarity
   currentUserId?: string
   placeholder?: string
   className?: string
@@ -20,7 +20,7 @@ interface MentionInputProps {
 export default function MentionInput({
   value,
   onChange,
-  projectId,
+  teamId,  // Changed from projectId to teamId
   currentUserId,
   placeholder = "Type a message...",
   className = "",
@@ -42,75 +42,118 @@ export default function MentionInput({
   // Load users for mention suggestions
   const loadUsers = useCallback(async (query: string) => {
     try {
-      let filteredUsers: MentionSuggestion[] = [];
+      console.log('=== loadUsers called ===');
+      console.log('Search query:', query);
+      console.log('teamId:', teamId);
+      console.log('currentUserId:', currentUserId);
       
-      if (projectId && currentUserId) {
-        console.log('Loading users for mentions with projectId:', projectId, 'currentUserId:', currentUserId);
-        // Use team-based filtering if projectId and currentUserId are provided
-        const mentionableUsers = await teamService.getMentionableUsers(projectId, currentUserId);
-        console.log('Mentionable users:', mentionableUsers);
-        filteredUsers = mentionableUsers.filter(user => 
-          user.name.toLowerCase().includes(query.toLowerCase()) ||
-          user.email.toLowerCase().includes(query.toLowerCase())
-        );
-        console.log('Filtered users:', filteredUsers);
-      } else {
-        console.log('Falling back to all users - projectId:', projectId, 'currentUserId:', currentUserId);
-        // Fallback to all users if no projectId or currentUserId
-        const users = await userService.getAllUsers();
-        filteredUsers = users.filter(user => 
-          user.name.toLowerCase().includes(query.toLowerCase()) ||
-          user.email.toLowerCase().includes(query.toLowerCase())
-        ).map(user => ({
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role
-        }));
+      // If teamId or currentUserId is not available, don't try to load users
+      if (!teamId || !currentUserId) {
+        console.log('No team context or current user, returning empty array');
+        setSuggestions([]);
+        return;
       }
       
+      let filteredUsers: MentionSuggestion[] = [];
+      
+      console.log('Loading users for mentions with teamId:', teamId, 'currentUserId:', currentUserId);
+      // Use team-based filtering if teamId and currentUserId are provided
+      const mentionableUsers = await teamService.getMentionableUsers(teamId, currentUserId);
+      console.log('Mentionable users:', mentionableUsers);
+      
+      // If no users found, show a message
+      if (mentionableUsers.length === 0) {
+        console.log('No mentionable users found');
+        setSuggestions([]);
+        return;
+      }
+      
+      // Case-insensitive search that matches either name or email
+      const normalizedQuery = query.toLowerCase().trim();
+      filteredUsers = mentionableUsers.filter(user => {
+        try {
+          // Handle potential undefined values
+          const normalizedName = (user.name || '').toLowerCase().trim();
+          const normalizedEmail = (user.email || '').toLowerCase().trim();
+          const nameMatch = normalizedName.includes(normalizedQuery);
+          const emailMatch = normalizedEmail.includes(normalizedQuery);
+          
+          // Also try matching the query as separate words (for multi-word names)
+          const queryWords = normalizedQuery.split(/\s+/);
+          const nameWords = normalizedName.split(/\s+/);
+          const wordMatch = queryWords.every((queryWord: string) => 
+            nameWords.some((nameWord: string) => nameWord.includes(queryWord))
+          );
+          
+          console.log(`User ${user.name}: nameMatch=${nameMatch}, emailMatch=${emailMatch}, wordMatch=${wordMatch}`);
+          return nameMatch || emailMatch || wordMatch;
+        } catch (filterError) {
+          console.error('Error filtering user:', user, filterError);
+          return false;
+        }
+      });
+      console.log('Filtered users:', filteredUsers);
+      
+      console.log('Setting suggestions:', filteredUsers);
       setSuggestions(filteredUsers);
     } catch (error) {
       console.error('Error loading users for mentions:', error);
+      // Show a user-friendly message in the UI
       setSuggestions([]);
     }
-  }, [projectId, currentUserId]);
+  }, [teamId, currentUserId]);
 
   // Handle text change and detect @ mentions
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value
     const cursorPosition = e.target.selectionStart
     
-    // Find @ mentions in the text (including multi-word usernames)
-    const mentionRegex = /@([^\s\n\r@]+(?:\s+[^\s\n\r@]+)*)/g
-    const foundMentions: string[] = []
-    let match
+    console.log('=== handleTextChange called ===');
+    console.log('newValue:', newValue);
+    console.log('cursorPosition:', cursorPosition);
     
-    while ((match = mentionRegex.exec(newValue)) !== null) {
-      foundMentions.push(match[1])
-    }
+    // Just pass the value to the parent - let them handle mention detection if needed
+    onChange(newValue, mentions)
     
-    setMentions(foundMentions)
-    onChange(newValue, foundMentions)
-    
-    // Check if we're typing a mention
+    // Check if we're currently typing a new mention
     const textBeforeCursor = newValue.substring(0, cursorPosition)
     const lastAtIndex = textBeforeCursor.lastIndexOf('@')
     
-    if (lastAtIndex !== -1) {
+    console.log('textBeforeCursor:', textBeforeCursor);
+    console.log('lastAtIndex:', lastAtIndex);
+    
+    // Only show suggestions if we found an @ and it's not too far from cursor
+    if (lastAtIndex !== -1 && cursorPosition - lastAtIndex <= 50) {
+      // Extract text after @ to use as search query
       const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1)
-      // Allow spaces in mentions, but stop at line breaks or special characters
-      const mentionMatch = textAfterAt.match(/^([^\s\n\r@]+(?:\s+[^\s\n\r@]+)*)/)
+      console.log('textAfterAt:', textAfterAt);
       
-      if (mentionMatch) {
-        setMentionQuery(mentionMatch[1])
+      // Check if we're at the beginning of the text or after a space
+      const isAtBeginning = lastAtIndex === 0
+      const charBeforeAt = lastAtIndex > 0 ? newValue.charAt(lastAtIndex - 1) : ''
+      const isAfterSpace = charBeforeAt === ' ' || charBeforeAt === '\n'
+      
+      // Check if there's a space in the current text after @ (meaning we're past a completed mention)
+      const hasSpaceAfterAt = textAfterAt.includes(' ')
+      
+      console.log('isAtBeginning:', isAtBeginning);
+      console.log('isAfterSpace:', isAfterSpace);
+      console.log('hasSpaceAfterAt:', hasSpaceAfterAt);
+      
+      // Show suggestions if we're at a valid position and haven't completed the current mention
+      if ((isAtBeginning || isAfterSpace) && !hasSpaceAfterAt) {
+        // Show suggestions with the text after @
+        setMentionQuery(textAfterAt)
         setMentionStartIndex(lastAtIndex)
         setShowSuggestions(true)
-        loadUsers(mentionMatch[1])
+        console.log('Calling loadUsers with query:', textAfterAt);
+        loadUsers(textAfterAt)
       } else {
+        console.log('Hiding suggestions - invalid position or past completed mention');
         setShowSuggestions(false)
       }
     } else {
+      console.log('Hiding suggestions - no @ found or too far from cursor');
       setShowSuggestions(false)
     }
   }
@@ -119,11 +162,21 @@ export default function MentionInput({
   const handleSuggestionSelect = (suggestion: MentionSuggestion) => {
     if (mentionStartIndex === -1) return
     
+    console.log('=== handleSuggestionSelect called ===');
+    console.log('Selected suggestion:', suggestion);
+    console.log('mentionStartIndex:', mentionStartIndex);
+    console.log('mentionQuery:', mentionQuery);
+    console.log('Current value:', value);
+    
     const beforeMention = value.substring(0, mentionStartIndex)
     const afterMention = value.substring(mentionStartIndex + mentionQuery.length + 1)
     const newValue = `${beforeMention}@${suggestion.name} ${afterMention}`
     
-    // Update mentions list
+    console.log('beforeMention:', beforeMention);
+    console.log('afterMention:', afterMention);
+    console.log('newValue after mention selection:', newValue);
+    
+    // Update mentions list - properly manage the mentions
     const newMentions = [...mentions.filter(m => m !== mentionQuery), suggestion.name]
     setMentions(newMentions)
     
@@ -132,11 +185,15 @@ export default function MentionInput({
     setMentionQuery('')
     setMentionStartIndex(-1)
     
-    // Focus back to textarea
+    // Focus back to textarea and set cursor position correctly
     setTimeout(() => {
-      textareaRef.current?.focus()
-      const newCursorPos = beforeMention.length + suggestion.name.length + 2
-      textareaRef.current?.setSelectionRange(newCursorPos, newCursorPos)
+      if (textareaRef.current) {
+        textareaRef.current.focus()
+        // Position cursor after the inserted mention and space
+        const newCursorPos = beforeMention.length + suggestion.name.length + 2 // +2 for @ and space
+        console.log('Setting cursor position to:', newCursorPos);
+        textareaRef.current.setSelectionRange(newCursorPos, newCursorPos)
+      }
     }, 0)
   }
 
@@ -169,6 +226,12 @@ export default function MentionInput({
       case 'Escape':
         setShowSuggestions(false)
         break
+      case 'Tab':
+        e.preventDefault()
+        if (suggestions[selectedIndex]) {
+          handleSuggestionSelect(suggestions[selectedIndex])
+        }
+        break
       default:
         onKeyPress?.(e)
     }
@@ -193,20 +256,10 @@ export default function MentionInput({
 
   // Render mentions in the text
   const renderTextWithMentions = (text: string) => {
-    const mentionRegex = /@(\w+)/g
-    const parts = text.split(mentionRegex)
-    
-    return parts.map((part, index) => {
-      if (index % 2 === 1) {
-        // This is a mention
-        return (
-          <span key={index} className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-1 rounded">
-            @{part}
-          </span>
-        )
-      }
-      return part
-    })
+    // This function is for displaying mentions with highlighting
+    // We'll use a simpler approach: just return the text as is
+    // The actual mention detection is handled by the handleTextChange function
+    return text;
   }
 
   return (
@@ -218,7 +271,7 @@ export default function MentionInput({
         onKeyDown={handleKeyDown}
         onBlur={onBlur}
         placeholder={placeholder}
-        className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none ${className}`}
+        className={`w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none min-h-[40px] ${className}`}
         rows={rows}
         disabled={disabled}
       />
@@ -260,7 +313,7 @@ export default function MentionInput({
             ))
           ) : (
             <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
-              No users found
+              No users found. Make sure you're in the same team as the person you're trying to mention.
             </div>
           )}
         </div>

@@ -23,6 +23,10 @@ type TeamMemberData = {
 }
 
 export const teamService = {
+  // Add cache as a module-level variable
+  _mentionableUsersCache: new Map<string, { users: any[], timestamp: number }>(),
+  _CACHE_DURATION: 5 * 60 * 1000, // 5 minutes cache
+
   // Teams
   async createTeam(teamData: CreateTeamData, createdBy: string, leaderName: string, leaderEmail: string, companyId?: string | null): Promise<string> {
     const teamRef = push(ref(database, 'teams'))
@@ -159,6 +163,9 @@ export const teamService = {
 
   async getTeamMembers(teamId: string): Promise<TeamMember[]> {
     try {
+      console.log('=== getTeamMembers called ===');
+      console.log('teamId:', teamId);
+      
       const membersRef = ref(database, 'teamMembers')
       const q = query(membersRef, orderByChild('teamId'), equalTo(teamId))
       const snapshot = await get(q)
@@ -167,11 +174,22 @@ export const teamService = {
         const members = snapshot.val()
         console.log('Team members raw data:', members)
         const result = Object.values(members)
-          .map((member: any) => ({
-            ...member,
-            joinedAt: new Date(member.joinedAt)
-          }))
-          .filter((member: TeamMember) => member.isActive)
+          .map((member: any) => {
+            // Ensure we're properly parsing the date
+            const joinedAt = member.joinedAt ? new Date(member.joinedAt) : new Date()
+            return {
+              ...member,
+              joinedAt
+            }
+          })
+          .filter((member: TeamMember) => {
+            console.log(`Checking member ${member.userName} (${member.userId}): isActive=${member.isActive}, teamId=${member.teamId}`);
+            // Additional check to ensure the member belongs to the correct team
+            const correctTeam = member.teamId === teamId;
+            const isActive = member.isActive !== false; // Default to true if undefined
+            console.log(`Member ${member.userName}: correctTeam=${correctTeam}, isActive=${isActive}`);
+            return correctTeam && isActive;
+          })
           .sort((a: TeamMember, b: TeamMember) => {
             // Leaders first, then by join date
             if (a.teamRole === 'leader' && b.teamRole !== 'leader') return -1
@@ -287,6 +305,26 @@ export const teamService = {
     const members = await this.getTeamMembers(teamId)
     const activeMembers = members.filter(member => member.isActive).length
     
+    // If no date range provided, calculate for current week (Sunday to Saturday)
+    let actualStartDate = startDate
+    let actualEndDate = endDate
+    
+    if (!startDate && !endDate) {
+      // Calculate current week (Sunday to Saturday)
+      const now = new Date()
+      const dayOfWeek = now.getDay() // 0 = Sunday, 1 = Monday, etc.
+      
+      // Start of week (Sunday)
+      actualStartDate = new Date(now)
+      actualStartDate.setDate(now.getDate() - dayOfWeek)
+      actualStartDate.setHours(0, 0, 0, 0)
+      
+      // End of week (Saturday)
+      actualEndDate = new Date(actualStartDate)
+      actualEndDate.setDate(actualStartDate.getDate() + 6)
+      actualEndDate.setHours(23, 59, 59, 999)
+    }
+    
     // Get tasks for all team members
     const { taskService } = await import('./taskService')
     const allTasks = await taskService.getTasks()
@@ -307,8 +345,8 @@ export const teamService = {
     const { projectService } = await import('./projectService')
     
     let timeEntries = []
-    if (startDate && endDate) {
-      timeEntries = await timeEntryService.getAllTimeEntriesByDateRange(startDate, endDate)
+    if (actualStartDate && actualEndDate) {
+      timeEntries = await timeEntryService.getAllTimeEntriesByDateRange(actualStartDate, actualEndDate)
     } else {
       timeEntries = await timeEntryService.getAllTimeEntries()
     }
@@ -459,102 +497,79 @@ export const teamService = {
     return member?.teamRole || null
   },
 
-  // Test function to debug team-based mentioning
-  async testMentioningFunctionality(projectId: string, currentUserId: string): Promise<void> {
-    console.log('=== Testing Mentioning Functionality ===')
-    console.log('Project ID:', projectId)
-    console.log('Current User ID:', currentUserId)
-    
-    try {
-      // Get project
-      const { projectService } = await import('./projectService')
-      const project = await projectService.getProjectById(projectId)
-      console.log('Project:', project)
-      
-      // Get current user
-      const { userService } = await import('./userService')
-      const currentUser = await userService.getUserById(currentUserId)
-      console.log('Current User:', currentUser)
-      
-      // Get mentionable users
-      const mentionableUsers = await this.getMentionableUsers(projectId, currentUserId)
-      console.log('Mentionable Users:', mentionableUsers)
-      
-      console.log('=== End Testing Mentioning Functionality ===')
-    } catch (error) {
-      console.error('Error in testMentioningFunctionality:', error)
-    }
-  },
-
   // Get users who can be mentioned in a specific project context
-  async getMentionableUsers(projectId: string, currentUserId: string): Promise<any[]> {
+  async getMentionableUsers(teamId: string, currentUserId: string): Promise<any[]> {
     try {
-      // Get all users first
-      const { userService } = await import('./userService');
-      const allUsers = await userService.getAllUsers();
+      // Check cache first
+      const cacheKey = `${teamId}-${currentUserId}`;
+      const cached = this._mentionableUsersCache.get(cacheKey);
       
-      // Get the project to determine which company it belongs to
-      const { projectService } = await import('./projectService');
-      const project = await projectService.getProjectById(projectId);
-      
-      // If no project found, return empty array
-      if (!project) {
-        console.log('No project found for ID:', projectId);
-        return [];
+      if (cached && Date.now() - cached.timestamp < this._CACHE_DURATION) {
+        console.log('Returning cached mentionable users');
+        return cached.users;
       }
       
+      console.log('=== getMentionableUsers called ===');
+      console.log('teamId:', teamId);
+      console.log('currentUserId:', currentUserId);
+      
       // Get the current user to determine their team
+      const { userService } = await import('./userService');
       const currentUser = await userService.getUserById(currentUserId);
+      console.log('Current user:', currentUser);
+      
       if (!currentUser) {
         console.log('No current user found for ID:', currentUserId);
         return [];
       }
       
-      console.log('Current user:', currentUser);
-      
       // If user has a team, get team members
-      let mentionableUsers = [];
-      if (currentUser.teamId) {
-        console.log('User has team ID:', currentUser.teamId);
-        // Get all members of the current user's team
-        const teamMembers = await this.getTeamMembers(currentUser.teamId);
-        console.log('Team members:', teamMembers);
-        
-        // Filter users to only include team members (excluding the current user)
-        mentionableUsers = allUsers
-          .filter(user => {
-            const isNotCurrentUser = user.id !== currentUserId;
-            const isActive = user.isActive;
-            const isTeamMember = teamMembers.some(member => member.userId === user.id);
-            console.log(`User ${user.name}: notCurrent=${isNotCurrentUser}, active=${isActive}, teamMember=${isTeamMember}`);
-            return isNotCurrentUser && isActive && isTeamMember;
-          })
-          .map(user => ({
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role
-          }));
-        console.log('Mentionable users (team-based):', mentionableUsers);
+      let mentionableUsers: any[] = [];
+      // Use teamId as the primary team ID
+      const effectiveTeamId = teamId || currentUser.teamId;
+      
+      if (effectiveTeamId) {
+        console.log('Using effective team ID:', effectiveTeamId);
+        try {
+          // Get team members directly - this is what we'll use for mentions
+          // since we can't read individual user records due to Firebase permissions
+          const teamMembers = await this.getTeamMembers(effectiveTeamId);
+          console.log('Team members:', teamMembers);
+          
+          // Filter out the current user and inactive members, then map to the expected format
+          mentionableUsers = teamMembers
+            .filter(member => {
+              const isNotCurrentUser = member.userId !== currentUserId;
+              const isActive = member.isActive !== false;
+              console.log(`Team member ${member.userName}: isNotCurrentUser=${isNotCurrentUser}, isActive=${isActive}`);
+              return isNotCurrentUser && isActive;
+            })
+            .map(member => ({
+              id: member.userId,
+              name: member.userName,
+              email: member.userEmail,
+              role: member.teamRole
+            }));
+          
+          console.log('Mentionable users (team-based):', mentionableUsers);
+        } catch (error) {
+          console.error('Error getting team members:', error);
+          mentionableUsers = [];
+        }
       } else {
-        console.log('User has no team, falling back to company-based filtering');
-        // If user has no team, fall back to company-based filtering
-        const projectCompanyId = (project as any).companyId;
-        mentionableUsers = allUsers
-          .filter(user => 
-            user.id !== currentUserId &&
-            user.isActive &&
-            user.companyId === projectCompanyId
-          )
-          .map(user => ({
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role
-          }));
-        console.log('Mentionable users (company-based):', mentionableUsers);
+        console.log('No team context available, returning empty array');
+        console.log('currentUser.teamId:', currentUser.teamId);
+        console.log('teamId:', teamId);
+        mentionableUsers = [];
       }
       
+      // Cache the results
+      this._mentionableUsersCache.set(cacheKey, {
+        users: mentionableUsers,
+        timestamp: Date.now()
+      });
+      
+      console.log('Final mentionable users:', mentionableUsers);
       return mentionableUsers;
     } catch (error) {
       console.error('Error getting mentionable users:', error);

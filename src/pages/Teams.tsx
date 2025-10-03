@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { 
   Plus, 
   Search, 
@@ -28,10 +29,12 @@ import { formatSecondsToHHMMSS } from '../utils'
 
 export default function Teams() {
   const { currentUser } = useAuth()
+  const navigate = useNavigate()
   const [teams, setTeams] = useState<Team[]>([])
   const [teamMembers, setTeamMembers] = useState<{ [teamId: string]: TeamMember[] }>({})
   const [teamStats, setTeamStats] = useState<{ [teamId: string]: TeamStats }>({})
   const [loading, setLoading] = useState(true)
+  const [chartLoading, setChartLoading] = useState(false) // Add chart loading state
   const [searchTerm, setSearchTerm] = useState('')
   const [showTeamModal, setShowTeamModal] = useState(false)
   const [showMemberModal, setShowMemberModal] = useState(false)
@@ -61,9 +64,13 @@ export default function Teams() {
 
   useEffect(() => {
     if (teams.length > 0) {
-      loadTeamStats()
+      // Only load stats automatically when the component first loads or when teams change
+      // Don't load stats automatically when time filter changes
+      if (Object.keys(teamStats).length === 0) {
+        loadTeamStats()
+      }
     }
-  }, [teams, timeFilter, customStartDate, customEndDate])
+  }, [teams])
 
   const loadData = async () => {
     setLoading(true)
@@ -91,6 +98,26 @@ export default function Teams() {
 
   const loadTeamStats = async () => {
     try {
+      // Load stats for the current week by default (no date range specified)
+      const statsData: { [teamId: string]: TeamStats } = {}
+
+      for (const team of teams) {
+        const stats = await teamService.getTeamStats(team.id)
+        statsData[team.id] = stats
+      }
+
+      setTeamStats(statsData)
+    } catch (error) {
+      console.error('Error loading team stats:', error)
+    }
+  }
+
+  // Create a separate function for loading chart data with loading state
+  const loadChartStats = async () => {
+    if (!showTimeChart) return;
+    
+    setChartLoading(true)
+    try {
       const { startDate, endDate } = getDateRange()
       const statsData: { [teamId: string]: TeamStats } = {}
 
@@ -102,6 +129,8 @@ export default function Teams() {
       setTeamStats(statsData)
     } catch (error) {
       console.error('Error loading team stats:', error)
+    } finally {
+      setChartLoading(false)
     }
   }
 
@@ -334,6 +363,10 @@ export default function Teams() {
     }
   }, [openDropdown])
 
+  const handleApplyFilters = () => {
+    loadChartStats()
+  }
+
   const filteredTeams = teams.filter(team => {
     // Search filter
     const matchesSearch = team.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -490,6 +523,27 @@ export default function Teams() {
               </div>
             )}
 
+            {/* Apply Filter Button */}
+            {showTimeChart && (
+              <button
+                onClick={handleApplyFilters}
+                disabled={chartLoading}
+                className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                {chartLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Loading...</span>
+                  </>
+                ) : (
+                  <>
+                    <Filter className="h-4 w-4" />
+                    <span>Apply Filter</span>
+                  </>
+                )}
+              </button>
+            )}
+
             {/* Chart Toggle */}
             <button
               onClick={() => setShowTimeChart(!showTimeChart)}
@@ -528,7 +582,7 @@ export default function Teams() {
       </div>
 
       {/* Time Chart */}
-      {showTimeChart && chartData.labels.length > 0 && (
+      {showTimeChart && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6" ref={chartRef}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Team Time Rendered</h3>
@@ -543,11 +597,32 @@ export default function Teams() {
               </div>
             </div>
           </div>
-          <SimpleChart
-            data={chartData}
-            type="bar"
-            height={300}
-          />
+          {chartLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+                <p className="text-gray-600 dark:text-gray-400">Loading chart data...</p>
+              </div>
+            </div>
+          ) : chartData.labels.length > 0 ? (
+            <SimpleChart
+              data={chartData}
+              type="bar"
+              height={300}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <BarChart3 className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">
+                  No time data available for the selected period
+                </p>
+                <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+                  Try selecting a different time period or check back later
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -776,8 +851,8 @@ export default function Teams() {
                         ) : canViewTeamDetails(team) ? (
                           <button
                             onClick={() => {
-                              // Future: Navigate to team details page
-                              console.log('View team details:', team.id);
+                              // Navigate to team details page
+                              navigate(`/teams/${team.id}`);
                               closeDropdown();
                             }}
                             className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center space-x-2"
@@ -919,8 +994,8 @@ export default function Teams() {
                   {(isLeader || isUserSuperAdmin()) && (
                     <button
                       onClick={() => {
-                        // Future: Navigate to team details page
-                        console.log('View team details:', team.id);
+                        // Navigate to team details page
+                        navigate(`/teams/${team.id}`);
                       }}
                       className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center space-x-1"
                     >
@@ -955,3 +1030,4 @@ export default function Teams() {
     </div>
   )
 }
+

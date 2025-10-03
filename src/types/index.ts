@@ -323,7 +323,7 @@ export interface MentionNotification {
   message: string
   mentionedBy: string
   mentionedByName: string
-  contextType: 'comment' | 'note' | 'task'
+  contextType: 'comment' | 'note' | 'task' | 'message'
   contextId: string
   contextTitle: string
   taskId?: string

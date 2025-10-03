@@ -116,6 +116,11 @@ export default function TeamModal({ isOpen, onClose, onSuccess, team, onAddMembe
           leaderId: currentUser.uid,
           color: formData.color
         }
+        
+        // Ensure description is undefined if empty
+        if (!createData.description) {
+          delete createData.description;
+        }
         await teamService.createTeam(
           createData, 
           currentUser.uid, 

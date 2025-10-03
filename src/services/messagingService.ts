@@ -1,10 +1,18 @@
 import { ref, push, set, get, query, orderByChild, equalTo, limitToLast, onValue, update, remove } from 'firebase/database'
 import { database } from '../config/firebase'
 import { Message, CreateMessageData, TeamChat } from '../types'
+// Added import for mention notification service
+import { mentionNotificationService } from './mentionNotificationService'
 
 export const messagingService = {
   // Send a message to a team
-  async sendMessage(messageData: CreateMessageData, senderId: string, senderName: string, senderEmail: string): Promise<string> {
+  async sendMessage(
+    messageData: CreateMessageData, 
+    senderId: string, 
+    senderName: string, 
+    senderEmail: string,
+    mentions?: string[] // Add mentions parameter
+  ): Promise<string> {
     // Verify user has access to this team before sending
     const hasAccess = await this.verifyTeamAccess(senderId, messageData.teamId)
     if (!hasAccess) {
@@ -56,6 +64,31 @@ export const messagingService = {
     }
 
     await set(messageRef, messageToSave)
+    
+    // Process mentions in the message content
+    try {
+      console.log('Processing mentions in message:', {
+        content: messageData.content,
+        senderId,
+        senderName,
+        teamId: messageData.teamId,
+        mentions
+      });
+      await mentionNotificationService.processMentions(
+        messageData.content,
+        senderId,
+        senderName,
+        'message', // Context type for messages
+        messageRef.key!, // Context ID
+        'a message', // More specific context title
+        undefined, // Task ID (not applicable for general messages)
+        messageData.teamId, // Using teamId as projectId context
+        mentions // Pass explicit mentions
+      )
+    } catch (error) {
+      console.error('Error processing mentions in message:', error)
+      // Don't throw error here as the message was sent successfully
+    }
 
     return messageRef.key!
   },
@@ -161,6 +194,11 @@ export const messagingService = {
       isEdited: true,
       editedAt: new Date().toISOString()
     })
+    
+    // TODO: Process mentions in edited message if needed
+    // For now, we're not processing mentions in edited messages to avoid spam
+    // In a real implementation, you might want to compare old and new content
+    // to only notify newly mentioned users
   },
 
   // Delete a message

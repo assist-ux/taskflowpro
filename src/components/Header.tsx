@@ -26,6 +26,9 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const { isDarkMode, toggleDarkMode } = useTheme()
   const navigate = useNavigate()
 
+  // Get unread mention count
+  const unreadMentionCount = notifications.filter(n => n.type === 'mention' && !n.isRead).length
+
   // Comprehensive updates data covering all implemented features
   const updates = [
     {
@@ -422,6 +425,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
               {unreadCount > 0 && (
                 <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
               )}
+              {unreadMentionCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-5 w-5 bg-purple-600 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
+                  {unreadMentionCount > 9 ? '9+' : unreadMentionCount}
+                </span>
+              )}
             </button>
 
             {/* Notifications Dropdown */}
@@ -448,7 +456,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                           onClick={() => handleNotificationClick(notification.id, notification.actionUrl)}
                           className={`w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-start space-x-3 ${
                             !notification.isRead ? 'bg-blue-50 dark:bg-blue-900' : ''
-                          }`}
+                          } ${notification.type === 'mention' ? 'border-l-4 border-l-purple-500' : ''}`}
                         >
                           <div className={`flex-shrink-0 mt-1 h-2 w-2 rounded-full ${
                             notification.type === 'error' ? 'bg-red-500' :
@@ -485,6 +493,13 @@ export default function Header({ onMenuClick }: HeaderProps) {
                     </div>
                   )}
                 </div>
+                
+                {/* Show mention notification count */}
+                {unreadCount > 0 && (
+                  <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-700 bg-purple-50 dark:bg-purple-900 text-xs text-purple-700 dark:text-purple-200 font-medium">
+                    {notifications.filter(n => n.type === 'mention' && !n.isRead).length} unread mentions
+                  </div>
+                )}
               </div>
             )}
           </div>

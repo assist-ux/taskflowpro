@@ -16,8 +16,8 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
   const [elapsedTime, setElapsedTime] = useState(0)
   const [currentEntry, setCurrentEntry] = useState<TimeEntry | null>(null)
   const [projects, setProjects] = useState<Project[]>([])
-  const [clients, setClients] = useState<Client[]>([]) // Add clients state
-  const [selectedClientId, setSelectedClientId] = useState<string>('') // Add selected client state
+  const [clients, setClients] = useState<Client[]>([])
+  const [selectedClientId, setSelectedClientId] = useState<string>('')
   const [formData, setFormData] = useState<CreateTimeEntryData>({
     projectId: '',
     description: '',
@@ -61,20 +61,33 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
           const now = new Date()
           const elapsed = Math.floor((now.getTime() - startTime.getTime()) / 1000)
           setElapsedTime(Math.max(0, elapsed))
+          
+          // Set the selected client from the running entry
+          if (runningEntry.clientId) {
+            setSelectedClientId(runningEntry.clientId)
+          }
+          
+          // Update form data from the running entry
+          setFormData(prev => ({
+            projectId: runningEntry.projectId || prev.projectId || '',
+            description: runningEntry.description || prev.description || '',
+            isBillable: runningEntry.isBillable !== undefined ? runningEntry.isBillable : (prev.isBillable || false),
+            tags: runningEntry.tags || prev.tags || []
+          }))
         } else {
           // No running entry found - timer was stopped
           setCurrentEntry(null)
           setIsRunning(false)
           setElapsedTime(0)
           startTimeRef.current = null
-          // Reset form for next entry
+          // Reset all form data for next entry
+          setSelectedClientId('')
           setFormData({
             projectId: '',
             description: '',
             isBillable: false,
             tags: []
           })
-          setSelectedClientId('') // Reset client selection
         }
       })
     }
@@ -107,6 +120,16 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
     }
   }, [isRunning])
 
+  // Update document title with running time
+  useEffect(() => {
+    if (isRunning) {
+      document.title = `${formatElapsedTime(elapsedTime)} - TaskFlowPro`
+    } else {
+      // Reset to default title when timer is not running
+      document.title = 'Task Flow Pro - Time Tracking & Project Management'
+    }
+  }, [isRunning, elapsedTime])
+
   const loadInitialData = async () => {
     if (!currentUser) return
     
@@ -128,32 +151,8 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
     }
   }
 
-  // Effect to reset project when client changes
-  useEffect(() => {
-    if (selectedClientId) {
-      // If a client is selected, reset project selection
-      setFormData(prev => ({ ...prev, projectId: '' }))
-    }
-  }, [selectedClientId])
-
   const startTimer = async () => {
     if (!currentUser) return
-    
-    // Validate required fields before starting
-    if (!selectedClientId) {
-      setError('Please select a client before starting the timer')
-      return
-    }
-    
-    if (!formData.projectId) {
-      setError('Please select a project before starting the timer')
-      return
-    }
-    
-    if (!formData.description || !formData.description.trim()) {
-      setError('Please enter a description before starting the timer')
-      return
-    }
     
     setLoading(true)
     setError('')
@@ -326,9 +325,9 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
           {!isRunning ? (
             <button
               onClick={startTimer}
-              disabled={loading || isRunning || !selectedClientId || !formData.projectId || !formData.description || !formData.description.trim()}
+              disabled={loading || isRunning}
               className="btn-primary flex items-center space-x-2 px-8 py-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              title={!selectedClientId || !formData.projectId || !formData.description || !formData.description.trim() ? "Please fill in all required fields" : isRunning ? "Timer is already running" : "Start tracking time"}
+              title={isRunning ? "Timer is already running" : "Start tracking time"}
             >
               <Play className="h-5 w-5" />
               <span>Start Timer</span>
@@ -403,18 +402,17 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
         </div>
       )}
 
-      {/* Timer Setup Form */}
-      <div className="card">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          {isRunning ? 'Complete Timer Details' : 'Timer Setup'}
-        </h3>
-        {isRunning && (
+      {/* Timer Setup Form - Hidden by default, shown when timer is running */}
+      {isRunning && (
+        <div className="card">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+            Complete Timer Details
+          </h3>
           <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
             <p className="text-sm text-yellow-800 dark:text-yellow-200">
               <strong>Timer is running!</strong> Please fill in all details before stopping.
             </p>
           </div>
-        )}
           <div className="space-y-4">
             {/* Client Selection */}
             <div>
@@ -429,8 +427,22 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
                   value={selectedClientId}
                   onChange={(e) => {
                     setSelectedClientId(e.target.value)
-                    // Reset project selection when client changes
-                    setFormData(prev => ({ ...prev, projectId: '' }))
+                    // Don't automatically reset project selection
+                    // Only reset if the selected project is not valid for the new client
+                    const newClientId = e.target.value
+                    if (newClientId && formData.projectId) {
+                      // Check if the currently selected project belongs to the new client
+                      const projectBelongsToClient = projects.some(
+                        p => p.id === formData.projectId && p.clientId === newClientId
+                      )
+                      if (!projectBelongsToClient) {
+                        // Only reset project if it doesn't belong to the new client
+                        setFormData(prev => ({ ...prev, projectId: '' }))
+                      }
+                    } else if (!newClientId) {
+                      // If no client is selected, reset project selection
+                      setFormData(prev => ({ ...prev, projectId: '' }))
+                    }
                   }}
                   className="input pl-10"
                   required
@@ -535,15 +547,38 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
                 type="checkbox"
                 id="isBillable"
                 checked={formData.isBillable || false}
-                onChange={(e) => setFormData(prev => ({ ...prev, isBillable: e.target.checked }))}
+                onChange={async (e) => {
+                  const newBillableValue = e.target.checked;
+                  setFormData(prev => ({ ...prev, isBillable: newBillableValue }));
+                  
+                  // If there's a current running entry, update it immediately
+                  if (currentEntry) {
+                    try {
+                      await timeEntryService.updateTimeEntry(currentEntry.id, {
+                        isBillable: newBillableValue
+                      });
+                    } catch (error) {
+                      console.error('Error updating billable status:', error);
+                      // Revert the local state if the update fails
+                      setFormData(prev => ({ ...prev, isBillable: !newBillableValue }));
+                    }
+                  }
+                }}
                 className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
               />
               <label htmlFor="isBillable" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 This is billable time
               </label>
+              {isRunning && formData.isBillable && (
+                <span className="ml-2 inline-flex items-center px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-medium rounded-full">
+                  <DollarSign className="h-3 w-3 mr-1" />
+                  Billable
+                </span>
+              )}
             </div>
           </div>
         </div>
+      )}
 
 
     </div>

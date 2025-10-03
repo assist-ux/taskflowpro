@@ -3,7 +3,7 @@ import { X, Mail, Phone, Building, MapPin, AlertCircle, Clock, Calendar, Globe }
 import { Client, CreateClientData, ClientType } from '../../types'
 import { projectService } from '../../services/projectService'
 import { useAuth } from '../../contexts/AuthContext'
-import { canAccessFeature } from '../../utils/permissions'
+import { canAccessFeature, canEditHourlyRates } from '../../utils/permissions'
 import { countries, timezones } from '../../data/countriesAndTimezones'
 
 interface ClientModalProps {
@@ -31,6 +31,7 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Clie
   const [error, setError] = useState('')
 
   const isEdit = !!client
+  const canEditRates = currentUser?.role ? canEditHourlyRates(currentUser.role) : false
 
   useEffect(() => {
     if (isOpen) {
@@ -332,17 +333,24 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Clie
                 name="hourlyRate"
                 value={formData.hourlyRate || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, hourlyRate: parseFloat(e.target.value) || 0 }))}
-                className="input pl-10"
+                className={`input pl-10 ${!canEditRates ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''}`}
                 placeholder="25.00"
                 step="0.01"
                 min="0"
                 required
-                disabled={loading}
+                disabled={loading || !canEditRates}
               />
               <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">$</span>
             </div>
-            <p className="text-sm text-gray-500 mt-1">Rate per hour for this client</p>
-            </div>
+            <p className="text-sm text-gray-500 mt-1">
+              Rate per hour for this client
+              {!canEditRates && (
+                <span className="block text-xs text-gray-400 mt-1">
+                  Only HR and Super Admin users can edit hourly rates
+                </span>
+              )}
+            </p>
+          </div>
 
           {/* Custom Hours Per Week */}
           {formData.clientType === 'custom' && (
