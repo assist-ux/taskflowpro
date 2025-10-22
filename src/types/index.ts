@@ -215,7 +215,9 @@ export interface ReportFilters {
   startDate: Date
   endDate: Date
   projectIds?: string[]
+  clientIds?: string[] // Add clientIds filter
   billableOnly?: boolean
+  nonBillableOnly?: boolean
   userId?: string
 }
 
@@ -486,6 +488,7 @@ export interface Team {
   createdBy: string
   createdAt: Date
   updatedAt: Date
+  unreadCount?: number // Add this field
 }
 
 export interface TeamMember {
@@ -547,6 +550,13 @@ export interface TeamStats {
   }[]
 }
 
+// Add this new interface for tracking last read timestamps
+export interface LastReadTimestamp {
+  userId: string
+  teamId: string
+  timestamp: Date
+}
+
 // Messaging Types
 export interface Message {
   id: string
@@ -595,6 +605,19 @@ export interface CreateMessageData {
   type?: 'text' | 'system' | 'file'
   replyTo?: string
   attachments?: Omit<MessageAttachment, 'id' | 'uploadedAt'>[]
+}
+
+// Add this new interface for team messages
+export interface TeamMessage {
+  id: string
+  teamId: string
+  senderId: string
+  senderName: string
+  senderEmail: string
+  content: string
+  timestamp: Date
+  isEdited: boolean
+  editedAt?: Date
 }
 
 // Feedback Types
@@ -778,4 +801,27 @@ export interface CalendarFilters {
   tags?: string[]
   showTasks?: boolean
   showTimeEntries?: boolean
+}
+
+export interface Company {
+  id: string
+  name: string
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+// Add the new PDFSettings interface
+export interface PDFSettings {
+  companyName: string
+  logoUrl: string
+  primaryColor: string
+  secondaryColor: string
+  showPoweredBy: boolean
+  customFooterText: string
+}
+
+// Update the Company interface to include PDF settings
+export interface CompanyWithPDFSettings extends Company {
+  pdfSettings?: PDFSettings
 }

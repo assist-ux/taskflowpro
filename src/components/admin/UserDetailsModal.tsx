@@ -77,6 +77,8 @@ export default function UserDetailsModal({ isOpen, onClose, user, allTimeEntries
     }
 
     let filtered: TimeEntry[] = []
+    let startDate: Date
+    let endDate: Date
 
     switch (filterPeriod) {
       case 'all':
@@ -132,37 +134,29 @@ export default function UserDetailsModal({ isOpen, onClose, user, allTimeEntries
       }
       case 'custom': {
         if (customStartDate && customEndDate) {
-          const startDate = new Date(customStartDate)
-          const endDate = new Date(customEndDate)
+          startDate = new Date(customStartDate)
+          endDate = new Date(customEndDate)
           
-          // Validate dates and ensure start is before end
-          if (!isValid(startDate)) {
-            setDateRangeError('Invalid start date')
-            filtered = userTimeEntries
-          } else if (!isValid(endDate)) {
-            setDateRangeError('Invalid end date')
-            filtered = userTimeEntries
-          } else if (startDate > endDate) {
-            setDateRangeError('Start date must be before end date')
-            filtered = userTimeEntries
-          } else {
-            setDateRangeError('')
-            try {
-              filtered = userTimeEntries.filter(entry => {
-                const dateField = entry.createdAt
-                if (!dateField) return false
-                const entryDate = typeof dateField === 'string' ? parseISO(dateField) : new Date(dateField)
-                return isValid(entryDate) && isWithinInterval(entryDate, { start: startDate, end: endDate })
-              })
-            } catch (error) {
-              console.error('Error filtering custom date range:', error)
-              setDateRangeError('Error filtering date range')
-              filtered = userTimeEntries
-            }
-          }
+          // Fix for date range filtering: set end date to end of day to include all entries for that day
+          endDate.setHours(23, 59, 59, 999)
+          
+          filtered = userTimeEntries.filter(entry => {
+            const dateField = entry.createdAt
+            if (!dateField) return false
+            const entryDate = typeof dateField === 'string' ? parseISO(dateField) : new Date(dateField)
+            return isValid(entryDate) && entryDate >= startDate && entryDate <= endDate
+          })
         } else {
-          setDateRangeError('')
-          filtered = userTimeEntries
+          // Fallback to last 7 days if no custom dates
+          endDate = new Date()
+          startDate = addDays(endDate, -6)
+          
+          filtered = userTimeEntries.filter(entry => {
+            const dateField = entry.createdAt
+            if (!dateField) return false
+            const entryDate = typeof dateField === 'string' ? parseISO(dateField) : new Date(dateField)
+            return isValid(entryDate) && entryDate >= startDate && entryDate <= endDate
+          })
         }
         break
       }
@@ -325,6 +319,9 @@ export default function UserDetailsModal({ isOpen, onClose, user, allTimeEntries
         if (customStartDate && customEndDate) {
           startDate = new Date(customStartDate)
           endDate = new Date(customEndDate)
+          
+          // Fix for date range filtering: set end date to end of day to include all entries for that day
+          endDate.setHours(23, 59, 59, 999)
         } else {
           // Fallback to last 7 days if no custom dates
           endDate = new Date()

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Eye, EyeOff, Mail, Lock, User, AlertCircle, CheckCircle } from 'lucide-react'
+import { Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { SignupCredentials } from '../../types'
 import { getRoleDisplayName, getRoleDescription } from '../../utils/permissions'
@@ -96,7 +96,7 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
     <div className="w-full max-w-md mx-auto">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h1>
-        <p className="text-gray-600">Join Task Flow Pro and start tracking your time</p>
+        <p className="text-gray-600">Join NexiFlow and start tracking your time</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -105,22 +105,17 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
           <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
             Full Name
           </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <User className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              required
-              value={credentials.name}
-              onChange={handleInputChange}
-              className="input pl-10"
-              placeholder="Enter your full name"
-              disabled={loading}
-            />
-          </div>
+          <input
+            id="name"
+            name="name"
+            type="text"
+            required
+            value={credentials.name}
+            onChange={handleInputChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="Enter your full name"
+            disabled={loading}
+          />
         </div>
 
         {/* Email Field */}
@@ -128,22 +123,17 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
           <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
             Email Address
           </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Mail className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              value={credentials.email}
-              onChange={handleInputChange}
-              className="input pl-10"
-              placeholder="Enter your email"
-              disabled={loading}
-            />
-          </div>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            required
+            value={credentials.email}
+            onChange={handleInputChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="Enter your email"
+            disabled={loading}
+          />
         </div>
 
         {/* Role Selection */}
@@ -156,7 +146,7 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
             name="role"
             value={credentials.role}
             onChange={handleInputChange}
-            className="input"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             disabled={loading}
           >
             <option value="employee">Employee</option>
@@ -174,9 +164,6 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
             Password
           </label>
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Lock className="h-5 w-5 text-gray-400" />
-            </div>
             <input
               id="password"
               name="password"
@@ -184,7 +171,7 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
               required
               value={credentials.password}
               onChange={handleInputChange}
-              className="input pl-10 pr-10"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10"
               placeholder="Create a strong password"
               disabled={loading}
             />
@@ -253,9 +240,6 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
             Confirm Password
           </label>
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Lock className="h-5 w-5 text-gray-400" />
-            </div>
             <input
               id="confirmPassword"
               name="confirmPassword"
@@ -263,7 +247,7 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
               required
               value={credentials.confirmPassword}
               onChange={handleInputChange}
-              className="input pl-10 pr-10"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10"
               placeholder="Confirm your password"
               disabled={loading}
             />

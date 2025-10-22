@@ -1,310 +1,216 @@
-import { MentionNotification } from '../types'
 import { database } from '../config/firebase'
-import { ref, push, get, query, orderByChild, equalTo, update } from 'firebase/database'
+import { ref, get, child, set, push, onValue, update } from 'firebase/database'
+import { MentionNotification } from '../types'
 
-class MentionNotificationService {
-  // Create a mention notification
-  async createMentionNotification(
+export class MentionNotificationService {
+  /**
+   * Create a mention notification for a user
+   * @param mentionedUserId - The ID of the user who was mentioned
+   * @param mentionedByName - The name of the user who mentioned them
+   * @param contextType - The type of context where the mention occurred
+   * @param contextTitle - The title of the context (e.g., task title, message content)
+   * @param contextId - The ID of the context
+   * @param projectId - The project ID (optional)
+   * @param taskId - The task ID (optional)
+   */
+  static async createMentionNotification(
     mentionedUserId: string,
-    mentionedBy: string,
     mentionedByName: string,
-    contextType: 'comment' | 'note' | 'task' | 'message',
-    contextId: string,
+    contextType: 'comment' | 'note' | 'message' | 'task',
     contextTitle: string,
-    taskId?: string,
-    projectId?: string
+    contextId: string,
+    projectId?: string,
+    taskId?: string
   ): Promise<void> {
     try {
-      const actionUrl = this.generateActionUrl(contextType, contextId, taskId, projectId)
+      // Format the notification message based on context type
+      let message = ''
+      let contextDescription = ''
+      let actionUrl = ''
       
-      // Create more specific messages based on context
-      let message = '';
       switch (contextType) {
         case 'comment':
-          message = `${mentionedByName} mentioned you in a comment`;
-          break;
+          message = `${mentionedByName} mentioned you in a comment`
+          contextDescription = 'a comment'
+          actionUrl = taskId ? `/tasks/${taskId}` : '/tasks'
+          break
         case 'note':
-          message = `${mentionedByName} mentioned you in notes`;
-          break;
-        case 'task':
-          message = `${mentionedByName} mentioned you in a task`;
-          break;
+          message = `${mentionedByName} mentioned you in notes`
+          contextDescription = 'notes'
+          actionUrl = taskId ? `/tasks/${taskId}` : '/tasks'
+          break
         case 'message':
-          message = `${mentionedByName} mentioned you in a message`;
-          break;
+          message = `${mentionedByName} mentioned you in a message`
+          contextDescription = 'a message'
+          actionUrl = '/messages'
+          break
+        case 'task':
+          message = `${mentionedByName} mentioned you in a task`
+          contextDescription = 'a task'
+          actionUrl = taskId ? `/tasks/${taskId}` : '/tasks'
+          break
         default:
-          message = `${mentionedByName} mentioned you`;
+          message = `${mentionedByName} mentioned you`
+          contextDescription = 'a context'
+          actionUrl = '/tasks'
       }
       
-      const notification: Omit<MentionNotification, 'id'> = {
+      // Create the notification object
+      const notificationData: Omit<MentionNotification, 'id' | 'createdAt'> = {
         type: 'mention',
-        title: `${mentionedByName} mentioned you`,
-        message,
-        mentionedBy,
-        mentionedByName,
-        contextType,
-        contextId,
-        contextTitle,
+        title: 'You were mentioned',
+        message: message,
+        mentionedBy: mentionedByName,
+        mentionedByName: mentionedByName,
+        contextType: contextType,
+        contextId: contextId,
+        contextTitle: contextTitle,
+        projectId: projectId,
+        taskId: taskId,
         isRead: false,
-        createdAt: new Date(),
-        actionUrl
+        actionUrl: actionUrl
       }
-
-      // Only add optional fields if they have values
-      if (taskId) {
-        (notification as any).taskId = taskId
-      }
-      if (projectId) {
-        (notification as any).projectId = projectId
-      }
-
-      const notificationsRef = ref(database, 'mentionNotifications')
+      
+      // Store the notification in Firebase under the mentioned user's notifications
+      const notificationsRef = ref(database, `mentionNotifications/${mentionedUserId}`)
       const newNotificationRef = push(notificationsRef)
-      
-      // Create a clean object for Firebase update without undefined values
-      const notificationToSave: any = {
-        ...notification,
+      await set(newNotificationRef, {
+        ...notificationData,
         id: newNotificationRef.key,
-        mentionedUserId, // Store the user ID for querying
-        createdAt: notification.createdAt.toISOString()
-      }
+        createdAt: new Date().toISOString()
+      })
       
-      await update(newNotificationRef, notificationToSave)
+      console.log('Mention notification created for user:', mentionedUserId, notificationData)
       
-      console.log('Mention notification created:', {
-        mentionedUserId,
-        mentionedBy,
-        mentionedByName,
-        contextType,
-        contextId,
-        contextTitle,
-        message
-      });
     } catch (error) {
       console.error('Error creating mention notification:', error)
-      throw error
     }
   }
-
-  // Get mention notifications for a user
-  async getMentionNotifications(userId: string): Promise<MentionNotification[]> {
+  
+  /**
+   * Get mention notifications for a user
+   * @param userId - The ID of the user to get notifications for
+   */
+  static async getMentionNotifications(userId: string): Promise<MentionNotification[]> {
     try {
-      const notificationsRef = ref(database, 'mentionNotifications')
-      const q = query(notificationsRef, orderByChild('mentionedUserId'), equalTo(userId))
-      
-      const snapshot = await get(q)
-      const notifications: MentionNotification[] = []
+      const notificationsRef = ref(database, `mentionNotifications/${userId}`)
+      const snapshot = await get(notificationsRef)
       
       if (snapshot.exists()) {
-        snapshot.forEach((childSnapshot) => {
-          const data = childSnapshot.val()
-          notifications.push({
-            id: childSnapshot.key!,
-            ...data,
-            createdAt: new Date(data.createdAt)
-          } as MentionNotification)
-        })
+        const notifications = snapshot.val()
+        return Object.values(notifications)
+          .map((notification: any) => ({
+            ...notification,
+            createdAt: new Date(notification.createdAt)
+          }))
+          .sort((a: any, b: any) => b.createdAt.getTime() - a.createdAt.getTime()) as MentionNotification[]
       }
       
-      // Sort by createdAt descending
-      return notifications.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      return []
     } catch (error) {
-      console.error('Error fetching mention notifications:', error)
+      console.error('Error getting mention notifications:', error)
       return []
     }
   }
-
-  // Mark mention notification as read
-  async markAsRead(notificationId: string): Promise<void> {
+  
+  /**
+   * Mark a mention notification as read
+   * @param notificationId - The ID of the notification to mark as read
+   * @param userId - The ID of the user who owns the notification
+   */
+  static async markAsRead(notificationId: string, userId: string): Promise<void> {
     try {
-      const notificationRef = ref(database, `mentionNotifications/${notificationId}`)
+      const notificationRef = ref(database, `mentionNotifications/${userId}/${notificationId}`)
       await update(notificationRef, {
         isRead: true
       })
     } catch (error) {
-      console.error('Error marking mention notification as read:', error)
-      throw error
+      console.error('Error marking notification as read:', error)
     }
   }
-
-  // Mark all mention notifications as read for a user
-  async markAllAsRead(userId: string): Promise<void> {
+  
+  /**
+   * Mark all mention notifications as read for a user
+   * @param userId - The ID of the user to mark all notifications as read for
+   */
+  static async markAllAsRead(userId: string): Promise<void> {
     try {
       const notifications = await this.getMentionNotifications(userId)
-      const unreadNotifications = notifications.filter(n => !n.isRead)
+      const updates: { [key: string]: any } = {}
       
-      const updatePromises = unreadNotifications.map(notification =>
-        this.markAsRead(notification.id)
-      )
+      notifications.forEach(notification => {
+        updates[`${notification.id}/isRead`] = true
+      })
       
-      await Promise.all(updatePromises)
+      if (Object.keys(updates).length > 0) {
+        const notificationsRef = ref(database, `mentionNotifications/${userId}`)
+        await update(notificationsRef, updates)
+      }
     } catch (error) {
-      console.error('Error marking all mention notifications as read:', error)
-      throw error
+      console.error('Error marking all notifications as read:', error)
     }
   }
-
-  // Get unread mention notification count
-  async getUnreadCount(userId: string): Promise<number> {
-    try {
-      const notifications = await this.getMentionNotifications(userId)
-      return notifications.filter(n => !n.isRead).length
-    } catch (error) {
-      console.error('Error getting unread mention notification count:', error)
-      return 0
-    }
-  }
-
-  // Get unread mention notifications
-  async getUnreadMentionNotifications(userId: string): Promise<MentionNotification[]> {
-    try {
-      const notifications = await this.getMentionNotifications(userId)
-      return notifications.filter(n => !n.isRead)
-    } catch (error) {
-      console.error('Error getting unread mention notifications:', error)
-      return []
-    }
-  }
-
-  // Generate action URL based on context
-  private generateActionUrl(
-    contextType: 'comment' | 'note' | 'task' | 'message',
-    contextId: string,
-    taskId?: string,
-    projectId?: string
-  ): string {
-    switch (contextType) {
-      case 'comment':
-      case 'note':
-        return taskId ? `/management?task=${taskId}` : '/management'
-      case 'message':
-        // For messages, we want to open the chat widget
-        // We'll pass the projectId (teamId) as a parameter
-        return projectId ? `/chat?team=${projectId}` : '/chat'
-      case 'task':
-        return `/management?task=${contextId}`
-      default:
-        return '/management'
-    }
-  }
-
-  // Process mentions in text and create notifications
-  async processMentions(
-    text: string,
-    mentionedBy: string,
-    mentionedByName: string,
-    contextType: 'comment' | 'note' | 'task' | 'message',
-    contextId: string,
-    contextTitle: string,
-    taskId?: string,
-    projectId?: string,
-    // Optional explicit mentions parameter
-    explicitMentions?: string[]
+  
+  /**
+   * Send a notification to a specific user
+   * This is a helper method to send notifications to other users
+   * @param userId - The ID of the user to send the notification to
+   * @param notification - The notification to send
+   */
+  static async sendNotificationToUser(
+    userId: string,
+    notification: Omit<MentionNotification, 'id' | 'isRead' | 'createdAt'>
   ): Promise<void> {
     try {
-      console.log('=== processMentions called ===');
-      console.log('Text:', text);
-      console.log('MentionedBy:', mentionedBy);
-      console.log('MentionedByName:', mentionedByName);
-      console.log('ContextType:', contextType);
-      console.log('ContextId:', contextId);
-      console.log('ContextTitle:', contextTitle);
-      console.log('TaskId:', taskId);
-      console.log('ProjectId:', projectId);
-      console.log('Explicit mentions:', explicitMentions);
-      
-      // Use explicit mentions if provided, otherwise extract from text
-      let mentions: string[] = [];
-      if (explicitMentions && explicitMentions.length > 0) {
-        mentions = explicitMentions;
-        console.log('Using explicit mentions:', mentions);
-      } else {
-        console.log('Extracting mentions from text');
-        // Improved regex to match @username with better handling of edge cases
-        // Matches @ followed by alphanumeric characters, underscores, hyphens, and spaces
-        // Stops at word boundary or specific punctuation
-        const mentionRegex = /@([\w\-]+(?:\s+[\w\-]+)*)(?=\s|[.,;:!?()\\[\\]{}<>\"']|$)/g;
-        let match;
-
-        while ((match = mentionRegex.exec(text)) !== null) {
-          // The captured group is the mention without the @
-          const mention = match[1].trim();
-          if (mention) {
-            mentions.push(mention);
-          }
-        }
+      // Create the full notification object
+      const notificationWithDefaults = {
+        ...notification,
+        id: '',
+        isRead: false,
+        createdAt: new Date()
       }
       
-      console.log('Final mentions to process:', mentions);
-
-      if (mentions.length === 0) {
-        console.log('No mentions found in text');
-        return;
-      }
-
-      let usersToNotify = [];
+      // Store the notification in Firebase under the user's notifications
+      const notificationsRef = ref(database, `mentionNotifications/${userId}`)
+      const newNotificationRef = push(notificationsRef)
+      await set(newNotificationRef, {
+        ...notificationWithDefaults,
+        id: newNotificationRef.key,
+        createdAt: notificationWithDefaults.createdAt.toISOString()
+      })
       
-      // Always use team-based filtering to respect permissions
-      if (projectId) {
-        console.log('Filtering users based on team membership for projectId:', projectId);
-        const { teamService } = await import('./teamService');
-        try {
-          const mentionableUsers = await teamService.getMentionableUsers(projectId, mentionedBy);
-          usersToNotify = mentionableUsers;
-          console.log('Mentionable users for notification:', mentionableUsers);
-        } catch (teamError) {
-          console.error('Error getting mentionable users from team service:', teamError);
-          usersToNotify = [];
-        }
-      } else {
-        // If no projectId, try to get team members using teamService
-        // This is for cases like chat messages where we might not have a projectId
-        console.log('No projectId provided, attempting to get team members');
-        try {
-          const { teamService } = await import('./teamService');
-          // We'll need to get the user's team context differently
-          // For now, we'll skip processing if we don't have proper context
-          console.log('Skipping mention processing due to missing team context');
-          usersToNotify = [];
-        } catch (teamError) {
-          console.error('Error accessing team service:', teamError);
-          usersToNotify = [];
-        }
-      }
+      console.log('Notification sent to user:', userId)
       
-      console.log('Users to notify:', usersToNotify);
-      
-      // Create notifications for each mentioned user
-      const notificationPromises = mentions.map(async (username) => {
-        console.log(`Processing mention for username: ${username}`);
-        const user = usersToNotify.find(u => u.name === username);
-        if (user && user.id !== mentionedBy) { // Don't notify the person who mentioned
-          console.log(`Creating notification for user: ${user.name} (${user.id})`);
-          console.log(`User ${user.name} (${user.id}) was mentioned by ${mentionedByName} (${mentionedBy}) in ${contextType}: ${contextTitle}`);
-          await this.createMentionNotification(
-            user.id,
-            mentionedBy,
-            mentionedByName,
-            contextType,
-            contextId,
-            contextTitle,
-            taskId,
-            projectId
-          );
-        } else if (!user && usersToNotify.some(u => u.name === username)) {
-          // User exists but is not mentionable (not in the same team)
-          console.log(`User ${username} cannot be mentioned as they are not in the same team`);
-        } else {
-          console.log(`User ${username} not found or not mentionable`);
-        }
-      });
-
-      await Promise.all(notificationPromises);
     } catch (error) {
-      console.error('Error processing mentions:', error);
-      throw error;
+      console.error('Error sending notification to user:', error)
     }
+  }
+  
+  /**
+   * Subscribe to real-time notifications for a user
+   * @param userId - The ID of the user to subscribe to notifications for
+   * @param callback - The callback function to call when notifications change
+   */
+  static subscribeToNotifications(userId: string, callback: (notifications: MentionNotification[]) => void): () => void {
+    const notificationsRef = ref(database, `mentionNotifications/${userId}`)
+    
+    const unsubscribe = onValue(notificationsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const notifications = snapshot.val()
+        const notificationList = Object.values(notifications)
+          .map((notification: any) => ({
+            ...notification,
+            createdAt: new Date(notification.createdAt)
+          }))
+          .sort((a: any, b: any) => b.createdAt.getTime() - a.createdAt.getTime()) as MentionNotification[]
+        callback(notificationList)
+      } else {
+        callback([])
+      }
+    })
+    
+    return unsubscribe
   }
 }
 
-export const mentionNotificationService = new MentionNotificationService()
+export default MentionNotificationService

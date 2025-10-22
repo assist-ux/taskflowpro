@@ -1,12 +1,15 @@
-import { useState, useEffect, useRef } from 'react'
-import { X, User, Calendar, Clock, CheckCircle2, MessageSquare, Send, StickyNote, Paperclip, Smile, Trash2, Building2 } from 'lucide-react'
-import { Task, TaskStatus, TaskPriority, TaskComment, Team } from '../../types'
+import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react'
+import { X, User, Calendar, Clock, CheckCircle2, MessageSquare, Send, StickyNote, Paperclip, Smile, Trash2, Building2, AtSign, XCircle, Save } from 'lucide-react'
+import { Task, TaskStatus, TaskPriority, TaskComment, Team, User as UserType, Mention } from '../../types'
 import { taskService } from '../../services/taskService'
-import { mentionNotificationService } from '../../services/mentionNotificationService'
 import { useAuth } from '../../contexts/AuthContext'
-import MentionInput from '../common/MentionInput'
-import MentionText from '../common/MentionText'
+import { useNotifications } from '../../contexts/NotificationContext'
 import { canDeleteTask } from '../../utils/permissions'
+import { useMentions } from '../../hooks/useMentions'
+import MentionNotificationService from '../../services/mentionNotificationService'
+// Add Firebase imports
+import { ref, onValue } from 'firebase/database'
+import { database } from '../../config/firebase'
 
 interface TaskViewModalProps {
   isOpen: boolean
@@ -16,7 +19,9 @@ interface TaskViewModalProps {
   task: Task | null
   statuses: TaskStatus[]
   priorities: TaskPriority[]
-  teams?: Team[] // Add teams prop
+  teams?: Team[]
+  defaultActiveTab?: 'comments' | 'notes'
+  onTaskUpdate?: (task: Task) => void
 }
 
 const PRIORITY_ICONS = {
@@ -41,31 +46,193 @@ export default function TaskViewModal({
   task, 
   statuses, 
   priorities,
-  teams = [] // Add teams prop with default value
+  teams = [],
+  defaultActiveTab = 'comments',
+  onTaskUpdate
 }: TaskViewModalProps) {
   const { currentUser } = useAuth()
+  const { addNotification } = useNotifications()
   const [description, setDescription] = useState('')
   const [comments, setComments] = useState<TaskComment[]>([])
   const [newComment, setNewComment] = useState('')
-  const [newCommentMentions, setNewCommentMentions] = useState<string[]>([])
+  const [newCommentMentions, setNewCommentMentions] = useState<Mention[]>([])
   const [notes, setNotes] = useState('')
-  const [notesMentions, setNotesMentions] = useState<string[]>([])
+  const [notesMentions, setNotesMentions] = useState<Mention[]>([])
   const [isUpdating, setIsUpdating] = useState(false)
-  const [activeTab, setActiveTab] = useState<'comments' | 'notes'>('comments')
+  const [activeTab, setActiveTab] = useState<'comments' | 'notes'>(defaultActiveTab)
   const commentsEndRef = useRef<HTMLDivElement>(null)
+  const commentInputRef = useRef<HTMLTextAreaElement>(null)
+  const notesInputRef = useRef<HTMLTextAreaElement>(null)
+  const unsubscribeRef = useRef<(() => void) | null>(null)
 
+  // Use the mentions hook
+  const {
+    mentionSuggestions,
+    showMentionSuggestions,
+    mentionInput,
+    mentionTarget,
+    loadMentionableUsers,
+    handleMentionInput: handleMentionInputHook,
+    insertMention: insertMentionHook,
+    removeMention: removeMentionHook,
+    clearMentions: clearMentionsHook,
+    setShowMentionSuggestions,
+    setMentionInput,
+    setMentionTarget
+  } = useMentions(currentUser, task)
+
+  // Update activeTab when defaultActiveTab changes
   useEffect(() => {
-    if (task && isOpen) {
+    setActiveTab(defaultActiveTab)
+  }, [defaultActiveTab])
+
+  // Set initial state when task changes
+  useEffect(() => {
+    if (task) {
       setDescription(task.description || '')
       setComments(task.comments || [])
       setNotes(task.notes || '')
     }
-  }, [task, isOpen])
+  }, [task])
+
+  // Set up real-time task subscription
+  useEffect(() => {
+    // Clean up previous subscription if it exists or if task changed
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current()
+      unsubscribeRef.current = null
+    }
+    
+    if (task && isOpen && task.id) {
+      // Set up real-time listener for task updates
+      const taskRef = ref(database, `tasks/${task.id}`)
+      const unsubscribeFn = onValue(taskRef, (snapshot: any) => {
+        try {
+          if (snapshot.exists()) {
+            const updatedTaskData = snapshot.val()
+            // Update local state with real-time data
+            if (updatedTaskData.description !== undefined) {
+              setDescription(updatedTaskData.description || '')
+            }
+            if (updatedTaskData.comments !== undefined) {
+              // Convert comments from Firebase format
+              const updatedComments = Object.values(updatedTaskData.comments || {}).map((comment: any) => ({
+                ...comment,
+                createdAt: comment.createdAt ? new Date(comment.createdAt) : new Date(),
+                updatedAt: comment.updatedAt ? new Date(comment.updatedAt) : new Date()
+              })) as TaskComment[]
+              // Only update comments if they've actually changed
+              setComments(prevComments => {
+                const newCommentsString = JSON.stringify(updatedComments);
+                const prevCommentsString = JSON.stringify(prevComments);
+                if (newCommentsString !== prevCommentsString) {
+                  return updatedComments;
+                }
+                return prevComments;
+              });
+            }
+            if (updatedTaskData.notes !== undefined) {
+              // Only update notes if they've actually changed
+              setNotes(prevNotes => {
+                if (prevNotes !== updatedTaskData.notes) {
+                  return updatedTaskData.notes || '';
+                }
+                return prevNotes;
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error processing real-time task update:', error)
+        }
+      }, (error) => {
+        console.error('Error subscribing to real-time task updates:', error)
+      })
+
+      // Store unsubscribe function
+      unsubscribeRef.current = unsubscribeFn
+    }
+    
+    // Cleanup subscription on unmount
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current()
+        unsubscribeRef.current = null
+      }
+    }
+  }, [task?.id, isOpen])
 
   // Auto-scroll to bottom of comments when new comment is added
   useEffect(() => {
     commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [comments])
+
+  // Handle mention input for comments and notes
+  const handleMentionInput = useCallback((value: string, target: 'comment' | 'note') => {
+    handleMentionInputHook(value, target, target === 'comment' ? setNewComment : setNotes)
+  }, [handleMentionInputHook])
+
+  // Insert mention for comments and notes
+  const insertMention = useCallback((user: UserType, target: 'comment' | 'note') => {
+    if (target === 'comment') {
+      insertMentionHook(user, target, newComment, setNewComment, newCommentMentions, setNewCommentMentions)
+    } else {
+      insertMentionHook(user, target, notes, setNotes, notesMentions, setNotesMentions)
+    }
+  }, [insertMentionHook, newComment, notes, newCommentMentions, notesMentions])
+
+  // Remove mention for comments and notes
+  const removeMention = useCallback((mentionId: string, target: 'comment' | 'note') => {
+    if (target === 'comment') {
+      removeMentionHook(mentionId, newCommentMentions, setNewCommentMentions)
+    } else {
+      removeMentionHook(mentionId, notesMentions, setNotesMentions)
+    }
+  }, [removeMentionHook, newCommentMentions, notesMentions])
+
+  // Clear mentions for comments and notes
+  const clearMentions = useCallback((target: 'comment' | 'note') => {
+    if (target === 'comment') {
+      clearMentionsHook(setNewCommentMentions)
+    } else {
+      clearMentionsHook(setNotesMentions)
+    }
+  }, [clearMentionsHook])
+
+  // Send mention notifications to mentioned users
+  const sendMentionNotifications = async (mentions: Mention[], contextType: 'comment' | 'note') => {
+    if (!task || !currentUser) return;
+    
+    for (const mention of mentions) {
+      try {
+        // Skip notifying the current user (don't notify yourself)
+        if (mention.userId === currentUser.uid) continue;
+        
+        // Create a more descriptive context title
+        const contextTitle = task.title || 'Untitled Task';
+        
+        // Send notification to the mentioned user (not the current user)
+        await MentionNotificationService.sendNotificationToUser(
+          mention.userId,
+          {
+            type: 'mention',
+            title: 'You were mentioned',
+            message: `${currentUser.name} mentioned you in a ${contextType} on task: ${contextTitle}`,
+            mentionedBy: currentUser.name || 'Someone',
+            mentionedByName: currentUser.name || 'Someone',
+            contextType: contextType,
+            contextId: task.id,
+            contextTitle: contextTitle,
+            projectId: task.projectId,
+            taskId: task.id,
+            // Enhanced action URL with query parameters for tab and content type
+            actionUrl: `/management?taskId=${task.id}&tab=${contextType === 'comment' ? 'comments' : 'notes'}&mentionId=${mention.id}`
+          }
+        );
+      } catch (error) {
+        console.error('Error sending mention notification:', error);
+      }
+    }
+  };
 
   const handleDescriptionUpdate = async () => {
     if (!task || !currentUser) return
@@ -80,49 +247,30 @@ export default function TaskViewModal({
     }
   }
 
-  const handleNotesChange = (value: string, mentions: string[]) => {
-    setNotes(value)
-    setNotesMentions(mentions)
-  }
-
   const handleNotesUpdate = async () => {
-    if (!task || !currentUser) return
+    if (!task || !currentUser) return;
     
-    setIsUpdating(true)
+    setIsUpdating(true);
     try {
-      await taskService.updateTask(task.id, { notes })
-
-      // Process mentions in notes and create notifications
-      console.log('Processing mentions in task notes:', {
-        notes,
-        userId: currentUser.uid,
-        userName: currentUser.name || 'Unknown User',
-        taskId: task.id,
-        taskTitle: task.title,
-        projectId: task.projectId
-      });
-      await mentionNotificationService.processMentions(
-        notes,
-        currentUser.uid,
-        currentUser.name || 'Unknown User',
-        'note',
-        task.id,
-        `Notes for task: ${task.title}`,
-        task.id,
-        task.projectId
-      )
+      // Send mention notifications for notes to mentioned users
+      await sendMentionNotifications(notesMentions, 'note');
+      
+      // Clear mentions when saving notes
+      clearMentions('note');
+      
+      // Update task with new notes
+      await taskService.updateTask(task.id, { notes });
+      
+      // Update local state to reflect the saved notes
+      if (onTaskUpdate && task) {
+        onTaskUpdate({ ...task, notes });
+      }
     } catch (error) {
-      console.error('Error updating notes:', error)
+      console.error('Error updating notes:', error);
     } finally {
-      setIsUpdating(false)
+      setIsUpdating(false);
     }
-  }
-
-  const handleCommentChange = (value: string, mentions: string[]) => {
-    console.log('Comment change - Value:', value, 'Mentions:', mentions, 'Task:', task, 'CurrentUser:', currentUser);
-    setNewComment(value);
-    setNewCommentMentions(mentions);
-  }
+  };
 
   const handleAddComment = async () => {
     if (!task || !currentUser || !newComment.trim()) return
@@ -135,39 +283,22 @@ export default function TaskViewModal({
       authorEmail: currentUser.email || '',
       createdAt: new Date(),
       updatedAt: new Date(),
-      mentions: newCommentMentions
+      mentions: newCommentMentions.map(m => m.userId) // Store user IDs for mentions
     }
 
     try {
+      // Send mention notifications for comments to mentioned users
+      await sendMentionNotifications(newCommentMentions, 'comment');
+      
       // Add comment to local state immediately for better UX
       setComments(prev => [...prev, comment])
       setNewComment('')
-      setNewCommentMentions([])
+      clearMentions('comment')
       
       // Update task with new comment
       await taskService.updateTask(task.id, { 
         comments: [...comments, comment]
       } as any)
-
-      // Process mentions and create notifications
-      console.log('Processing mentions in task comment:', {
-        comment: newComment.trim(),
-        userId: currentUser.uid,
-        userName: currentUser.name || 'Unknown User',
-        taskId: task.id,
-        taskTitle: task.title,
-        projectId: task.projectId
-      });
-      await mentionNotificationService.processMentions(
-        newComment.trim(),
-        currentUser.uid,
-        currentUser.name || 'Unknown User',
-        'comment',
-        comment.id,
-        `Comment on task: ${task.title}`,
-        task.id,
-        task.projectId
-      )
     } catch (error) {
       console.error('Error adding comment:', error)
       // Revert on error
@@ -194,17 +325,22 @@ export default function TaskViewModal({
   }
 
   const getPriorityIcon = (priority: TaskPriority) => {
+    if (!priority || !priority.name) return '○';
     return PRIORITY_ICONS[priority.name.toLowerCase() as keyof typeof PRIORITY_ICONS] || '○'
   }
 
   const getPriorityColor = (priority: TaskPriority) => {
+    if (!priority || !priority.name) return 'text-gray-500';
     return PRIORITY_COLORS[priority.name.toLowerCase() as keyof typeof PRIORITY_COLORS] || 'text-gray-500'
   }
 
   if (!isOpen || !task) return null
 
-  const priority = task.priority
-  const status = task.status
+  // Safety check for required task properties
+  if (!task.priority || !task.status) return null
+
+  const priority = task.priority || { name: 'Unknown', color: '#6B7280' }
+  const status = task.status || { name: 'Unknown', color: '#6B7280' }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -214,16 +350,16 @@ export default function TaskViewModal({
           <div className="flex items-center space-x-3">
             <div 
               className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: priority.color }}
+              style={{ backgroundColor: priority?.color || '#6B7280' }}
             />
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
               {task.title}
             </h2>
             <span 
               className="px-2 py-1 text-xs rounded-full text-white"
-              style={{ backgroundColor: status.color }}
+              style={{ backgroundColor: status?.color || '#6B7280' }}
             >
-              {status.name}
+              {status?.name || 'Unknown Status'}
             </span>
           </div>
           <div className="flex items-center space-x-2">
@@ -264,7 +400,7 @@ export default function TaskViewModal({
                     {getPriorityIcon(priority)}
                   </span>
                   <span className="text-sm text-gray-600 dark:text-gray-400">
-                    {priority.name} priority
+                    {priority?.name || 'Unknown Priority'} priority
                   </span>
                 </div>
 
@@ -416,11 +552,21 @@ export default function TaskViewModal({
                                   </span>
                                 </div>
                                 <div className="bg-white dark:bg-gray-700 rounded-lg px-3 py-2 shadow-sm">
-                                  <MentionText
-                                    text={comment.content}
-                                    className="text-sm text-gray-900 dark:text-gray-100"
-                                  />
+                                  <span className="text-sm text-gray-900 dark:text-gray-100">
+                                    {comment.content}
+                                  </span>
                                 </div>
+                                {/* Display mentions */}
+                                {comment.mentions && comment.mentions.length > 0 && (
+                                  <div className="mt-2 flex flex-wrap gap-1">
+                                    {comment.mentions.map((userId, index) => (
+                                      <span key={`mention-${comment.id}-${userId}`} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100">
+                                        <AtSign className="h-3 w-3 mr-1" />
+                                        {userId}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           ))
@@ -429,18 +575,42 @@ export default function TaskViewModal({
                       </div>
 
                       {/* Add Comment - Chat Input with Mentions */}
-                      <div className="mt-3 flex space-x-2">
+                      <div className="mt-3 flex space-x-2 relative">
                         <div className="flex-1">
-                          <MentionInput
+                          <textarea
+                            ref={commentInputRef}
                             value={newComment}
-                            onChange={handleCommentChange}
-                            teamId={task.projectId}
-                            currentUserId={currentUser?.uid}
-                            onKeyPress={(e) => e.key === 'Enter' && handleAddComment()}
-                            placeholder="Type a message... Use @ to mention someone"
-                            className="px-4 py-3 pr-12 rounded-full"
+                            onChange={(e) => handleMentionInput(e.target.value, 'comment')}
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter' && !showMentionSuggestions) {
+                                e.preventDefault()
+                                handleAddComment()
+                              }
+                            }}
+                            placeholder="Type a message"
+                            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none"
                             rows={1}
                           />
+                          {/* Mention Suggestions */}
+                          {showMentionSuggestions && mentionTarget === 'comment' && (
+                            <div className="absolute bottom-full mb-2 left-0 w-full max-h-40 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
+                              {mentionSuggestions.map((user) => (
+                                <div
+                                  key={`comment-${user.id}`} 
+                                  onClick={() => insertMention(user, 'comment')}
+                                  className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center"
+                                >
+                                  <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-medium mr-2">
+                                    {user.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{user.name}</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">{user.email}</div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <button
                           onClick={handleAddComment}
@@ -450,27 +620,90 @@ export default function TaskViewModal({
                           <Send className="h-4 w-4" />
                         </button>
                       </div>
+                      {/* Display selected mentions for comments */}
+                      {newCommentMentions.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {newCommentMentions.map((mention) => (
+                            <div key={`comment-mention-${mention.id}`} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100">
+                              <AtSign className="h-4 w-4 mr-1" />
+                              {mention.userName}
+                              <button 
+                                onClick={() => removeMention(mention.id, 'comment')}
+                                className="ml-2 text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-100"
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </>
                   ) : (
                     <>
                       {/* Notes Section with Mentions */}
-                      <div className="flex-1">
+                      <div className="flex-1 relative">
                         <div className="h-full">
-                          <MentionInput
+                          <textarea
+                            ref={notesInputRef}
                             value={notes}
-                            onChange={handleNotesChange}
-                            teamId={task.projectId}
-                            currentUserId={currentUser?.uid}
-                            onBlur={handleNotesUpdate}
-                            placeholder="Add collaborative notes here... Use @ to mention team members"
-                            className="w-full h-full px-3 py-2"
+                            onChange={(e) => handleMentionInput(e.target.value, 'note')}
+                            placeholder="Add collaborative notes here... Use @ to mention users"
+                            className="w-full h-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none"
                             rows={12}
                           />
+                          {/* Mention Suggestions */}
+                          {showMentionSuggestions && mentionTarget === 'note' && (
+                            <div className="absolute bottom-full mb-2 left-0 w-full max-h-40 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
+                              {mentionSuggestions.map((user) => (
+                                <div
+                                  key={`note-${user.id}`}
+                                  onClick={() => insertMention(user, 'note')}
+                                  className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center"
+                                >
+                                  <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-medium mr-2">
+                                    {user.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{user.name}</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">{user.email}</div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        {/* Save Notes Button */}
+                        <div className="mt-3 flex justify-end">
+                          <button
+                            onClick={handleNotesUpdate}
+                            disabled={isUpdating}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                          >
+                            <Save className="h-4 w-4" />
+                            <span>Save Note</span>
+                          </button>
                         </div>
                         {isUpdating && (
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Saving notes...</p>
                         )}
                       </div>
+                      {/* Display selected mentions for notes */}
+                      {notesMentions.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {notesMentions.map((mention) => (
+                            <div key={`note-mention-${mention.id}`} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100">
+                              <AtSign className="h-4 w-4 mr-1" />
+                              {mention.userName}
+                              <button 
+                                onClick={() => removeMention(mention.id, 'note')}
+                                className="ml-2 text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-100"
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </>
                   )}
                 </div>

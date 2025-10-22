@@ -57,7 +57,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         companyId: credentials.role === 'root' ? null : undefined, // Root doesn't belong to any company
         teamId: null,
         teamRole: null,
-        timezone: 'America/New_York',
+        timezone: 'GMT+0 (Greenwich Mean Time)',
         hourlyRate: credentials.role === 'admin' || credentials.role === 'root' ? 0 : 25, // Default rates
         isActive: true,
         createdAt: new Date().toISOString(),

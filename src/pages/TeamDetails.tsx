@@ -12,11 +12,16 @@ import {
   Calendar,
   DollarSign,
   Activity,
-  ArrowLeft
+  ArrowLeft,
+  Filter,
+  Search,
+  Tag,
+  FileText
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { teamService } from '../services/teamService'
-import { Team, TeamMember, TeamStats } from '../types'
+import { timeEntryService } from '../services/timeEntryService'
+import { Team, TeamMember, TeamStats, TimeEntry } from '../types'
 import TeamMemberModal from '../components/teams/TeamMemberModal'
 import SimpleChart from '../components/charts/SimpleChart'
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths } from 'date-fns'
@@ -36,12 +41,52 @@ export default function TeamDetails() {
   const [timeFilter, setTimeFilter] = useState<'this-week' | 'last-week' | 'this-month' | 'custom'>('this-week')
   const [customStartDate, setCustomStartDate] = useState<Date>(new Date())
   const [customEndDate, setCustomEndDate] = useState<Date>(new Date())
+  const [isLeader, setIsLeader] = useState(false);
+  
+  // Time entries states
+  const [teamTimeEntries, setTeamTimeEntries] = useState<TimeEntry[]>([])
+  const [filteredTimeEntries, setFilteredTimeEntries] = useState<TimeEntry[]>([])
+  const [timeEntriesLoading, setTimeEntriesLoading] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [projectFilter, setProjectFilter] = useState<string>('all')
+  const [memberFilter, setMemberFilter] = useState<string>('all')
+  const [billableFilter, setBillableFilter] = useState<'all' | 'billable' | 'non-billable'>('all')
+
+  useEffect(() => {
+    if (teamId && currentUser?.uid) {
+      checkTeamLeadership();
+    }
+  }, [teamId, currentUser?.uid]);
+
+  const checkTeamLeadership = async () => {
+    if (!teamId || !currentUser?.uid) return;
+    
+    const isTeamLeader = await teamService.isUserTeamLeader(currentUser.uid, teamId);
+    setIsLeader(isTeamLeader);
+  };
 
   useEffect(() => {
     if (teamId) {
       loadData()
     }
   }, [teamId])
+
+  useEffect(() => {
+    if (teamId && teamMembers.length > 0) {
+      loadTeamTimeEntries()
+    }
+  }, [teamId, teamMembers])
+
+  useEffect(() => {
+    applyFilters()
+  }, [teamTimeEntries, searchTerm, projectFilter, memberFilter, billableFilter])
+
+  // Add this useEffect to update team stats and time entries when time filter changes
+  useEffect(() => {
+    if (teamId && team) {
+      updateTeamStatsAndTimeEntries()
+    }
+  }, [timeFilter, customStartDate, customEndDate])
 
   const loadData = async () => {
     if (!teamId) return
@@ -68,6 +113,44 @@ export default function TeamDetails() {
     }
   }
 
+  // Add this function to update team stats and time entries when time filter changes
+  const updateTeamStatsAndTimeEntries = async () => {
+    if (!teamId || !team) return
+    
+    try {
+      // Update team stats
+      const { startDate, endDate } = getDateRange()
+      const stats = await teamService.getTeamStats(teamId, startDate, endDate)
+      setTeamStats(stats)
+      
+      // Update time entries
+      await loadTeamTimeEntries()
+    } catch (error) {
+      console.error('Error updating team stats and time entries:', error)
+    }
+  }
+
+  const loadTeamTimeEntries = async () => {
+    if (!teamId || teamMembers.length === 0) return
+    
+    setTimeEntriesLoading(true)
+    try {
+      // Get all time entries for the date range
+      const { startDate, endDate } = getDateRange()
+      const allTimeEntries = await timeEntryService.getAllTimeEntriesByDateRange(startDate, endDate)
+      
+      // Filter time entries for team members only
+      const teamMemberIds = teamMembers.map(member => member.userId)
+      const entries = allTimeEntries.filter(entry => teamMemberIds.includes(entry.userId))
+      
+      setTeamTimeEntries(entries)
+    } catch (error) {
+      console.error('Error loading team time entries:', error)
+    } finally {
+      setTimeEntriesLoading(false)
+    }
+  }
+
   const getDateRange = () => {
     const now = new Date()
     let startDate: Date
@@ -90,6 +173,9 @@ export default function TeamDetails() {
       case 'custom':
         startDate = customStartDate
         endDate = customEndDate
+        // Fix for date range filtering: set start date to beginning of day and end date to end of day
+        startDate.setHours(0, 0, 0, 0)
+        endDate.setHours(23, 59, 59, 999)
         break
       default:
         startDate = startOfWeek(now, { weekStartsOn: 1 })
@@ -97,6 +183,37 @@ export default function TeamDetails() {
     }
 
     return { startDate, endDate }
+  }
+
+  const applyFilters = () => {
+    let filtered = [...teamTimeEntries]
+    
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(entry => 
+        entry.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        entry.projectName?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
+    
+    // Project filter
+    if (projectFilter !== 'all') {
+      filtered = filtered.filter(entry => entry.projectId === projectFilter)
+    }
+    
+    // Member filter
+    if (memberFilter !== 'all') {
+      filtered = filtered.filter(entry => entry.userId === memberFilter)
+    }
+    
+    // Billable filter
+    if (billableFilter !== 'all') {
+      filtered = filtered.filter(entry => 
+        billableFilter === 'billable' ? entry.isBillable : !entry.isBillable
+      )
+    }
+    
+    setFilteredTimeEntries(filtered)
   }
 
   const handleAddMember = () => {
@@ -122,17 +239,31 @@ export default function TeamDetails() {
     }
   }
 
-  const isUserTeamLeader = () => {
-    if (!team || !currentUser) return false
-    return currentUser.uid === team.leaderId
-  }
-
   const isUserSuperAdmin = () => {
-    return currentUser?.role === 'root' || currentUser?.role === 'admin'
-  }
+    return currentUser?.role === 'root' || currentUser?.role === 'admin';
+  };
 
   const canManageTeam = () => {
-    return isUserTeamLeader()
+    return isLeader;
+  };
+
+  const canViewTeamDetails = () => {
+    return isLeader || isUserSuperAdmin();
+  };
+
+  const getMemberName = (userId: string) => {
+    const member = teamMembers.find(m => m.userId === userId)
+    return member ? member.userName : 'Unknown User'
+  }
+
+  const getUniqueProjects = () => {
+    const projects = new Map<string, string>()
+    teamTimeEntries.forEach(entry => {
+      if (entry.projectId && entry.projectName) {
+        projects.set(entry.projectId, entry.projectName)
+      }
+    })
+    return Array.from(projects.entries())
   }
 
   if (loading) {
@@ -203,6 +334,9 @@ export default function TeamDetails() {
     mostActiveMember: undefined,
     timeByProject: []
   }
+
+  const uniqueProjects = getUniqueProjects()
+  const totalFilteredTime = filteredTimeEntries.reduce((sum, entry) => sum + entry.duration, 0)
 
   return (
     <div className="p-6 space-y-6">
@@ -402,7 +536,7 @@ export default function TeamDetails() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Team Members</h3>
-          {isUserTeamLeader() && (
+          {isLeader && (
             <button
               onClick={handleAddMember}
               className="btn-primary flex items-center space-x-2"
@@ -434,14 +568,16 @@ export default function TeamDetails() {
                     Leader
                   </span>
                 )}
-                {isUserTeamLeader() && member.teamRole !== 'leader' && (
+                {isLeader && (
+                  <button
+                    onClick={() => handleEditMember(member)}
+                    className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                )}
+                {isLeader && member.teamRole !== 'leader' && (
                   <>
-                    <button
-                      onClick={() => handleEditMember(member)}
-                      className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
                     <button
                       onClick={() => handleRemoveMember(member)}
                       className="p-2 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -456,46 +592,149 @@ export default function TeamDetails() {
         </div>
       </div>
 
-      {/* Team Stats */}
+      {/* Time Entries Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Team Performance</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-            <div className="flex items-center">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-gray-500 dark:text-gray-400">Total Tasks</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{timeData.totalTasks}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-            <div className="flex items-center">
-              <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-                <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-gray-500 dark:text-gray-400">Completed</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{timeData.completedTasks}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-            <div className="flex items-center">
-              <div className="p-2 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
-                <Clock className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-gray-500 dark:text-gray-400">In Progress</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{timeData.inProgressTasks}</p>
-              </div>
-            </div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Team Time Entries</h3>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Total: {formatSecondsToHHMMSS(totalFilteredTime)}
           </div>
         </div>
+
+        {/* Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+          {/* Search */}
+          <div className="lg:col-span-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+              <input
+                type="text"
+                placeholder="Search descriptions or projects..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+              />
+            </div>
+          </div>
+
+          {/* Project Filter */}
+          <div>
+            <select
+              value={projectFilter}
+              onChange={(e) => setProjectFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            >
+              <option value="all">All Projects</option>
+              {uniqueProjects.map(([id, name]) => (
+                <option key={id} value={id}>{name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Member Filter */}
+          <div>
+            <select
+              value={memberFilter}
+              onChange={(e) => setMemberFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            >
+              <option value="all">All Members</option>
+              {teamMembers.map(member => (
+                <option key={member.userId} value={member.userId}>{member.userName}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Billable Filter */}
+          <div>
+            <select
+              value={billableFilter}
+              onChange={(e) => setBillableFilter(e.target.value as any)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            >
+              <option value="all">All Entries</option>
+              <option value="billable">Billable Only</option>
+              <option value="non-billable">Non-Billable Only</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Time Entries List */}
+        {timeEntriesLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-2"></div>
+              <p className="text-gray-600 dark:text-gray-400">Loading time entries...</p>
+            </div>
+          </div>
+        ) : filteredTimeEntries.length === 0 ? (
+          <div className="text-center py-8">
+            <div className="p-4 bg-gray-100 dark:bg-gray-700 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+              <Clock className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No time entries found</h3>
+            <p className="text-gray-500 dark:text-gray-400">
+              {teamTimeEntries.length === 0 
+                ? "No time entries recorded for this team in the selected period" 
+                : "No time entries match your filters"}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Member</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Project</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Description</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Date</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Duration</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Billable</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTimeEntries.map((entry) => (
+                  <tr key={entry.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750">
+                    <td className="py-3 px-4 text-sm text-gray-900 dark:text-gray-100">
+                      {getMemberName(entry.userId)}
+                    </td>
+                    <td className="py-3 px-4 text-sm">
+                      {entry.projectName ? (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                          <FileText className="h-3 w-3 mr-1" />
+                          {entry.projectName}
+                        </span>
+                      ) : (
+                        <span className="text-gray-500 dark:text-gray-400">No Project</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-900 dark:text-gray-100">
+                      {entry.description || <span className="text-gray-500 dark:text-gray-400">No description</span>}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-900 dark:text-gray-100">
+                      {format(new Date(entry.startTime), 'MMM dd, yyyy')}
+                    </td>
+                    <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {formatSecondsToHHMMSS(entry.duration)}
+                    </td>
+                    <td className="py-3 px-4 text-sm">
+                      {entry.isBillable ? (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
+                          <DollarSign className="h-3 w-3 mr-1" />
+                          Yes
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                          No
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Member Modal */}

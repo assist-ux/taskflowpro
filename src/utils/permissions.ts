@@ -41,8 +41,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
     canCreateUsers: true,
     canViewUserDetails: true,
     canManageSystemSettings: false,
-    canViewHourlyRates: true,  // HR can view hourly rates
-    canEditHourlyRates: true   // HR can edit hourly rates
+    canViewHourlyRates: true,
+    canEditHourlyRates: true
   },
   admin: {
     canViewBilling: true,
@@ -55,8 +55,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
     canCreateUsers: true,
     canViewUserDetails: true,
     canManageSystemSettings: false,
-    canViewHourlyRates: true,  // Admin can view hourly rates
-    canEditHourlyRates: true   // Admin can edit hourly rates
+    canViewHourlyRates: false,  // false ko to mamamaya
+    canEditHourlyRates: false   // pati ito
   },
   super_admin: {
     canViewBilling: true,

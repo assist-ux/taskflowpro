@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { 
   Building2, 
   Plus, 
@@ -17,11 +18,12 @@ import {
   Grid,
   List
 } from 'lucide-react'
-import { format, startOfWeek, endOfWeek, subWeeks, subDays, startOfMonth, endOfMonth } from 'date-fns'
+import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, isSameDay, parseISO, subMonths } from 'date-fns'
 import { useAuth } from '../contexts/AuthContext'
 import { projectService } from '../services/projectService'
 import { timeEntryService } from '../services/timeEntryService'
-import { Client, Project, TimeEntry } from '../types'
+import { pdfSettingsService } from '../services/pdfSettingsService'
+import { Client, Project, TimeEntry, PDFSettings } from '../types'
 import ClientModal from '../components/projects/ClientModal'
 import ExportModal from '../components/projects/ExportModal'
 import SimpleChart from '../components/charts/SimpleChart'
@@ -30,8 +32,45 @@ import { canAccessFeature } from '../utils/permissions'
 import { generateIndividualClientPDF, generateClientReportPDF } from '../utils/pdfExport'
 import { formatSecondsToHHMMSS } from '../utils'
 
+// Add helper functions for date formatting and parsing
+const formatDateForInput = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateFromInput = (dateString: string): Date => {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
+// Add this helper function to format duration
+const formatDurationToHHMMSS = (seconds: number): string => {
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const secs = Math.floor(seconds % 60)
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+}
+
 export default function Clients() {
   const { currentUser } = useAuth()
+  const navigate = useNavigate()
+  
+  // Helper function to format date for input field (YYYY-MM-DD format in local timezone)
+  const formatDateForInput = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  
+  // Helper function to parse date from input field
+  const parseDateFromInput = (dateString: string): Date => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([])
@@ -43,6 +82,7 @@ export default function Clients() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [showExportModal, setShowExportModal] = useState(false)
   const [exportClient, setExportClient] = useState<Client | null>(null)
+  const [viewingClientTimeEntries, setViewingClientTimeEntries] = useState<Client | null>(null) // For viewing time entries
   const [error, setError] = useState('')
   
   // Time tracking and billing states
@@ -52,11 +92,15 @@ export default function Clients() {
   const [showTimeChart, setShowTimeChart] = useState(false)
   const [isExportingPDF, setIsExportingPDF] = useState(false)
   
+  // PDF settings state
+  const [pdfSettings, setPdfSettings] = useState<PDFSettings | null>(null)
+  
   // Chart ref for PDF export
   const chartRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     loadClients()
+    loadPDFSettings() // Load PDF settings when component mounts
   }, [])
 
   useEffect(() => {
@@ -64,6 +108,18 @@ export default function Clients() {
       loadTimeData()
     }
   }, [clients, timeFilter, customStartDate, customEndDate])
+
+  // Load PDF settings for the current company
+  const loadPDFSettings = async () => {
+    if (currentUser?.companyId) {
+      try {
+        const settings = await pdfSettingsService.getPDFSettings(currentUser.companyId)
+        setPdfSettings(settings)
+      } catch (error) {
+        console.error('Error loading PDF settings:', error)
+      }
+    }
+  }
 
   const loadClients = async () => {
     setLoading(true)
@@ -119,6 +175,9 @@ export default function Clients() {
       case 'custom':
         startDate = customStartDate
         endDate = customEndDate
+        // Fix for date range filtering: set start date to beginning of day and end date to end of day
+        startDate.setHours(0, 0, 0, 0)
+        endDate.setHours(23, 59, 59, 999)
         break
       default:
         startDate = startOfWeek(now, { weekStartsOn: 1 })
@@ -147,6 +206,10 @@ export default function Clients() {
         setError('Failed to delete client')
       }
     }
+  }
+
+  const handleViewClientTimeEntries = (client: Client) => {
+    setViewingClientTimeEntries(client)
   }
 
   const getFilteredClients = () => {
@@ -260,7 +323,8 @@ export default function Clients() {
           backgroundColor: 'rgba(34, 197, 94, 0.5)',
           borderColor: 'rgba(34, 197, 94, 1)',
         }
-      ]
+      ],
+      formattedTimes: chartData.map(item => item.formattedTime) // Add formattedTimes property
     }
   }
 
@@ -338,13 +402,14 @@ export default function Clients() {
               startDate = startOfWeek(lastWeek, { weekStartsOn: 1 })
               endDate = endOfWeek(lastWeek, { weekStartsOn: 1 })
               break
-            case 'yesterday':
-              startDate = subDays(now, 1)
-              endDate = subDays(now, 1)
-              break
             case 'this-month':
               startDate = startOfMonth(now)
               endDate = endOfMonth(now)
+              break
+            case 'last-month':
+              const lastMonth = subMonths(now, 1)
+              startDate = startOfMonth(lastMonth)
+              endDate = endOfMonth(lastMonth)
               break
             case 'custom':
               startDate = exportData.customPeriod?.startDate || customStartDate
@@ -387,33 +452,26 @@ export default function Clients() {
         // Use custom time data if provided, otherwise use actual data
         const finalTimeData = exportData.customTimeData || timeData
         
-        // Create a temporary chart element for this client
-        const tempChartElement = document.createElement('div')
-        tempChartElement.style.width = '600px'
-        tempChartElement.style.height = '300px'
-        tempChartElement.style.position = 'absolute'
-        tempChartElement.style.left = '-9999px'
-        tempChartElement.style.top = '-9999px'
-        tempChartElement.style.backgroundColor = 'white'
-        tempChartElement.style.padding = '20px'
-        tempChartElement.innerHTML = 
-          '<div style="text-align: center; margin-bottom: 20px;">' +
-          '  <h3 style="color: #1F2937; font-size: 18px; margin: 0;">' + exportData.reportTitle + '</h3>' +
-          '  <p style="color: #6B7280; font-size: 14px; margin: 5px 0 0 0;">' + getPeriodTextForExport(selectedExportPeriod, startDate, endDate) + '</p>' +
-          (exportData.reportDescription ? '<p style="color: #6B7280; font-size: 12px; margin: 5px 0 0 0;">' + exportData.reportDescription + '</p>' : '') +
-          '</div>' +
-          '<div style="display: flex; justify-content: center; align-items: center; height: 200px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">' +
-          '  <div style="text-align: center;">' +
-          '    <div style="font-size: 24px; font-weight: bold; color: #1F2937; margin-bottom: 10px;">' + finalTimeData.formattedTime + '</div>' +
-          '    <div style="font-size: 16px; color: #059669; font-weight: 600;">$' + finalTimeData.billableAmount.toFixed(2) + '</div>' +
-          '    <div style="font-size: 14px; color: #6B7280; margin-top: 5px;">Total Time & Billable Amount</div>' +
-          '  </div>' +
-          '</div>'
+        // Get daily time data for the client
+        const dailyTimeData = getClientDailyTimeData(exportClient, timeEntriesForPeriod, startDate, endDate)
         
-        document.body.appendChild(tempChartElement)
+        // Debug: Log the daily time data
+        console.log('Daily time data for client:', exportClient.name, dailyTimeData);
+
+        // Prepare time entries data for PDF
+        const timeEntriesForPDF = clientTimeEntries.map(entry => ({
+          id: entry.id,
+          description: entry.description || '',
+          projectName: entry.projectName || 'No project',
+          clientName: entry.clientName || 'No client',
+          startTime: entry.startTime,
+          endTime: entry.endTime,
+          duration: entry.duration,
+          formattedDuration: formatDurationToHHMMSS(entry.duration),
+          isBillable: entry.isBillable
+        }))
 
         await generateIndividualClientPDF(
-          tempChartElement,
           exportData.reportTitle,
           {
             name: exportClient.name,
@@ -423,11 +481,12 @@ export default function Clients() {
           },
           selectedExportPeriod,
           startDate,
-          endDate
+          endDate,
+          pdfSettings, // Pass PDF settings
+          currentUser?.companyId || undefined, // Pass company ID, handling null case
+          timeEntriesForPDF, // Pass time entries data
+          dailyTimeData // Pass daily time data for chart creation
         )
-
-        // Clean up temporary element
-        document.body.removeChild(tempChartElement)
       } else {
         // Export all clients
         // Get date range based on selected export period
@@ -446,13 +505,14 @@ export default function Clients() {
               startDate = startOfWeek(lastWeek, { weekStartsOn: 1 })
               endDate = endOfWeek(lastWeek, { weekStartsOn: 1 })
               break
-            case 'yesterday':
-              startDate = subDays(now, 1)
-              endDate = subDays(now, 1)
-              break
             case 'this-month':
               startDate = startOfMonth(now)
               endDate = endOfMonth(now)
+              break
+            case 'last-month':
+              const lastMonth = subMonths(now, 1)
+              startDate = startOfMonth(lastMonth)
+              endDate = endOfMonth(lastMonth)
               break
             case 'custom':
               startDate = exportData.customPeriod?.startDate || customStartDate
@@ -478,6 +538,19 @@ export default function Clients() {
         // Update billing stats for the selected period
         const billingStatsForPeriod = getBillingStatsForPeriod(timeEntriesForPeriod)
         
+        // Prepare time entries data for PDF
+        const timeEntriesForPDF = timeEntriesForPeriod.map(entry => ({
+          id: entry.id,
+          description: entry.description || '',
+          projectName: entry.projectName || 'No project',
+          clientName: entry.clientName || 'No client',
+          startTime: entry.startTime,
+          endTime: entry.endTime,
+          duration: entry.duration,
+          formattedDuration: formatDurationToHHMMSS(entry.duration),
+          isBillable: entry.isBillable
+        }))
+
         await generateClientReportPDF(chartRef.current, {
           chartData: chartDataForPeriod.labels.map((label, index) => ({
             name: label,
@@ -489,9 +562,12 @@ export default function Clients() {
           timeFilter: selectedExportPeriod,
           customStartDate: startDate,
           customEndDate: endDate,
-          companyName: 'Task Flow Pro',
+          companyName: 'NexiFlow',
           companyEmail: 'contact@clockistry.com',
-          companyPhone: '+1 (555) 123-4567'
+          companyPhone: '+1 (555) 123-4567',
+          pdfSettings, // Pass PDF settings
+          companyId: currentUser?.companyId || undefined, // Pass company ID, handling null case
+          timeEntries: timeEntriesForPDF // Pass time entries data
         })
       }
       
@@ -511,10 +587,10 @@ export default function Clients() {
         return 'This Week'
       case 'last-week':
         return 'Last Week'
-      case 'yesterday':
-        return 'Yesterday'
       case 'this-month':
         return 'This Month'
+      case 'last-month':
+        return 'Last Month'
       case 'custom':
         return `${format(startDate, 'MMM dd')} - ${format(endDate, 'MMM dd, yyyy')}`
       default:
@@ -636,6 +712,57 @@ export default function Clients() {
     }
   }
 
+  // Helper function to get daily time data for a specific client
+  const getClientDailyTimeData = (client: Client, timeEntriesForPeriod: TimeEntry[], startDate: Date, endDate: Date) => {
+    // Get projects for this client
+    const clientProjects = projects.filter(project => project.clientId === client.id)
+    const clientProjectIds = clientProjects.map(project => project.id)
+    
+    // Filter time entries for this client's projects
+    const clientTimeEntries = timeEntriesForPeriod.filter(entry => 
+      entry.projectId && clientProjectIds.includes(entry.projectId)
+    )
+    
+    // Fix for date range filtering: set end date to end of day to include all entries for that day
+    const adjustedEndDate = new Date(endDate)
+    adjustedEndDate.setHours(23, 59, 59, 999)
+    
+    // Group time entries by day
+    const dailyData: { [date: string]: { hours: number, seconds: number } } = {}
+    
+    // Initialize all days in the period with 0 hours
+    const currentDate = new Date(startDate)
+    while (currentDate <= adjustedEndDate) {
+      const dateKey = format(currentDate, 'yyyy-MM-dd')
+      dailyData[dateKey] = { hours: 0, seconds: 0 }
+      currentDate.setDate(currentDate.getDate() + 1)
+    }
+    
+    // Calculate hours for each day
+    clientTimeEntries.forEach(entry => {
+      const entryDate = new Date(entry.startTime)
+      // Only include entries within our date range
+      if (entryDate >= startDate && entryDate <= adjustedEndDate) {
+        const dateKey = format(entryDate, 'yyyy-MM-dd')
+        if (dailyData[dateKey]) {
+          dailyData[dateKey].seconds += entry.duration
+          dailyData[dateKey].hours = dailyData[dateKey].seconds / 3600
+        }
+      }
+    })
+    
+    // Convert to array format for charting
+    const chartData = Object.entries(dailyData)
+      .map(([date, data]) => ({
+        date,
+        hours: data.hours,
+        formattedDate: format(new Date(date), 'EEE') // Short day name (Mon, Tue, etc.)
+      }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    
+    return chartData
+  }
+
   const stats = getClientStats()
   const billingStats = getBillingStats()
   const filteredClients = getFilteredClients()
@@ -653,7 +780,7 @@ export default function Clients() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 scrollbar-visible">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -746,15 +873,21 @@ export default function Clients() {
               <div className="flex items-center space-x-2">
                 <input
                   type="date"
-                  value={customStartDate.toISOString().split('T')[0]}
-                  onChange={(e) => setCustomStartDate(new Date(e.target.value))}
+                  value={formatDateForInput(customStartDate)}
+                  onChange={(e) => {
+                    const date = parseDateFromInput(e.target.value);
+                    setCustomStartDate(date);
+                  }}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 />
                 <span className="text-gray-500 dark:text-gray-400">to</span>
                 <input
                   type="date"
-                  value={customEndDate.toISOString().split('T')[0]}
-                  onChange={(e) => setCustomEndDate(new Date(e.target.value))}
+                  value={formatDateForInput(customEndDate)}
+                  onChange={(e) => {
+                    const date = parseDateFromInput(e.target.value);
+                    setCustomEndDate(date);
+                  }}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 />
               </div>
@@ -806,7 +939,7 @@ export default function Clients() {
       </div>
 
       {/* Time Chart */}
-      {showTimeChart && chartData.labels.length > 0 && (
+      {showTimeChart && (
         <div className="bg-white rounded-lg shadow p-6" ref={chartRef}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Time Rendered by Client</h3>
@@ -903,21 +1036,21 @@ export default function Clients() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center space-x-1">
+                    <div className="flex items-center space-x-2">
                       {(() => {
                         const timeData = getClientTimeData(client)
                         return timeData.totalHours > 0 ? (
                           <button
                             onClick={() => handleExportClientPDF(client)}
                             disabled={isExportingPDF}
-                            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-green-700 disabled:opacity-50"
-                            title={`Export PDF report for ${client.name} (${timeData.formattedTime}, $${timeData.billableAmount.toFixed(2)})`}
+                            className="p-2 hover:bg-gray-100 rounded text-gray-500 hover:text-green-700 disabled:opacity-50"
+                            title={currentUser && canViewHourlyRates(currentUser.role) ? `Export PDF report for ${client.name} (${timeData.formattedTime}, $${timeData.billableAmount.toFixed(2)})` : `Export PDF report for ${client.name} (${timeData.formattedTime})`}
                           >
                             <TrendingUp className="h-4 w-4" />
                           </button>
                         ) : (
                           <div 
-                            className="p-1 text-gray-300 dark:text-gray-600 cursor-not-allowed"
+                            className="p-2 text-gray-300 cursor-not-allowed"
                             title={`No time data for ${client.name} in selected period`}
                           >
                             <TrendingUp className="h-4 w-4" />
@@ -926,17 +1059,24 @@ export default function Clients() {
                       })()}
                       <button
                         onClick={() => handleEditClient(client)}
-                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                        className="p-2 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700"
                         title="Edit client"
                       >
                         <Edit className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteClient(client)}
-                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-red-700"
+                        className="p-2 hover:bg-gray-100 rounded text-gray-500 hover:text-red-700"
                         title="Delete client"
                       >
                         <Trash2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => navigate(`/clients/${client.id}`)}
+                        className="p-2 hover:bg-gray-100 rounded text-gray-500 hover:text-purple-700"
+                        title="View client details"
+                      >
+                        <Building2 className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
@@ -1064,21 +1204,21 @@ export default function Clients() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-1">
                       {(() => {
                         const timeData = getClientTimeData(client)
                         return timeData.totalHours > 0 ? (
                           <button
                             onClick={() => handleExportClientPDF(client)}
                             disabled={isExportingPDF}
-                            className="p-2 hover:bg-gray-100 rounded text-gray-500 hover:text-green-700 disabled:opacity-50"
-                            title={currentUser && canViewHourlyRates(currentUser.role) ? `Export PDF report for ${client.name} (${timeData.formattedTime}, $${timeData.billableAmount.toFixed(2)})` : `Export PDF report for ${client.name} (${timeData.formattedTime})`}
+                            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-green-700 disabled:opacity-50"
+                            title={`Export PDF report for ${client.name} (${timeData.formattedTime}, $${timeData.billableAmount.toFixed(2)})`}
                           >
                             <TrendingUp className="h-4 w-4" />
                           </button>
                         ) : (
                           <div 
-                            className="p-2 text-gray-300 cursor-not-allowed"
+                            className="p-1 text-gray-300 dark:text-gray-600 cursor-not-allowed"
                             title={`No time data for ${client.name} in selected period`}
                           >
                             <TrendingUp className="h-4 w-4" />
@@ -1086,15 +1226,29 @@ export default function Clients() {
                         )
                       })()}
                       <button
+                        onClick={() => handleViewClientTimeEntries(client)}
+                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-blue-700"
+                        title="View time entries"
+                      >
+                        <Clock className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => navigate(`/clients/${client.id}`)}
+                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-purple-700"
+                        title="View client details"
+                      >
+                        <Building2 className="h-4 w-4" />
+                      </button>
+                      <button
                         onClick={() => handleEditClient(client)}
-                        className="p-2 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700"
+                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                         title="Edit client"
                       >
                         <Edit className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteClient(client)}
-                        className="p-2 hover:bg-gray-100 rounded text-gray-500 hover:text-red-700"
+                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-red-700"
                         title="Delete client"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -1125,6 +1279,143 @@ export default function Clients() {
               <span>Add Client</span>
             </button>
           )}
+        </div>
+      )}
+
+      {/* Time Entries for Selected Client */}
+      {viewingClientTimeEntries && (
+        <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                Time Entries for {viewingClientTimeEntries.name}
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Showing time entries for all projects associated with this client
+              </p>
+            </div>
+            <button
+              onClick={() => setViewingClientTimeEntries(null)}
+              className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
+              title="Close time entries view"
+            >
+              <Edit className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+            </button>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Project
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Duration
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Description
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Billable
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {(() => {
+                  // Get projects for this client
+                  const clientProjects = projects.filter(project => project.clientId === viewingClientTimeEntries.id)
+                  const clientProjectIds = clientProjects.map(project => project.id)
+                  
+                  // Get time entries for this client's projects
+                  const clientTimeEntries = timeEntries.filter(entry => 
+                    entry.projectId && clientProjectIds.includes(entry.projectId)
+                  )
+                  
+                  return clientTimeEntries.length > 0 ? (
+                    clientTimeEntries.map((entry) => {
+                      const project = clientProjects.find(p => p.id === entry.projectId)
+                      
+                      return (
+                        <tr key={entry.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                              {project?.name || 'Unknown Project'}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                            {entry.startTime ? format(new Date(entry.startTime), 'MMM dd, yyyy') : 'No Date'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                            {formatDurationToHHMMSS(entry.duration)}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+                            {entry.description || '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                            {entry.isBillable ? (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                Yes
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                                No
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                        No time entries found for this client
+                      </td>
+                    </tr>
+                  )
+                })()}
+              </tbody>
+            </table>
+          </div>
+          
+          <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-700 dark:text-gray-300">
+                {(() => {
+                  // Get projects for this client
+                  const clientProjects = projects.filter(project => project.clientId === viewingClientTimeEntries.id)
+                  const clientProjectIds = clientProjects.map(project => project.id)
+                  
+                  // Get time entries for this client's projects
+                  const clientTimeEntries = timeEntries.filter(entry => 
+                    entry.projectId && clientProjectIds.includes(entry.projectId)
+                  )
+                  
+                  const totalDuration = clientTimeEntries.reduce((sum, entry) => sum + entry.duration, 0)
+                  const billableDuration = clientTimeEntries
+                    .filter(entry => entry.isBillable)
+                    .reduce((sum, entry) => sum + entry.duration, 0)
+                  
+                  return (
+                    <>
+                      <span className="font-medium">{clientTimeEntries.length}</span> time entries • 
+                      <span className="font-medium ml-1">{formatDurationToHHMMSS(totalDuration)}</span> total time • 
+                      <span className="font-medium ml-1">{formatDurationToHHMMSS(billableDuration)}</span> billable time
+                    </>
+                  )
+                })()}
+              </div>
+              <button
+                onClick={() => setViewingClientTimeEntries(null)}
+                className="btn-primary"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

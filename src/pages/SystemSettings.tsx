@@ -225,7 +225,7 @@ export default function SystemSettings() {
         email,
         password,
         role: 'super_admin',
-        timezone: 'America/New_York',
+        timezone: 'GMT+0 (Greenwich Mean Time)',
         hourlyRate: 0,
         companyId
       })

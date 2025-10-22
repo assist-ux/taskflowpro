@@ -14,7 +14,7 @@ export default function Dashboard() {
     const hasSeenWelcome = localStorage.getItem('hasSeenWelcome')
     if (!hasSeenWelcome) {
       addNotification({
-        title: 'Welcome to Task Flow Pro!',
+        title: 'Welcome to NexiFlow!',
         message: 'Start tracking your time by creating a new time entry.',
         type: 'info',
         actionUrl: '/tracker'
@@ -64,7 +64,7 @@ export default function Dashboard() {
             <Clock className="h-10 w-10 text-primary-600 dark:text-primary-400" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            Welcome to Task Flow Pro
+            Welcome to NexiFlow
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
             Your time tracking application is ready. The system has been rebuilt with a clean foundation.

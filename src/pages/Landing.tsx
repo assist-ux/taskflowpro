@@ -113,7 +113,7 @@ const Landing = () => {
       name: 'Sarah Johnson',
       role: 'Project Manager',
       company: 'TechCorp',
-      content: 'Task Flow Pro has revolutionized how we track time and manage projects. The team productivity insights are invaluable.',
+      content: 'NexiFlow has revolutionized how we track time and manage projects. The team productivity insights are invaluable.',
       rating: 5
     },
     {
@@ -192,12 +192,12 @@ const Landing = () => {
               <div className="flex-shrink-0">
                 <img 
                   src="https://storage.googleapis.com/msgsndr/nb61f4OQ7o9Wsxx0zOsY/media/68df3ae78db305b0e463f363.svg" 
-                  alt="Task Flow Pro Logo" 
+                  alt="NexiFlow Logo" 
                   className="h-10 w-auto"
                 />
               </div>
               <div className="ml-3">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Task Flow Pro</h1>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">NexiFlow</h1>
                 <p className="text-xs text-gray-600 dark:text-gray-400">Powered by Nexistry Digital Solutions</p>
               </div>
             </div>
@@ -225,7 +225,7 @@ const Landing = () => {
                 onClick={handleLogin}
                 className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 text-sm sm:text-base cursor-pointer transition-all duration-200 transform hover:scale-105"
               >
-                <span className="hidden sm:inline">Access Task Flow Pro</span>
+                <span className="hidden sm:inline">Access NexiFlow</span>
                 <span className="sm:hidden">Sign In</span>
               </button>
             </div>
@@ -238,7 +238,7 @@ const Landing = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-6">
-              Welcome to Task Flow Pro
+              Welcome to NexiFlow
             </h1>
             <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto px-4">
               Your comprehensive time tracking and project management platform. 
@@ -249,7 +249,7 @@ const Landing = () => {
                 onClick={handleLogin}
                 className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 flex items-center justify-center cursor-pointer transition-all duration-200 transform hover:scale-105"
               >
-                Sign In to Task Flow Pro
+                Sign In to NexiFlow
                 <ArrowRight className="ml-2 h-5 w-5" />
               </button>
               <button 
@@ -289,7 +289,7 @@ const Landing = () => {
               Everything you need to manage time and teams
             </h2>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-              From time tracking to team management, billing to analytics - Task Flow Pro provides 
+              From time tracking to team management, billing to analytics - NexiFlow provides 
               all the tools you need to run a successful business.
             </p>
           </div>
@@ -496,7 +496,7 @@ const Landing = () => {
               Trusted by teams worldwide
             </h2>
             <p className="text-xl text-gray-600 dark:text-gray-300">
-              See what our users say about Task Flow Pro
+              See what our users say about NexiFlow
             </p>
           </div>
 
@@ -585,7 +585,7 @@ const Landing = () => {
             Ready to get started?
           </h2>
           <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-            Join thousands of teams already using Task Flow Pro to track time, manage projects, and grow their business.
+            Join thousands of teams already using NexiFlow to track time, manage projects, and grow their business.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button 
@@ -608,7 +608,7 @@ const Landing = () => {
             <div>
               <div className="flex items-center mb-4">
                 <Clock className="h-8 w-8 text-blue-400" />
-                <span className="ml-2 text-xl font-bold">Task Flow Pro</span>
+                <span className="ml-2 text-xl font-bold">NexiFlow</span>
               </div>
               <p className="text-gray-400">
                 The most popular time tracker for teams. Track time, manage projects, and grow your business.
@@ -643,7 +643,7 @@ const Landing = () => {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 Task Flow Pro. All rights reserved.</p>
+            <p>&copy; 2024 NexiFlow. All rights reserved.</p>
           </div>
         </div>
       </footer>

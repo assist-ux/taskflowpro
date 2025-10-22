@@ -11,6 +11,12 @@ A modern, Clockify-like time tracking application built with React, TypeScript, 
 - **Tags**: Organize entries with customizable tags
 - **Billable Hours**: Mark entries as billable and track earnings
 
+### 🤖 AI Assistant
+- **Dedicated Chat Widget**: Interact with an AI assistant directly in the application
+- **Productivity Insights**: Get AI-powered suggestions for improving productivity
+- **Natural Language Queries**: Ask questions in plain English
+- **Time Management Help**: Assistance with scheduling and task prioritization
+
 ### 📊 Dashboard & Analytics
 - **Overview Statistics**: Daily, weekly, and monthly time summaries
 - **Earnings Tracking**: Calculate earnings based on hourly rates
@@ -41,6 +47,7 @@ A modern, Clockify-like time tracking application built with React, TypeScript, 
 - Node.js (v16 or higher)
 - npm or yarn
 - Firebase project (for backend functionality)
+- OpenAI API key (for AI features)
 
 ### Installation
 
@@ -73,6 +80,9 @@ A modern, Clockify-like time tracking application built with React, TypeScript, 
    VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
    VITE_FIREBASE_APP_ID=your_app_id
    VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
+   
+   # OpenAI Configuration (for AI features)
+   VITE_OPENAI_API_KEY=your_openai_api_key_here
    ```
    
    **Important**: Never commit your `.env.local` file to version control. It's already included in `.gitignore`.
@@ -141,6 +151,7 @@ src/
 - **Date Handling**: date-fns for date manipulation
 - **Routing**: React Router for navigation
 - **State Management**: React hooks for local state
+- **AI Integration**: OpenAI API for AI assistant features
 
 ## 📱 Responsive Design
 
@@ -163,6 +174,7 @@ This is a **frontend-only** implementation with the following status:
 - Settings and customization
 - Responsive design
 - Mock data integration
+- AI assistant integration
 
 ### 🔄 Planned for Backend
 - User authentication and authorization

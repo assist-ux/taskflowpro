@@ -19,7 +19,8 @@ import {
   ProjectAnalytics, 
   DailyAnalytics, 
   ReportFilters,
-  Project
+  Project,
+  Client // Add Client import
 } from '../types'
 import AnalyticsCard from '../components/charts/AnalyticsCard'
 import SimpleChart from '../components/charts/SimpleChart'
@@ -32,6 +33,7 @@ export default function Reports() {
   const [projectAnalytics, setProjectAnalytics] = useState<ProjectAnalytics[]>([])
   const [dailyAnalytics, setDailyAnalytics] = useState<DailyAnalytics[]>([])
   const [projects, setProjects] = useState<Project[]>([])
+  const [clients, setClients] = useState<Client[]>([]) // Add clients state
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'quarter' | 'year'>('month')
   const [filters, setFilters] = useState<ReportFilters>({
     startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
@@ -40,6 +42,41 @@ export default function Reports() {
     userId: currentUser?.uid
   })
   const [showFilters, setShowFilters] = useState(false)
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>(filters.projectIds || [])
+  const [selectedClientIds, setSelectedClientIds] = useState<string[]>(filters.clientIds || []) // Add selectedClientIds state
+  const [selectedBillableFilter, setSelectedBillableFilter] = useState<'all' | 'billable' | 'non-billable'>('all')
+  const [tempFilters, setTempFilters] = useState({
+    projectIds: filters.projectIds || [],
+    clientIds: filters.clientIds || [], // Add clientIds to tempFilters
+    billableFilter: (filters.billableOnly ? 'billable' : filters.nonBillableOnly ? 'non-billable' : 'all') as 'all' | 'billable' | 'non-billable',
+    startDate: filters.startDate,
+    endDate: filters.endDate
+  })
+  const [applyingFilters, setApplyingFilters] = useState(false)
+
+  useEffect(() => {
+    if (filters.projectIds) {
+      setSelectedProjectIds(filters.projectIds)
+    }
+  }, [filters.projectIds])
+
+  // Add useEffect for clientIds
+  useEffect(() => {
+    if (filters.clientIds) {
+      setSelectedClientIds(filters.clientIds)
+    }
+  }, [filters.clientIds])
+
+  useEffect(() => {
+    // Initialize tempFilters when filters change
+    setTempFilters({
+      projectIds: filters.projectIds || [],
+      clientIds: filters.clientIds || [], // Add clientIds to tempFilters
+      billableFilter: (filters.billableOnly ? 'billable' : filters.nonBillableOnly ? 'non-billable' : 'all') as 'all' | 'billable' | 'non-billable',
+      startDate: filters.startDate,
+      endDate: filters.endDate
+    })
+  }, [filters])
 
   useEffect(() => {
     if (currentUser) {
@@ -54,11 +91,25 @@ export default function Reports() {
     loadData()
   }, [filters, selectedPeriod])
 
+  useEffect(() => {
+    if (!showFilters) {
+      // Nothing to clear now since we removed projectSearch
+    }
+  }, [showFilters])
+
   const loadData = async () => {
     if (!currentUser) return
     
-    setLoading(true)
+    // Only show loading spinner for initial load, not for filter updates
+    if (!timeAnalytics) {
+      setLoading(true)
+    }
+    
     try {
+      // Load clients data
+      const clientsData = await projectService.getClients()
+      setClients(clientsData)
+      
       // First get the time summary to match Time Tracker data
       const timeSummary = await timeEntryService.getTimeSummary(currentUser.uid)
       
@@ -135,17 +186,44 @@ export default function Reports() {
   }
 
   const handleProjectFilter = (projectIds: string[]) => {
+    setSelectedProjectIds(projectIds)
     setFilters(prev => ({
       ...prev,
       projectIds: projectIds.length > 0 ? projectIds : undefined
     }))
   }
 
-  const handleBillableFilter = (billableOnly: boolean) => {
+  // Add handleClientFilter function
+  const handleClientFilter = (clientIds: string[]) => {
+    setSelectedClientIds(clientIds)
     setFilters(prev => ({
       ...prev,
-      billableOnly
+      clientIds: clientIds.length > 0 ? clientIds : undefined
     }))
+  }
+
+  const handleBillableFilter = (filterType: 'all' | 'billable' | 'non-billable') => {
+    setFilters(prev => {
+      if (filterType === 'all') {
+        return {
+          ...prev,
+          billableOnly: false,
+          nonBillableOnly: false
+        }
+      } else if (filterType === 'billable') {
+        return {
+          ...prev,
+          billableOnly: true,
+          nonBillableOnly: false
+        }
+      } else { // non-billable
+        return {
+          ...prev,
+          billableOnly: false,
+          nonBillableOnly: true
+        }
+      }
+    })
   }
 
   const exportData = () => {
@@ -169,6 +247,32 @@ export default function Reports() {
     a.download = `time-report-${new Date().toISOString().split('T')[0]}.csv`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  const handleApplyFilters = async () => {
+    setApplyingFilters(true)
+    setFilters(prev => ({
+      ...prev,
+      projectIds: tempFilters.projectIds.length > 0 ? tempFilters.projectIds : undefined,
+      clientIds: tempFilters.clientIds.length > 0 ? tempFilters.clientIds : undefined, // Add clientIds filter
+      billableOnly: tempFilters.billableFilter === 'billable',
+      nonBillableOnly: tempFilters.billableFilter === 'non-billable',
+      startDate: tempFilters.startDate,
+      endDate: tempFilters.endDate
+    }))
+    // Small delay to show the loading state
+    await new Promise(resolve => setTimeout(resolve, 500))
+    setApplyingFilters(false)
+  }
+
+  const resetFilters = () => {
+    setTempFilters({
+      projectIds: [],
+      clientIds: [], // Add clientIds to reset
+      billableFilter: 'all',
+      startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+      endDate: new Date()
+    })
   }
 
   if (loading) {
@@ -244,21 +348,145 @@ export default function Reports() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Projects
               </label>
-              <select
-                multiple
-                className="input"
-                onChange={(e) => {
-                  const selectedIds = Array.from(e.target.selectedOptions, option => option.value)
-                  handleProjectFilter(selectedIds)
-                }}
-              >
-                <option value="">All Projects</option>
+              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 max-h-40 overflow-y-auto scrollbar-visible">
                 {projects.map(project => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
+                  <div key={project.id} className="flex items-center mb-2">
+                    <input
+                      type="checkbox"
+                      id={`project-${project.id}`}
+                      checked={tempFilters.projectIds.includes(project.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setTempFilters(prev => ({
+                            ...prev,
+                            projectIds: [...prev.projectIds, project.id]
+                          }))
+                        } else {
+                          setTempFilters(prev => ({
+                            ...prev,
+                            projectIds: prev.projectIds.filter(id => id !== project.id)
+                          }))
+                        }
+                      }}
+                      className="h-4 w-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500"
+                    />
+                    <label
+                      htmlFor={`project-${project.id}`}
+                      className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      {project.name}
+                    </label>
+                  </div>
                 ))}
-              </select>
+              </div>
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {tempFilters.projectIds.length} of {projects.length} selected
+                </span>
+                <div className="space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setTempFilters(prev => ({ ...prev, projectIds: [] }))}
+                    className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                  >
+                    Clear All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTempFilters(prev => ({ ...prev, projectIds: projects.map(p => p.id) }))}
+                    className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                  >
+                    Select All
+                  </button>
+                </div>
+              </div>
+              {projects.length > 0 && (
+                <>
+                  {tempFilters.projectIds.length === projects.length && (
+                    <div className="mt-1 text-xs text-green-600 dark:text-green-400">
+                      All projects selected
+                    </div>
+                  )}
+                  {tempFilters.projectIds.length === 0 && (
+                    <div className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                      No projects selected - showing all projects
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            
+            {/* Add Clients filter section */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Clients
+              </label>
+              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 max-h-40 overflow-y-auto scrollbar-visible">
+                {clients.map(client => (
+                  <div key={client.id} className="flex items-center mb-2">
+                    <input
+                      type="checkbox"
+                      id={`client-${client.id}`}
+                      checked={tempFilters.clientIds.includes(client.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setTempFilters(prev => ({
+                            ...prev,
+                            clientIds: [...prev.clientIds, client.id]
+                          }))
+                        } else {
+                          setTempFilters(prev => ({
+                            ...prev,
+                            clientIds: prev.clientIds.filter(id => id !== client.id)
+                          }))
+                        }
+                      }}
+                      className="h-4 w-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500"
+                    />
+                    <label
+                      htmlFor={`client-${client.id}`}
+                      className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      {client.name}
+                    </label>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {tempFilters.clientIds.length} of {clients.length} selected
+                </span>
+                <div className="space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setTempFilters(prev => ({ ...prev, clientIds: [] }))}
+                    className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                  >
+                    Clear All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTempFilters(prev => ({ ...prev, clientIds: clients.map(c => c.id) }))}
+                    className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                  >
+                    Select All
+                  </button>
+                </div>
+              </div>
+              {clients.length > 0 && (
+                <>
+                  {tempFilters.clientIds.length === clients.length && (
+                    <div className="mt-1 text-xs text-green-600 dark:text-green-400">
+                      All clients selected
+                    </div>
+                  )}
+                  {tempFilters.clientIds.length === 0 && (
+                    <div className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                      No clients selected - showing all clients
+                    </div>
+                  )}
+                </>
+              )}
             </div>
             
             <div>
@@ -267,7 +495,11 @@ export default function Reports() {
               </label>
               <select
                 className="input"
-                onChange={(e) => handleBillableFilter(e.target.value === 'billable')}
+                value={tempFilters.billableFilter}
+                onChange={(e) => setTempFilters(prev => ({
+                  ...prev,
+                  billableFilter: e.target.value as 'all' | 'billable' | 'non-billable'
+                }))}
               >
                 <option value="all">All Time</option>
                 <option value="billable">Billable Only</option>
@@ -279,27 +511,51 @@ export default function Reports() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Date Range
               </label>
-              <div className="flex space-x-2">
+              <div className="space-y-2">
                 <input
                   type="date"
-                  value={filters.startDate.toISOString().split('T')[0]}
-                  onChange={(e) => setFilters(prev => ({
+                  value={tempFilters.startDate.toISOString().split('T')[0]}
+                  onChange={(e) => setTempFilters(prev => ({
                     ...prev,
                     startDate: new Date(e.target.value)
                   }))}
-                  className="input"
+                  className="input w-full"
                 />
                 <input
                   type="date"
-                  value={filters.endDate.toISOString().split('T')[0]}
-                  onChange={(e) => setFilters(prev => ({
+                  value={tempFilters.endDate.toISOString().split('T')[0]}
+                  onChange={(e) => setTempFilters(prev => ({
                     ...prev,
                     endDate: new Date(e.target.value)
                   }))}
-                  className="input"
+                  className="input w-full"
                 />
               </div>
             </div>
+          </div>
+          
+          <div className="flex justify-end space-x-3 mt-6">
+            <button
+              onClick={resetFilters}
+              className="btn-secondary"
+              disabled={applyingFilters}
+            >
+              Reset Filters
+            </button>
+            <button
+              onClick={handleApplyFilters}
+              className="btn-primary flex items-center space-x-2"
+              disabled={applyingFilters}
+            >
+              {applyingFilters ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Applying...</span>
+                </>
+              ) : (
+                <span>Apply Filters</span>
+              )}
+            </button>
           </div>
         </div>
       )}

@@ -1,10 +1,10 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react'
 import { useAuth } from './AuthContext'
-import { MentionNotification } from '../types'
-import { mentionNotificationService } from '../services/mentionNotificationService'
 import { ref, onValue, query, orderByChild, equalTo } from 'firebase/database'
 import { database } from '../config/firebase'
-import { playNotificationSound } from '../utils/soundUtils'
+import { playNotificationSound, playMentionSound } from '../utils/soundUtils'
+import { soundManager } from '../utils/soundManager'
+import MentionNotificationService from '../services/mentionNotificationService'
 
 export interface Notification {
   id: string
@@ -14,10 +14,6 @@ export interface Notification {
   timestamp: Date
   isRead: boolean
   actionUrl?: string
-  mentionedBy?: string
-  mentionedByName?: string
-  contextType?: 'comment' | 'note' | 'task' | 'message'
-  contextTitle?: string
 }
 
 interface NotificationContextType {
@@ -28,7 +24,7 @@ interface NotificationContextType {
   markAllAsRead: () => void
   removeNotification: (id: string) => void
   clearAllNotifications: () => void
-  loadMentionNotifications: () => Promise<void>
+  playTestMentionSound: () => void
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined)
@@ -47,55 +43,67 @@ interface NotificationProviderProps {
 
 export function NotificationProvider({ children }: NotificationProviderProps) {
   const [notifications, setNotifications] = useState<Notification[]>([])
-  const [unreadMentionCount, setUnreadMentionCount] = useState(0)
   const { currentUser } = useAuth()
+  
+  // Debounce timer for sound notifications
+  const soundDebounceTimers = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  
+  // Ref to track previous notifications for comparison
+  const previousNotificationsRef = useRef<Notification[]>([]);
 
-  // Get unread mention notifications count
-  const getUnreadMentionCount = async () => {
-    if (!currentUser) return 0
-
-    try {
-      const { mentionNotificationService } = await import('../services/mentionNotificationService')
-      const count = await mentionNotificationService.getUnreadCount(currentUser.uid)
-      setUnreadMentionCount(count)
-      return count
-    } catch (error) {
-      console.error('Error getting unread mention count:', error)
-      return 0
+  // Load notifications from Firebase when user changes
+  useEffect(() => {
+    if (!currentUser) {
+      setNotifications([])
+      previousNotificationsRef.current = [];
+      return
     }
-  }
 
-  // Update unread mention count periodically
-  useEffect(() => {
-    if (!currentUser) return
-
-    getUnreadMentionCount()
-    const interval = setInterval(() => {
-      getUnreadMentionCount()
-    }, 30000) // Refresh every 30 seconds
-
-    return () => clearInterval(interval)
-  }, [currentUser])
-
-  // Load notifications from localStorage on mount
-  useEffect(() => {
-    if (currentUser) {
-      const savedNotifications = localStorage.getItem(`notifications_${currentUser.uid}`)
-      if (savedNotifications) {
-        try {
-          const parsed = JSON.parse(savedNotifications)
-          setNotifications(parsed.map((n: any) => ({
-            ...n,
-            timestamp: new Date(n.timestamp)
-          })))
-        } catch (error) {
-          console.error('Error loading notifications:', error)
+    // Subscribe to real-time notifications from Firebase
+    const unsubscribe = MentionNotificationService.subscribeToNotifications(
+      currentUser.uid,
+      (firebaseNotifications) => {
+        // Convert Firebase notifications to the format expected by the UI
+        const convertedNotifications = firebaseNotifications.map(notification => ({
+          id: notification.id,
+          title: notification.title,
+          message: notification.message,
+          type: notification.type,
+          timestamp: notification.createdAt,
+          isRead: notification.isRead,
+          actionUrl: notification.actionUrl
+        }))
+        
+        // Play sound for new mention notifications
+        const previousNotificationIds = new Set(previousNotificationsRef.current.map(n => n.id));
+        const newMentionNotifications = firebaseNotifications.filter(
+          notification => !previousNotificationIds.has(notification.id) && notification.type === 'mention'
+        );
+        
+        console.log('New mention notifications:', newMentionNotifications);
+        console.log('Sound enabled:', soundManager.isSoundEnabled());
+        console.log('User interacted:', soundManager.hasUserInteracted());
+        
+        if (newMentionNotifications.length > 0 && soundManager.isSoundEnabled()) {
+          console.log('Playing mention sound for new notifications');
+          // Add a small delay to ensure the notification is fully processed before playing sound
+          setTimeout(() => {
+            playMentionSound();
+          }, 100);
         }
+        
+        setNotifications(convertedNotifications)
+        previousNotificationsRef.current = convertedNotifications;
       }
+    )
+
+    // Cleanup subscription on unmount or when user changes
+    return () => {
+      unsubscribe()
     }
   }, [currentUser])
 
-  // Save notifications to localStorage whenever they change
+  // Save notifications to localStorage for offline access
   useEffect(() => {
     if (currentUser && notifications.length > 0) {
       localStorage.setItem(`notifications_${currentUser.uid}`, JSON.stringify(notifications))
@@ -112,9 +120,25 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
 
     setNotifications(prev => [newNotification, ...prev])
 
-    // Play sound for mention notifications
-    if (newNotification.type === 'mention') {
-      playNotificationSound()
+    // Only play sounds for mention notifications, not for all notifications
+    if (notification.type === 'mention' && soundManager.isSoundEnabled()) {
+      console.log('Adding mention sound notification');
+      // Play appropriate sound for notifications based on type
+      // But debounce to prevent too many sounds
+      // Clear any existing timer for this user
+      const existingTimer = soundDebounceTimers.current.get(newNotification.id || 'system');
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+      }
+      
+      // Set new timer
+      const timer = setTimeout(() => {
+        console.log('Playing mention sound from addNotification');
+        playMentionSound();
+        soundDebounceTimers.current.delete(newNotification.id || 'system');
+      }, 300); // Shorter debounce for mentions
+      
+      soundDebounceTimers.current.set(newNotification.id || 'system', timer);
     }
 
     // Auto-remove after 5 seconds for info notifications
@@ -133,12 +157,25 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
           : notification
       )
     )
+    
+    // Also mark as read in Firebase if it's a mention notification
+    if (currentUser) {
+      const notification = notifications.find(n => n.id === id)
+      if (notification && notification.type === 'mention') {
+        MentionNotificationService.markAsRead(id, currentUser.uid)
+      }
+    }
   }
 
   const markAllAsRead = () => {
     setNotifications(prev =>
       prev.map(notification => ({ ...notification, isRead: true }))
     )
+    
+    // Also mark all as read in Firebase
+    if (currentUser) {
+      MentionNotificationService.markAllAsRead(currentUser.uid)
+    }
   }
 
   const removeNotification = (id: string) => {
@@ -152,83 +189,11 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     }
   }
 
-  const loadMentionNotifications = async () => {
-    if (!currentUser) return
-
-    try {
-      const mentionNotifications = await mentionNotificationService.getMentionNotifications(currentUser.uid)
-      
-      // Check if there are new unread notifications
-      const unreadNotifications = mentionNotifications.filter(n => !n.isRead)
-      const previousUnreadCount = notifications.filter(n => n.type === 'mention' && !n.isRead).length
-      
-      // Play sound if there are new unread mentions
-      if (unreadNotifications.length > previousUnreadCount) {
-        playNotificationSound()
-      }
-      
-      // Convert mention notifications to regular notifications
-      const convertedNotifications: Notification[] = mentionNotifications.map(mentionNotif => ({
-        id: mentionNotif.id,
-        title: mentionNotif.title,
-        message: mentionNotif.message,
-        type: 'mention' as const,
-        timestamp: mentionNotif.createdAt,
-        isRead: mentionNotif.isRead,
-        actionUrl: mentionNotif.actionUrl,
-        mentionedBy: mentionNotif.mentionedBy,
-        mentionedByName: mentionNotif.mentionedByName,
-        contextType: mentionNotif.contextType,
-        contextTitle: mentionNotif.contextTitle
-      }))
-
-      // Merge with existing notifications, avoiding duplicates
-      setNotifications(prev => {
-        const existingIds = new Set(prev.map(n => n.id))
-        const newNotifications = convertedNotifications.filter(n => !existingIds.has(n.id))
-        return [...newNotifications, ...prev].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-      })
-    } catch (error) {
-      console.error('Error loading mention notifications:', error)
-    }
+  // Test function to play mention sound
+  const playTestMentionSound = () => {
+    console.log('Playing test mention sound');
+    playMentionSound();
   }
-
-  // Real-time listener for new mention notifications
-  useEffect(() => {
-    if (!currentUser) return
-
-    const notificationsRef = ref(database, 'mentionNotifications')
-    const q = query(notificationsRef, orderByChild('mentionedUserId'), equalTo(currentUser.uid))
-    
-    const unsubscribe = onValue(q, (snapshot) => {
-      if (snapshot.exists()) {
-        loadMentionNotifications()
-      }
-    })
-
-    return () => unsubscribe()
-  }, [currentUser])
-
-  // Periodically refresh mention notifications
-  useEffect(() => {
-    if (!currentUser) return
-
-    const interval = setInterval(() => {
-      loadMentionNotifications()
-    }, 30000) // Refresh every 30 seconds
-
-    return () => clearInterval(interval)
-  }, [currentUser])
-
-  // Load mention notifications when user changes
-  useEffect(() => {
-    if (currentUser) {
-      loadMentionNotifications()
-      getUnreadMentionCount()
-      // Add welcome notifications for new features
-      addWelcomeNotifications()
-    }
-  }, [currentUser])
 
   // Add welcome notifications for major features
   const addWelcomeNotifications = () => {
@@ -281,7 +246,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     markAllAsRead,
     removeNotification,
     clearAllNotifications,
-    loadMentionNotifications
+    playTestMentionSound
   }
 
   return (

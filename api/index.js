@@ -124,8 +124,12 @@ app.get('/api/time-entries', authenticateToken, async (req, res) => {
       }
       
       if (endDate) {
+        // Fix for date range filtering: set end date to end of day to include all entries for that day
+        const adjustedEndDate = new Date(endDate);
+        adjustedEndDate.setHours(23, 59, 59, 999);
+        
         entries = entries.filter(entry => 
-          new Date(entry.startTime) <= new Date(endDate)
+          new Date(entry.startTime) <= adjustedEndDate
         );
       }
       
@@ -361,9 +365,13 @@ app.get('/api/time-summary', authenticateToken, async (req, res) => {
     
     let entries = [];
     if (snapshot.exists()) {
+      // Fix for date range filtering: set end date to end of day to include all entries for that day
+      const adjustedEndDate = new Date(endDate);
+      adjustedEndDate.setHours(23, 59, 59, 999);
+      
       entries = Object.values(snapshot.val()).filter(entry => {
         const entryDate = new Date(entry.startTime);
-        return entryDate >= startDate && entryDate <= endDate;
+        return entryDate >= startDate && entryDate <= adjustedEndDate;
       });
     }
     

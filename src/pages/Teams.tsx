@@ -57,10 +57,20 @@ export default function Teams() {
   const [memberCountFilter, setMemberCountFilter] = useState<string>('all')
   const [activityFilter, setActivityFilter] = useState<string>('all')
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
+  
+  // Team leadership states
+  const [teamLeadership, setTeamLeadership] = useState<{ [teamId: string]: boolean }>({})
 
   useEffect(() => {
     loadData()
   }, [])
+
+  useEffect(() => {
+    if (teams.length > 0 && currentUser?.uid) {
+      // Load leadership status for all teams
+      loadTeamLeadership()
+    }
+  }, [teams, currentUser?.uid])
 
   useEffect(() => {
     if (teams.length > 0) {
@@ -94,6 +104,16 @@ export default function Teams() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadTeamLeadership = async () => {
+    if (!currentUser?.uid) return;
+    
+    const leadershipData: { [teamId: string]: boolean } = {}
+    for (const team of teams) {
+      leadershipData[team.id] = await teamService.isUserTeamLeader(currentUser.uid, team.id)
+    }
+    setTeamLeadership(leadershipData)
   }
 
   const loadTeamStats = async () => {
@@ -156,6 +176,9 @@ export default function Teams() {
       case 'custom':
         startDate = customStartDate
         endDate = customEndDate
+        // Fix for date range filtering: set start date to beginning of day and end date to end of day
+        startDate.setHours(0, 0, 0, 0)
+        endDate.setHours(23, 59, 59, 999)
         break
       default:
         startDate = startOfWeek(now, { weekStartsOn: 1 })
@@ -211,12 +234,10 @@ export default function Teams() {
 
   const getTeamTimeData = (team: Team) => {
     const stats = teamStats[team.id]
-    if (!stats) return { totalHours: 0, billableHours: 0, nonBillableHours: 0, totalTimeEntries: 0 }
+    if (!stats) return { totalHours: 0, totalTimeEntries: 0 }
     
     return {
       totalHours: stats.totalHours,
-      billableHours: stats.billableHours,
-      nonBillableHours: stats.nonBillableHours,
       totalTimeEntries: stats.totalTimeEntries,
       averageHoursPerMember: stats.averageHoursPerMember,
       mostActiveMember: stats.mostActiveMember
@@ -228,9 +249,7 @@ export default function Teams() {
       const timeData = getTeamTimeData(team)
       return {
         name: team.name,
-        hours: timeData.totalHours,
-        billableHours: timeData.billableHours,
-        nonBillableHours: timeData.nonBillableHours
+        hours: timeData.totalHours
       }
     }).filter(data => data.hours > 0)
 
@@ -242,12 +261,6 @@ export default function Teams() {
           data: chartData.map(item => item.hours),
           backgroundColor: 'rgba(59, 130, 246, 0.5)',
           borderColor: 'rgba(59, 130, 246, 1)',
-        },
-        {
-          label: 'Billable Hours',
-          data: chartData.map(item => item.billableHours),
-          backgroundColor: 'rgba(34, 197, 94, 0.5)',
-          borderColor: 'rgba(34, 197, 94, 1)',
         }
       ]
     }
@@ -257,11 +270,6 @@ export default function Teams() {
     const totalHours = teams.reduce((sum, team) => {
       const timeData = getTeamTimeData(team)
       return sum + timeData.totalHours
-    }, 0)
-
-    const totalBillableHours = teams.reduce((sum, team) => {
-      const timeData = getTeamTimeData(team)
-      return sum + timeData.billableHours
     }, 0)
 
     const totalTimeEntries = teams.reduce((sum, team) => {
@@ -276,7 +284,6 @@ export default function Teams() {
 
     return {
       totalHours,
-      totalBillableHours,
       totalTimeEntries,
       activeTeams
     }
@@ -307,35 +314,22 @@ export default function Teams() {
     return count
   }
 
-  const isUserTeamLeader = (team: Team) => {
-    const isLeader = currentUser?.uid === team.leaderId;
-    
-    // Debug logging to understand the issue
-    console.log('Debug Team Leadership Check:', {
-      teamName: team.name,
-      teamLeaderId: team.leaderId,
-      teamLeaderName: team.leaderName,
-      currentUserId: currentUser?.uid,
-      currentUserName: currentUser?.name,
-      currentUserEmail: currentUser?.email,
-      isLeader
-    });
-    
-    return isLeader;
+  const isUserTeamLeader = (teamId: string) => {
+    return teamLeadership[teamId] || false;
   }
 
   const isUserSuperAdmin = () => {
     return currentUser?.role === 'root' || currentUser?.role === 'admin';
   }
 
-  const canViewTeamDetails = (team: Team) => {
+  const canViewTeamDetails = (teamId: string) => {
     // Team leaders and super admins can view team details
-    return isUserTeamLeader(team) || isUserSuperAdmin();
+    return isUserTeamLeader(teamId) || isUserSuperAdmin();
   }
 
-  const canManageTeam = (team: Team) => {
+  const canManageTeam = (teamId: string) => {
     // Only team leaders can manage teams (edit/delete)
-    return isUserTeamLeader(team);
+    return isUserTeamLeader(teamId);
   }
 
   const toggleDropdown = (teamId: string) => {
@@ -417,7 +411,7 @@ export default function Teams() {
   const chartData = getTimeChartData()
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 scrollbar-visible">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -435,7 +429,7 @@ export default function Teams() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <div className="flex items-center">
             <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
@@ -468,18 +462,6 @@ export default function Teams() {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Time</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatSecondsToHHMMSS(overallStats.totalHours * 3600)}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
-              <DollarSign className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Billable Time</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatSecondsToHHMMSS(overallStats.totalBillableHours * 3600)}</p>
             </div>
           </div>
         </div>
@@ -590,10 +572,6 @@ export default function Teams() {
               <div className="flex items-center space-x-1">
                 <div className="w-3 h-3 bg-blue-500 rounded"></div>
                 <span>Total Hours</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 bg-green-500 rounded"></div>
-                <span>Billable Hours</span>
               </div>
             </div>
           </div>
@@ -797,7 +775,7 @@ export default function Teams() {
           {filteredTeams.map((team) => {
             const members = teamMembers[team.id] || []
             const stats = teamStats[team.id]
-            const isLeader = isUserTeamLeader(team)
+            const isLeader = isUserTeamLeader(team.id)
             
             return (
               <div key={team.id} className="card hover:shadow-md transition-shadow">
@@ -824,7 +802,7 @@ export default function Teams() {
                     {/* Dropdown Menu */}
                     {openDropdown === team.id && (
                       <div className="absolute right-0 top-8 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 py-1 z-50">
-                        {canManageTeam(team) ? (
+                        {canManageTeam(team.id) ? (
                           <>
                             <button
                               onClick={() => {
@@ -848,7 +826,7 @@ export default function Teams() {
                               <span>Delete Team</span>
                             </button>
                           </>
-                        ) : canViewTeamDetails(team) ? (
+                        ) : canViewTeamDetails(team.id) ? (
                           <button
                             onClick={() => {
                               // Navigate to team details page
@@ -900,15 +878,9 @@ export default function Teams() {
                         <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">Time Rendered</h4>
                         <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <p className="text-lg font-bold text-blue-900 dark:text-blue-100">{formatSecondsToHHMMSS(timeData.totalHours * 3600)}</p>
-                          <p className="text-xs text-blue-600 dark:text-blue-400">Total Time</p>
-                        </div>
-                        <div>
-                          <p className="text-lg font-bold text-green-700 dark:text-green-400">{formatSecondsToHHMMSS(timeData.billableHours * 3600)}</p>
-                          <p className="text-xs text-green-600 dark:text-green-400">Billable</p>
-                        </div>
+                      <div>
+                        <p className="text-lg font-bold text-blue-900 dark:text-blue-100">{formatSecondsToHHMMSS(timeData.totalHours * 3600)}</p>
+                        <p className="text-xs text-blue-600 dark:text-blue-400">Total Time</p>
                       </div>
                       {timeData.mostActiveMember && (
                         <div className="mt-2 pt-2 border-t border-blue-200 dark:border-blue-700">

@@ -205,11 +205,15 @@ export const reportsService = {
     
     const entries = await timeEntryService.getTimeEntries(filters.userId)
     
+    // Fix for date range filtering: set end date to end of day to include all entries for that day
+    const adjustedEndDate = new Date(filters.endDate)
+    adjustedEndDate.setHours(23, 59, 59, 999)
+    
     return entries.filter(entry => {
       const entryDate = new Date(entry.startTime)
       
       // Date range filter
-      if (entryDate < filters.startDate || entryDate > filters.endDate) {
+      if (entryDate < filters.startDate || entryDate > adjustedEndDate) {
         return false
       }
       
@@ -220,9 +224,24 @@ export const reportsService = {
         }
       }
       
+      // Client filter
+      if (filters.clientIds && filters.clientIds.length > 0) {
+        if (!entry.clientId || !filters.clientIds.includes(entry.clientId)) {
+          return false
+        }
+      }
+      
       // Billable filter
-      if (filters.billableOnly && !entry.isBillable) {
-        return false
+      if (filters.billableOnly) {
+        if (!entry.isBillable) {
+          return false
+        }
+      }
+      
+      if (filters.nonBillableOnly) {
+        if (entry.isBillable) {
+          return false
+        }
       }
       
       return true

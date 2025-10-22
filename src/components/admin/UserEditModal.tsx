@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { X, User, Mail, Shield, Users, Save, UserCheck } from 'lucide-react'
+import { X, User, Mail, Shield, Users, Save, UserCheck, Clock } from 'lucide-react'
 import { User as UserType, UserRole } from '../../types'
 import { getRoleDisplayName, getRoleDescription, canManageUser } from '../../utils/permissions'
+import { timezones } from '../../data/countriesAndTimezones'
 
 interface UserEditModalProps {
   isOpen: boolean
@@ -16,7 +17,8 @@ export default function UserEditModal({ isOpen, onClose, onSave, user, currentUs
     name: '',
     email: '',
     role: 'employee' as UserRole,
-    isActive: true
+    isActive: true,
+    timezone: 'GMT+0 (Greenwich Mean Time)'
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -27,7 +29,8 @@ export default function UserEditModal({ isOpen, onClose, onSave, user, currentUs
         name: user.name,
         email: user.email,
         role: user.role,
-        isActive: user.isActive
+        isActive: user.isActive,
+        timezone: user.timezone || 'GMT+0 (Greenwich Mean Time)'
       })
     }
     setError('')
@@ -60,7 +63,8 @@ export default function UserEditModal({ isOpen, onClose, onSave, user, currentUs
         name: formData.name.trim(),
         email: formData.email.trim(),
         role: formData.role,
-        isActive: formData.isActive
+        isActive: formData.isActive,
+        timezone: formData.timezone
       }
 
       await onSave(updatedUser)
@@ -134,6 +138,27 @@ export default function UserEditModal({ isOpen, onClose, onSave, user, currentUs
               placeholder="Enter email address"
               required
             />
+          </div>
+
+          {/* Timezone */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Timezone
+            </label>
+            <div className="relative">
+              <select
+                value={formData.timezone}
+                onChange={(e) => setFormData(prev => ({ ...prev, timezone: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              >
+                {timezones.map((tz) => (
+                  <option key={tz} value={tz}>
+                    {tz}
+                  </option>
+                ))}
+              </select>
+              <Clock className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            </div>
           </div>
 
           {/* Role */}

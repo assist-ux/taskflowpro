@@ -1,17 +1,18 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { SearchProvider } from './contexts/SearchContext'
 import { NotificationProvider } from './contexts/NotificationContext'
-import { MessagingProvider } from './contexts/MessagingContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { TimeEntryProvider } from './contexts/TimeEntryContext'
+import { MessagingProvider } from './contexts/MessagingContext'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import Sidebar from './components/Sidebar'
 import Header from './components/Header'
 import Dashboard from './pages/Dashboard'
 import Projects from './pages/Projects'
 import Clients from './pages/Clients'
+import ClientDetails from './pages/ClientDetails'
 import TimeTracker from './pages/TimeTracker'
 import Calendar from './pages/Calendar'
 import Reports from './pages/Reports'
@@ -23,13 +24,17 @@ import Feedbacks from './pages/Feedbacks'
 import AdminDashboard from './pages/AdminDashboard'
 import Settings from './pages/Settings'
 import SystemSettings from './pages/SystemSettings'
+import PDFSettings from './pages/PDFSettings'
 import SoundTestPage from './pages/SoundTestPage'
 import Auth from './pages/Auth'
 import Landing from './pages/Landing'
 import About from './pages/About'
-import MessagingWidget from './components/messaging/MessagingWidget'
+import Messaging from './pages/Messaging'
+// Import the new AI Chat Widget instead of the messaging widget
+import AIChatWidget from './components/ai/AIChatWidget'
 import TestNotifications from './pages/TestNotifications'
 import DemoPage from './pages/DemoPage'
+import { soundManager } from './utils/soundManager'
 
 function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -94,6 +99,11 @@ function AppContent() {
                 <Clients />
               </ProtectedRoute>
             } />
+            <Route path="/clients/:clientId" element={
+              <ProtectedRoute>
+                <ClientDetails />
+              </ProtectedRoute>
+            } />
             <Route path="/reports" element={
               <ProtectedRoute>
                 <Reports />
@@ -139,9 +149,14 @@ function AppContent() {
                 <SystemSettings />
               </ProtectedRoute>
             } />
+            <Route path="/pdf-settings" element={
+              <ProtectedRoute>
+                <PDFSettings />
+              </ProtectedRoute>
+            } />
             <Route path="/sound-test" element={
               <ProtectedRoute>
-                <TestNotifications />
+                <SoundTestPage />
               </ProtectedRoute>
             } />
             <Route path="/demo" element={
@@ -154,18 +169,42 @@ function AppContent() {
                 <Dashboard />
               </ProtectedRoute>
             } />
+            <Route path="/messaging" element={
+              <ProtectedRoute>
+                <Messaging />
+              </ProtectedRoute>
+            } />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
       </div>
       
-      {/* Global Messaging Widget */}
-      <MessagingWidget />
+      {/* Global AI Chat Widget */}
+      <AIChatWidget />
     </div>
   )
 }
 
 function App() {
+  // Register user interactions to enable sound playback
+  useEffect(() => {
+    const handleUserInteraction = () => {
+      soundManager.registerUserInteraction();
+    };
+
+    // Add event listeners for various user interactions
+    window.addEventListener('click', handleUserInteraction);
+    window.addEventListener('keydown', handleUserInteraction);
+    window.addEventListener('touchstart', handleUserInteraction);
+
+    // Cleanup event listeners
+    return () => {
+      window.removeEventListener('click', handleUserInteraction);
+      window.removeEventListener('keydown', handleUserInteraction);
+      window.removeEventListener('touchstart', handleUserInteraction);
+    };
+  }, []);
+
   return (
     <AuthProvider>
       <ThemeProvider>

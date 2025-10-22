@@ -256,11 +256,43 @@ export default function UserCreateModal({
               className="input"
               disabled={loading}
             >
-              <option value="America/New_York">Eastern Time (ET)</option>
-              <option value="America/Chicago">Central Time (CT)</option>
-              <option value="America/Denver">Mountain Time (MT)</option>
-              <option value="America/Los_Angeles">Pacific Time (PT)</option>
-              <option value="UTC">UTC</option>
+              <option value="GMT-12 (International Date Line West)">GMT-12 (International Date Line West)</option>
+              <option value="GMT-11 (Midway Island, Samoa)">GMT-11 (Midway Island, Samoa)</option>
+              <option value="GMT-10 (Hawaii)">GMT-10 (Hawaii)</option>
+              <option value="GMT-9 (Alaska)">GMT-9 (Alaska)</option>
+              <option value="GMT-8 (Pacific Time)">GMT-8 (Pacific Time)</option>
+              <option value="GMT-7 (Mountain Time)">GMT-7 (Mountain Time)</option>
+              <option value="GMT-6 (Central Time)">GMT-6 (Central Time)</option>
+              <option value="GMT-5 (Eastern Time)">GMT-5 (Eastern Time)</option>
+              <option value="GMT-4 (Atlantic Time)">GMT-4 (Atlantic Time)</option>
+              <option value="GMT-3:30 (Newfoundland)">GMT-3:30 (Newfoundland)</option>
+              <option value="GMT-3 (Brasília Time)">GMT-3 (Brasília Time)</option>
+              <option value="GMT-2 (Mid-Atlantic)">GMT-2 (Mid-Atlantic)</option>
+              <option value="GMT-1 (Azores)">GMT-1 (Azores)</option>
+              <option value="GMT+0 (Greenwich Mean Time)">GMT+0 (Greenwich Mean Time)</option>
+              <option value="GMT+1 (Central European Time)">GMT+1 (Central European Time)</option>
+              <option value="GMT+2 (Eastern European Time)">GMT+2 (Eastern European Time)</option>
+              <option value="GMT+3 (Moscow Time)">GMT+3 (Moscow Time)</option>
+              <option value="GMT+3:30 (Iran)">GMT+3:30 (Iran)</option>
+              <option value="GMT+4 (Gulf Standard Time)">GMT+4 (Gulf Standard Time)</option>
+              <option value="GMT+4:30 (Afghanistan)">GMT+4:30 (Afghanistan)</option>
+              <option value="GMT+5 (Pakistan)">GMT+5 (Pakistan)</option>
+              <option value="GMT+5:30 (India Standard Time)">GMT+5:30 (India Standard Time)</option>
+              <option value="GMT+5:45 (Nepal)">GMT+5:45 (Nepal)</option>
+              <option value="GMT+6 (Bangladesh)">GMT+6 (Bangladesh)</option>
+              <option value="GMT+6:30 (Myanmar)">GMT+6:30 (Myanmar)</option>
+              <option value="GMT+7 (Indochina Time)">GMT+7 (Indochina Time)</option>
+              <option value="GMT+8 (China Standard Time)">GMT+8 (China Standard Time)</option>
+              <option value="GMT+8:45 (Australia Eucla)">GMT+8:45 (Australia Eucla)</option>
+              <option value="GMT+9 (Japan Standard Time)">GMT+9 (Japan Standard Time)</option>
+              <option value="GMT+9:30 (Australian Central Time)">GMT+9:30 (Australian Central Time)</option>
+              <option value="GMT+10 (Australian Eastern Time)">GMT+10 (Australian Eastern Time)</option>
+              <option value="GMT+10:30 (Lord Howe Island)">GMT+10:30 (Lord Howe Island)</option>
+              <option value="GMT+11 (Solomon Islands)">GMT+11 (Solomon Islands)</option>
+              <option value="GMT+12 (New Zealand Time)">GMT+12 (New Zealand Time)</option>
+              <option value="GMT+12:45 (Chatham Islands)">GMT+12:45 (Chatham Islands)</option>
+              <option value="GMT+13 (Tonga)">GMT+13 (Tonga)</option>
+              <option value="GMT+14 (Line Islands)">GMT+14 (Line Islands)</option>
             </select>
           </div>
 

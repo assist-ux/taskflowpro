@@ -11,10 +11,12 @@
     },
     "users": {
       "$uid": {
-        ".read": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'root' || root.child('users').child(auth.uid).child('role').val() === 'admin' || (root.child('users').child(auth.uid).child('role').val() === 'super_admin' && root.child('users').child($uid).child('companyId').val() === root.child('users').child(auth.uid).child('companyId').val()) || root.child('users').child(auth.uid).child('role').val() === 'hr'",
+        ".read": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'root' || root.child('users').child(auth.uid).child('role').val() === 'admin' || (root.child('users').child(auth.uid).child('role').val() === 'super_admin' && root.child('users').child($uid).child('companyId').val() === root.child('users').child(auth.uid).child('companyId').val()) || root.child('users').child(auth.uid).child('role').val() === 'hr' || (root.child('users').child(auth.uid).child('role').val() === 'employee' && root.child('users').child($uid).child('companyId').val() === root.child('users').child(auth.uid).child('companyId').val()) || (root.child('users').child(auth.uid).child('role').val() === 'employee' && (root.child('users').child($uid).child('role').val() === 'admin' || root.child('users').child($uid).child('role').val() === 'super_admin' || root.child('users').child($uid).child('role').val() === 'root') && root.child('users').child($uid).child('companyId').val() === root.child('users').child(auth.uid).child('companyId').val())",
         ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'root' || root.child('users').child(auth.uid).child('role').val() === 'admin' || (root.child('users').child(auth.uid).child('role').val() === 'super_admin' && ((!root.child('users').child($uid).exists() && newData.child('companyId').val() === root.child('users').child(auth.uid).child('companyId').val()) || (root.child('users').child($uid).exists() && root.child('users').child($uid).child('companyId').val() === root.child('users').child(auth.uid).child('companyId').val()))) || (root.child('users').child(auth.uid).child('role').val() === 'hr' && ((!root.child('users').child($uid).exists() && newData.child('role').val() === 'employee') || root.child('users').child($uid).child('role').val() === 'employee'))"
       },
-      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'root' || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'super_admin' || root.child('users').child(auth.uid).child('role').val() === 'hr' || root.child('users').child(auth.uid).child('teamRole').val() === 'leader')"
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'root' || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'super_admin' || root.child('users').child(auth.uid).child('role').val() === 'hr' || root.child('users').child(auth.uid).child('teamRole').val() === 'leader' || (root.child('users').child(auth.uid).child('role').val() === 'employee' && root.child('users').child(auth.uid).child('companyId').val() !== null))",
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'root' || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'super_admin' || root.child('users').child(auth.uid).child('role').val() === 'hr')",
+      ".indexOn": ["companyId", "role", "teamId", "isActive"]
     },
     "projects": {
       ".read": "auth != null",
@@ -101,6 +103,23 @@
       ".read": "auth != null",
       ".write": "auth != null",
       ".indexOn": ["mentionedUserId", "isRead", "createdAt"]
+    },
+    "messageNotifications": {
+      "$notificationId": {
+        ".read": "auth != null && data.child('userId').val() === auth.uid",
+        ".write": "auth != null && data.child('userId').val() === auth.uid"
+      },
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["userId", "isRead", "createdAt"]
+    },
+    "userReadTimestamps": {
+      "$userId": {
+        "$teamId": {
+          ".read": "auth != null && $userId === auth.uid",
+          ".write": "auth != null && $userId === auth.uid"
+        }
+      }
     }
   }
 }

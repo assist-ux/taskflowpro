@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { X, Mail, Phone, Building, MapPin, AlertCircle, Clock, Calendar, Globe } from 'lucide-react'
+import { X, AlertCircle } from 'lucide-react'
 import { Client, CreateClientData, ClientType } from '../../types'
 import { projectService } from '../../services/projectService'
 import { useAuth } from '../../contexts/AuthContext'
+import { useTheme } from '../../contexts/ThemeContext'
 import { canAccessFeature, canEditHourlyRates } from '../../utils/permissions'
 import { countries, timezones } from '../../data/countriesAndTimezones'
 
@@ -15,6 +16,22 @@ interface ClientModalProps {
 
 export default function ClientModal({ isOpen, onClose, client, onSuccess }: ClientModalProps) {
   const { currentUser } = useAuth()
+  const { isDarkMode } = useTheme()
+  
+  // Helper function to format date for input field (YYYY-MM-DD format in local timezone)
+  const formatDateForInput = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  
+  // Helper function to parse date from input field
+  const parseDateFromInput = (dateString: string): Date => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   const [formData, setFormData] = useState<CreateClientData>({
     name: '',
     email: '',
@@ -106,6 +123,17 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Clie
       ...prev,
       [name]: value
     }))
+    
+    // Automatically select timezone when country is selected
+    if (name === 'country' && value) {
+      const selectedCountry = countries.find(country => country.name === value)
+      if (selectedCountry) {
+        setFormData(prev => ({
+          ...prev,
+          timezone: selectedCountry.timezone
+        }))
+      }
+    }
   }
 
   const handleClientTypeChange = (clientType: ClientType) => {
@@ -180,17 +208,17 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Clie
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className={`rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">
+        <div className={`flex items-center justify-between p-6 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+          <h2 className={`text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
             {isEdit ? 'Edit Client' : 'Add New Client'}
           </h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
           >
-            <X className="h-5 w-5 text-gray-500" />
+            <X className={`h-5 w-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
           </button>
         </div>
 
@@ -198,15 +226,15 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Clie
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Error Message */}
           {error && (
-            <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-              <p className="text-sm text-red-700">{error}</p>
+            <div className={`flex items-center space-x-2 p-3 rounded-lg ${isDarkMode ? 'bg-red-900/30 border border-red-800' : 'bg-red-50 border border-red-200'}`}>
+              <AlertCircle className={`h-5 w-5 flex-shrink-0 ${isDarkMode ? 'text-red-400' : 'text-red-500'}`} />
+              <p className={`text-sm ${isDarkMode ? 'text-red-200' : 'text-red-700'}`}>{error}</p>
             </div>
           )}
 
           {/* Client Name */}
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="name" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               Client Name *
             </label>
             <input
@@ -215,7 +243,7 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Clie
               name="name"
               value={formData.name}
               onChange={handleInputChange}
-              className="input"
+              className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'}`}
               placeholder="Enter client name"
               required
               disabled={loading}
@@ -224,81 +252,75 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Clie
 
           {/* Email */}
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="email" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               Email *
             </label>
-            <div className="relative">
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className="input pl-10"
-                placeholder="Enter email address"
-                required
-                disabled={loading}
-              />
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            </div>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'}`}
+              placeholder="Enter email address"
+              required
+              disabled={loading}
+            />
           </div>
 
           {/* Country and Timezone */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="country" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Country *
               </label>
-              <div className="relative">
-                <select
-                  id="country"
-                  name="country"
-                  value={formData.country}
-                  onChange={handleInputChange}
-                  className="input pl-10"
-                  required
-                  disabled={loading}
-                >
-                  <option value="">Select Country</option>
-                  {countries.map((country) => (
-                    <option key={country.code} value={country.name}>
-                      {country.name}
-                    </option>
-                  ))}
-                </select>
-                <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              </div>
+              <select
+                id="country"
+                name="country"
+                value={formData.country}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                required
+                disabled={loading}
+              >
+                <option value="">Select Country</option>
+                {countries.map((country) => (
+                  <option key={country.code} value={country.name}>
+                    {country.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
-              <label htmlFor="timezone" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="timezone" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Timezone *
               </label>
-              <div className="relative">
-                <select
-                  id="timezone"
-                  name="timezone"
-                  value={formData.timezone}
-                  onChange={handleInputChange}
-                  className="input pl-10"
-                  required
-                  disabled={loading}
-                >
-                  <option value="">Select Timezone</option>
-                  {timezones.map((tz) => (
-                    <option key={tz} value={tz}>
-                      {tz}
-                    </option>
-                  ))}
-                </select>
-                <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              </div>
+              <select
+                id="timezone"
+                name="timezone"
+                value={formData.timezone}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                required
+                disabled={loading}
+              >
+                <option value="">Select Timezone</option>
+                {timezones.map((tz) => (
+                  <option key={tz} value={tz}>
+                    {tz}
+                  </option>
+                ))}
+              </select>
+              <p className={`text-sm mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                Timezone is automatically selected based on country, but you can change it if needed.
+              </p>
             </div>
           </div>
 
           {/* Client Type */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
+            <label className={`block text-sm font-medium mb-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               Client Type *
             </label>
             <div className="grid grid-cols-2 gap-3">
@@ -307,15 +329,19 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Clie
                   key={type}
                   type="button"
                   onClick={() => handleClientTypeChange(type)}
-                  className={`p-3 border rounded-lg text-left transition-colors ${
+                  className={`p-3 rounded-lg text-left transition-colors ${
                     formData.clientType === type
-                      ? 'border-primary-500 bg-primary-50 text-primary-700'
-                      : 'border-gray-300 hover:border-gray-400'
+                      ? isDarkMode 
+                        ? 'border-primary-500 bg-primary-900 text-primary-300' 
+                        : 'border-primary-500 bg-primary-50 text-primary-700'
+                      : isDarkMode 
+                        ? 'border-gray-600 hover:border-gray-400 bg-gray-700 text-gray-200' 
+                        : 'border-gray-300 hover:border-gray-400 bg-white text-gray-700'
                   }`}
                   disabled={loading}
                 >
                   <div className="font-medium capitalize">{type.replace('-', ' ')}</div>
-                  <div className="text-sm text-gray-500">{getClientTypeDescription(type)}</div>
+                  <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{getClientTypeDescription(type)}</div>
                 </button>
               ))}
             </div>
@@ -323,29 +349,26 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Clie
 
           {/* Hourly Rate */}
           <div>
-            <label htmlFor="hourlyRate" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="hourlyRate" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               Hourly Rate ($) *
             </label>
-            <div className="relative">
-              <input
-                type="number"
-                id="hourlyRate"
-                name="hourlyRate"
-                value={formData.hourlyRate || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, hourlyRate: parseFloat(e.target.value) || 0 }))}
-                className={`input pl-10 ${!canEditRates ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''}`}
-                placeholder="25.00"
-                step="0.01"
-                min="0"
-                required
-                disabled={loading || !canEditRates}
-              />
-              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">$</span>
-            </div>
-            <p className="text-sm text-gray-500 mt-1">
+            <input
+              type="number"
+              id="hourlyRate"
+              name="hourlyRate"
+              value={formData.hourlyRate || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, hourlyRate: parseFloat(e.target.value) || 0 }))}
+              className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${!canEditRates ? (isDarkMode ? 'bg-gray-700 cursor-not-allowed' : 'bg-gray-100 cursor-not-allowed') : isDarkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'}`}
+              placeholder="25.00"
+              step="0.01"
+              min="0"
+              required
+              disabled={loading || !canEditRates}
+            />
+            <p className={`text-sm mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
               Rate per hour for this client
               {!canEditRates && (
-                <span className="block text-xs text-gray-400 mt-1">
+                <span className={`block text-xs mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                   Only HR and Super Admin users can edit hourly rates
                 </span>
               )}
@@ -355,25 +378,22 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Clie
           {/* Custom Hours Per Week */}
           {formData.clientType === 'custom' && (
             <div>
-              <label htmlFor="hoursPerWeek" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="hoursPerWeek" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Hours Per Week *
               </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  id="hoursPerWeek"
-                  name="hoursPerWeek"
-                  value={formData.hoursPerWeek || ''}
-                  onChange={handleInputChange}
-                  className="input pl-10"
-                  placeholder="Enter hours per week"
-                  min="1"
-                  max="168"
-                  required
-                  disabled={loading}
-                />
-                <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              </div>
+              <input
+                type="number"
+                id="hoursPerWeek"
+                name="hoursPerWeek"
+                value={formData.hoursPerWeek || ''}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'}`}
+                placeholder="Enter hours per week"
+                min="1"
+                max="168"
+                required
+                disabled={loading}
+              />
             </div>
           )}
 
@@ -381,118 +401,103 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Clie
           {formData.clientType === 'gig' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="startDate" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                   Start Date *
                 </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    id="startDate"
-                    name="startDate"
-                    value={formData.startDate ? formData.startDate.toISOString().split('T')[0] : ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value ? new Date(e.target.value) : undefined }))}
-                    className="input pl-10"
-                    required
-                    disabled={loading}
-                  />
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                </div>
+                <input
+                  type="date"
+                  id="startDate"
+                  name="startDate"
+                  value={formData.startDate ? formatDateForInput(formData.startDate) : ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value ? parseDateFromInput(e.target.value) : undefined }))}
+                  className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                  required
+                  disabled={loading}
+                />
               </div>
 
               <div>
-                <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="endDate" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                   End Date *
                 </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    id="endDate"
-                    name="endDate"
-                    value={formData.endDate ? formData.endDate.toISOString().split('T')[0] : ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value ? new Date(e.target.value) : undefined }))}
-                    className="input pl-10"
-                    required
-                    disabled={loading}
-                  />
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                </div>
+                <input
+                  type="date"
+                  id="endDate"
+                  name="endDate"
+                  value={formData.endDate ? formatDateForInput(formData.endDate) : ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value ? parseDateFromInput(e.target.value) : undefined }))}
+                  className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                  required
+                  disabled={loading}
+                />
               </div>
             </div>
           )}
 
           {/* Company */}
           <div>
-            <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="company" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               Company
             </label>
-            <div className="relative">
-              <input
-                type="text"
-                id="company"
-                name="company"
-                value={formData.company}
-                onChange={handleInputChange}
-                className="input pl-10"
-                placeholder="Enter company name"
-                disabled={loading}
-              />
-              <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            </div>
+            <input
+              type="text"
+              id="company"
+              name="company"
+              value={formData.company}
+              onChange={handleInputChange}
+              className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'}`}
+              placeholder="Enter company name"
+              disabled={loading}
+            />
           </div>
 
           {/* Phone */}
           <div>
-            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="phone" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               Phone
             </label>
-            <div className="relative">
-              <input
-                type="tel"
-                id="phone"
-                name="phone"
-                value={formData.phone}
-                onChange={handleInputChange}
-                className="input pl-10"
-                placeholder="Enter phone number"
-                disabled={loading}
-              />
-              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            </div>
+            <input
+              type="tel"
+              id="phone"
+              name="phone"
+              value={formData.phone}
+              onChange={handleInputChange}
+              className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'}`}
+              placeholder="Enter phone number"
+              disabled={loading}
+            />
           </div>
 
           {/* Address */}
           <div>
-            <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="address" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               Address
             </label>
-            <div className="relative">
-              <textarea
-                id="address"
-                name="address"
-                value={formData.address}
-                onChange={handleInputChange}
-                className="input pl-10"
-                rows={3}
-                placeholder="Enter address"
-                disabled={loading}
-              />
-              <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-            </div>
+            <textarea
+              id="address"
+              name="address"
+              value={formData.address}
+              onChange={handleInputChange}
+              className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'}`}
+              rows={3}
+              placeholder="Enter address"
+              disabled={loading}
+            />
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+          <div className={`flex justify-end space-x-3 pt-6 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
             <button
               type="button"
               onClick={onClose}
-              className="btn-secondary"
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${isDarkMode ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
               disabled={loading}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="btn-primary"
+              className={`px-4 py-2 rounded-lg font-medium text-white transition-colors ${isDarkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-600 hover:bg-blue-700'}`}
               disabled={loading}
             >
               {loading ? 'Saving...' : (isEdit ? 'Update Client' : 'Add Client')}

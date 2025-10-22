@@ -15,14 +15,16 @@ import {
   Shield,
   FolderOpen,
   Activity,
-  X
+  X,
+  User as UserIcon
 } from 'lucide-react'
 import { format, parseISO, isValid, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, eachDayOfInterval } from 'date-fns'
 import { useAuth } from '../contexts/AuthContext'
 import { userService } from '../services/userService'
 import { timeEntryService } from '../services/timeEntryService'
 import { projectService } from '../services/projectService'
-import { User, TimeEntry, Project } from '../types'
+import { teamService } from '../services/teamService'
+import { User, TimeEntry, Project, Client, Team } from '../types'
 import UserDetailsModal from '../components/admin/UserDetailsModal'
 import TimeEntryEditModal from '../components/admin/TimeEntryEditModal'
 import UserCreateModal from '../components/admin/UserCreateModal'
@@ -36,9 +38,14 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<User[]>([])
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([])
   const [projects, setProjects] = useState<Project[]>([])
+  const [clients, setClients] = useState<Client[]>([])
+  const [teams, setTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedUser, setSelectedUser] = useState<string | null>(null)
+  const [selectedClient, setSelectedClient] = useState<string | null>(null)
+  const [selectedProject, setSelectedProject] = useState<string | null>(null)
+  const [selectedTeam, setSelectedTeam] = useState<string | null>(null)
   const [dateFilter, setDateFilter] = useState<'week' | 'month' | 'all' | 'custom'>('week')
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
@@ -73,14 +80,18 @@ export default function AdminDashboard() {
         usersData = await userService.getUsersForCompany(currentUser?.companyId || null)
       }
       
-      const [timeEntriesData, projectsData] = await Promise.all([
+      const [timeEntriesData, projectsData, clientsData, teamsData] = await Promise.all([
         timeEntryService.getAllTimeEntries(),
-        projectService.getProjects()
+        projectService.getProjects(),
+        projectService.getClients(),
+        teamService.getTeams()
       ])
       
       // Company scoping for non-root roles: restrict to same company data
       let scopedTimeEntries = timeEntriesData
       let scopedProjects = projectsData
+      let scopedClients = clientsData
+      let scopedTeams = teamsData
       if (currentUser?.role !== 'root' && currentUser?.companyId) {
         const allowedUsers = new Set(usersData.map(u => u.id))
         scopedTimeEntries = timeEntriesData.filter(te => te.userId && allowedUsers.has(te.userId))
@@ -91,6 +102,10 @@ export default function AdminDashboard() {
           if (projectCompanyId) return projectCompanyId === currentUser.companyId
           return p.createdBy ? allowedUsers.has(p.createdBy as unknown as string) : true
         })
+        
+        // Filter clients and teams by company
+        scopedClients = clientsData.filter(client => (client as any).companyId === currentUser.companyId)
+        scopedTeams = teamsData.filter(team => team.companyId === currentUser.companyId)
       }
 
       // Filter out time entries with invalid dates
@@ -111,12 +126,16 @@ export default function AdminDashboard() {
         users: usersData.length, 
         timeEntries: scopedTimeEntries.length,
         validTimeEntries: validTimeEntries.length,
-        projects: scopedProjects.length 
+        projects: scopedProjects.length,
+        clients: scopedClients.length,
+        teams: scopedTeams.length
       })
       
       setUsers(usersData)
       setTimeEntries(validTimeEntries)
       setProjects(scopedProjects)
+      setClients(scopedClients)
+      setTeams(scopedTeams)
     } catch (error) {
       console.error('Error loading admin data:', error)
       // Set empty arrays as fallback
@@ -135,6 +154,23 @@ export default function AdminDashboard() {
     if (selectedUser) {
       filtered = filtered.filter((entry: TimeEntry) => entry.userId === selectedUser)
     }
+    
+    // Filter by client
+    if (selectedClient) {
+      filtered = filtered.filter((entry: TimeEntry) => entry.clientId === selectedClient)
+    }
+    
+    // Filter by project
+    if (selectedProject) {
+      filtered = filtered.filter((entry: TimeEntry) => entry.projectId === selectedProject)
+    }
+    
+    // Filter by team (filter users in the team and then filter entries by those users)
+    if (selectedTeam) {
+      const teamMembers = users.filter(user => user.teamId === selectedTeam).map(user => user.id)
+      filtered = filtered.filter((entry: TimeEntry) => teamMembers.includes(entry.userId))
+    }
+    
     // Filter by date range
     const now = new Date()
     switch (dateFilter) {
@@ -158,10 +194,15 @@ export default function AdminDashboard() {
           return isValid(entryDate) && entryDate >= monthStart && entryDate <= monthEnd
         })
         break
-      case 'custom':
+      case 'custom': {
         if (customStartDate && customEndDate) {
           const startDate = new Date(customStartDate)
           const endDate = new Date(customEndDate)
+          
+          // Fix for date range filtering: set start date to beginning of day and end date to end of day
+          startDate.setHours(0, 0, 0, 0)
+          endDate.setHours(23, 59, 59, 999)
+          
           if (isValid(startDate) && isValid(endDate) && startDate <= endDate) {
             filtered = filtered.filter((entry: TimeEntry) => {
               const dateField = entry.startTime || entry.createdAt
@@ -172,6 +213,7 @@ export default function AdminDashboard() {
           }
         }
         break
+      }
       // 'all' shows all entries
     }
 
@@ -242,6 +284,10 @@ export default function AdminDashboard() {
         if (customStartDate && customEndDate) {
           startDate = new Date(customStartDate)
           endDate = new Date(customEndDate)
+          
+          // Fix for date range filtering: set start date to beginning of day and end date to end of day
+          startDate.setHours(0, 0, 0, 0)
+          endDate.setHours(23, 59, 59, 999)
           
           // Validate dates
           if (!isValid(startDate) || !isValid(endDate) || startDate > endDate) {
@@ -404,7 +450,8 @@ export default function AdminDashboard() {
         name: updatedUser.name,
         email: updatedUser.email,
         role: updatedUser.role,
-        isActive: updatedUser.isActive
+        isActive: updatedUser.isActive,
+        timezone: updatedUser.timezone
       })
       
       // Update local state
@@ -822,8 +869,8 @@ export default function AdminDashboard() {
           <div className="space-y-6">
             {/* Filters */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">User</label>
                   <select
                     value={selectedUser || ''}
@@ -836,7 +883,50 @@ export default function AdminDashboard() {
                     ))}
                   </select>
                 </div>
-                <div className="flex-1">
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Client</label>
+                  <select
+                    value={selectedClient || ''}
+                    onChange={(e) => setSelectedClient(e.target.value || null)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="">All Clients</option>
+                    {clients.map(client => (
+                      <option key={client.id} value={client.id}>{client.name}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Project</label>
+                  <select
+                    value={selectedProject || ''}
+                    onChange={(e) => setSelectedProject(e.target.value || null)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="">All Projects</option>
+                    {projects.map(project => (
+                      <option key={project.id} value={project.id}>{project.name}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Team</label>
+                  <select
+                    value={selectedTeam || ''}
+                    onChange={(e) => setSelectedTeam(e.target.value || null)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="">All Teams</option>
+                    {teams.map(team => (
+                      <option key={team.id} value={team.id}>{team.name}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Date Range</label>
                   <select
                     value={dateFilter}

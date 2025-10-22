@@ -11,7 +11,10 @@ import {
   DollarSign,
   Building2,
   MessageSquare,
-  Calendar
+  Calendar,
+  FileText,
+  Home,
+  User
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { canAccessFeature } from '../utils/permissions'
@@ -26,103 +29,72 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
   const { currentUser } = useAuth()
 
   const allNavigation = [
-    { name: 'Dashboard', href: '/', icon: Clock, requiredFeature: null },
+    { name: 'Dashboard', href: '/', icon: Home, requiredFeature: null },
     { name: 'Time Tracker', href: '/tracker', icon: Clock, requiredFeature: null },
     { name: 'Calendar', href: '/calendar', icon: Calendar, requiredFeature: null },
     { name: 'Projects', href: '/projects', icon: FolderOpen, requiredFeature: 'projects' },
     { name: 'Clients', href: '/clients', icon: Building2, requiredFeature: 'clients' },
     { name: 'Task Management', href: '/management', icon: Kanban, requiredFeature: null },
     { name: 'Teams', href: '/teams', icon: UserCheck, requiredFeature: 'teams' },
+    { name: 'Messaging', href: '/messaging', icon: MessageSquare, requiredFeature: null },
     { name: 'Reports', href: '/reports', icon: BarChart3, requiredFeature: null },
     { name: 'Billing', href: '/billing', icon: DollarSign, requiredFeature: 'billing' },
     { name: 'Feedbacks', href: '/feedbacks', icon: MessageSquare, requiredFeature: null },
-    { name: 'Admin Dashboard', href: '/admin', icon: Users, requiredFeature: 'admin-dashboard' },
-    { name: 'System Settings', href: '/system', icon: Settings, requiredFeature: 'system-settings' },
+    { name: 'Admin Dashboard', href: '/admin', icon: User, requiredFeature: 'admin-dashboard' },
     { name: 'Settings', href: '/settings', icon: Settings, requiredFeature: null },
   ]
 
-  // If root, restrict to Admin Dashboard and System Settings (Companies)
-  const navigation = currentUser?.role === 'root'
-    ? allNavigation.filter(item => ['Admin Dashboard', 'System Settings', 'Feedbacks'].includes(item.name))
-    : allNavigation.filter(item => !item.requiredFeature || (currentUser?.role && canAccessFeature(currentUser.role, item.requiredFeature)))
-
-  const isActive = (href: string) => {
-    if (href === '/') {
-      return location.pathname === '/'
-    }
-    return location.pathname.startsWith(href)
-  }
+  // Filter navigation based on user permissions
+  const navigation = allNavigation.filter(item => 
+    !item.requiredFeature || (currentUser?.role && canAccessFeature(currentUser.role, item.requiredFeature))
+  )
 
   return (
-    <>
-      {/* Mobile backdrop */}
-      {open && (
-        <div 
-          className="fixed inset-0 bg-gray-600 bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-75 z-40 lg:hidden"
-          onClick={() => setOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <div className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0
-        ${open ? 'translate-x-0' : '-translate-x-full'}
-      `}>
-        <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center">
-              <img 
-                src="https://storage.googleapis.com/msgsndr/nb61f4OQ7o9Wsxx0zOsY/media/68df3ae78db305b0e463f363.svg" 
-                alt="Logo" 
-                className="h-10 w-auto"
-              />
-              <div className="ml-3">
-                <span className="text-xl font-bold text-primary-600 dark:text-primary-400">Task Flow Pro</span>
-                <p className="text-xs text-gray-600 dark:text-gray-400">Powered by Nexistry</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setOpen(false)}
-              className="lg:hidden p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              <X className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-            </button>
+    <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
+      open ? 'translate-x-0' : '-translate-x-full'
+    }`}>
+      <div className="flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-700 py-3">
+        <div className="flex items-center">
+          <div className="flex-shrink-0">
+            <img 
+              src="https://storage.googleapis.com/msgsndr/nb61f4OQ7o9Wsxx0zOsY/media/68df3ae78db305b0e463f363.svg" 
+              alt="NexiFlow Logo" 
+              className="h-8 w-auto"
+            />
           </div>
-
-          {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2">
-            {navigation.map((item) => {
-              const Icon = item.icon
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  onClick={() => setOpen(false)}
-                  className={`
-                    flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                    ${isActive(item.href)
-                      ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100'
-                    }
-                  `}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span>{item.name}</span>
-                </Link>
-              )
-            })}
-          </nav>
-
-          {/* Footer */}
-          <div className="px-4 pb-6">
-            <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
-              <p>Task Flow Pro v1.0</p>
-              <p>Rebuilt & Ready</p>
-            </div>
+          <div className="ml-3">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">NexiFlow</h1>
+            <p className="text-xs text-gray-600 dark:text-gray-400">Powered by Nexistry Digital Solutions</p>
           </div>
         </div>
+        <button
+          onClick={() => setOpen(false)}
+          className="lg:hidden p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white focus:outline-none"
+        >
+          <X className="h-6 w-6" />
+        </button>
       </div>
-    </>
+
+      <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+        {navigation.map((item) => {
+          const isActive = location.pathname === item.href
+          return (
+            <Link
+              key={item.name}
+              to={item.href}
+              className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                isActive
+                  ? 'bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-100'
+                  : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+              }`}
+              onClick={() => setOpen(false)}
+            >
+              <item.icon className="flex-shrink-0 h-5 w-5 mr-3" />
+              <span className="flex-1">{item.name}</span>
+            </Link>
+          )
+        })}
+      </nav>
+    </div>
   )
 }

@@ -1,17 +1,25 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { taskService } from '../services/taskService'
 import { userService } from '../services/userService'
 import { teamService } from '../services/teamService'
 import { Task, TaskStatus, TaskPriority, CreateTaskData, UpdateTaskData, User, Team } from '../types'
 import TaskBoard from '../components/taskManagement/TaskBoard'
+import TaskTable from '../components/taskManagement/TaskTable'
 import TaskModal from '../components/taskManagement/TaskModal'
 import TaskViewModal from '../components/taskManagement/TaskViewModal'
-import { Filter, Users, User as UserIcon, Building2, Search, X } from 'lucide-react'
+import { Filter, Users, User as UserIcon, Building2, Search, X, LayoutGrid, List } from 'lucide-react'
 import { canDeleteTask } from '../utils/permissions'
+
+interface TaskViewModalPropsWithDefaultTab extends React.ComponentProps<typeof TaskViewModal> {
+  defaultActiveTab?: 'comments' | 'notes'
+}
 
 export default function TaskManagement() {
   const { currentUser } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [tasks, setTasks] = useState<Task[]>([])
   const [allTasks, setAllTasks] = useState<Task[]>([])
@@ -22,6 +30,8 @@ export default function TaskManagement() {
   const [showTaskModal, setShowTaskModal] = useState(false)
   const [showTaskViewModal, setShowTaskViewModal] = useState(false)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [viewMode, setViewMode] = useState<'board' | 'table'>('board')
+  const [defaultActiveTab, setDefaultActiveTab] = useState<'comments' | 'notes'>('comments')
   
   // Filter states
   const [showFilters, setShowFilters] = useState(false)
@@ -31,9 +41,36 @@ export default function TaskManagement() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [selectedPriority, setSelectedPriority] = useState<string>('all')
 
+  // Parse query parameters
+  const queryParams = useMemo(() => {
+    const params = new URLSearchParams(location.search)
+    return {
+      taskId: params.get('taskId'),
+      tab: params.get('tab') as 'comments' | 'notes' | null,
+      mentionId: params.get('mentionId')
+    }
+  }, [location.search])
+
   useEffect(() => {
     loadData()
   }, [])
+
+  // Handle navigation to specific task when query parameters are present
+  useEffect(() => {
+    if (queryParams.taskId && tasks.length > 0) {
+      const taskToOpen = tasks.find(task => task.id === queryParams.taskId)
+      if (taskToOpen) {
+        setSelectedTask(taskToOpen)
+        setShowTaskViewModal(true)
+        // Set the default active tab based on query parameter
+        if (queryParams.tab) {
+          setDefaultActiveTab(queryParams.tab)
+        }
+        // Remove query parameters from URL after processing
+        navigate('/management', { replace: true })
+      }
+    }
+  }, [queryParams, tasks, navigate])
 
   const loadData = async () => {
     try {
@@ -176,6 +213,8 @@ export default function TaskManagement() {
   const handleViewTask = (task: Task) => {
     setSelectedTask(task)
     setShowTaskViewModal(true)
+    // Reset to default tab when opening a new task
+    setDefaultActiveTab('comments')
   }
 
   const handleTaskSave = async (taskData: CreateTaskData | UpdateTaskData) => {
@@ -325,7 +364,7 @@ export default function TaskManagement() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="p-6">
       {/* Header with Filters */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex-shrink-0">
         <div className="flex items-center justify-between mb-4">
@@ -338,6 +377,31 @@ export default function TaskManagement() {
           </div>
           
           <div className="flex items-center space-x-3">
+            <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('board')}
+                className={`p-2 rounded-md flex items-center ${
+                  viewMode === 'board' 
+                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm' 
+                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+                }`}
+              >
+                <LayoutGrid className="h-4 w-4" />
+                <span className="ml-1 text-sm">Board</span>
+              </button>
+              <button
+                onClick={() => setViewMode('table')}
+                className={`p-2 rounded-md flex items-center ${
+                  viewMode === 'table' 
+                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm' 
+                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+                }`}
+              >
+                <List className="h-4 w-4" />
+                <span className="ml-1 text-sm">Table</span>
+              </button>
+            </div>
+            
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`btn-secondary flex items-center space-x-2 ${
@@ -576,19 +640,35 @@ export default function TaskManagement() {
         )}
       </div>
 
-      {/* Task Board */}
-      <div className="flex-1 overflow-y-auto">
-        <TaskBoard
-          tasks={tasks}
-          statuses={statuses}
-          priorities={priorities}
-          teams={teams}
-          onTaskUpdate={handleTaskUpdate}
-          onCreateTask={handleCreateTask}
-          onEditTask={handleEditTask}
-          onViewTask={handleViewTask}
-          onDeleteTask={handleDeleteTask}
-        />
+      {/* Task Board or Table */}
+      <div className="flex-1 overflow-hidden">
+        {viewMode === 'board' ? (
+          <TaskBoard
+            tasks={tasks}
+            statuses={statuses}
+            priorities={priorities}
+            teams={teams}
+            onTaskUpdate={handleTaskUpdate}
+            onCreateTask={handleCreateTask}
+            onEditTask={handleEditTask}
+            onViewTask={handleViewTask}
+            onDeleteTask={handleDeleteTask}
+          />
+        ) : (
+          <div className="h-full">
+            <TaskTable
+              tasks={tasks}
+              statuses={statuses}
+              priorities={priorities}
+              teams={teams}
+              onTaskUpdate={handleTaskUpdate}
+              onCreateTask={handleCreateTask}
+              onEditTask={handleEditTask}
+              onViewTask={handleViewTask}
+              onDeleteTask={handleDeleteTask}
+            />
+          </div>
+        )}
       </div>
       
       {/* Task Modal */}
@@ -607,25 +687,34 @@ export default function TaskManagement() {
       )}
 
       {/* Task View Modal */}
-      {showTaskViewModal && (
-        <TaskViewModal
-          isOpen={showTaskViewModal}
-          onClose={() => {
-            setShowTaskViewModal(false)
-            setSelectedTask(null)
-          }}
-          onEdit={(task) => {
-            setShowTaskViewModal(false)
-            setSelectedTask(task)
-            setShowTaskModal(true)
-          }}
-          onDelete={handleDeleteTask}
-          task={selectedTask}
-          statuses={statuses}
-          priorities={priorities}
-          teams={teams}
-        />
-      )}
+      <TaskViewModal
+        isOpen={showTaskViewModal}
+        onClose={() => {
+          setShowTaskViewModal(false)
+          setSelectedTask(null)
+          // Reset to default tab when closing
+          setDefaultActiveTab('comments')
+        }}
+        onEdit={handleEditTask}
+        onDelete={handleDeleteTask}
+        task={selectedTask}
+        statuses={statuses}
+        priorities={priorities}
+        teams={teams}
+        defaultActiveTab={defaultActiveTab}
+        onTaskUpdate={(updatedTask) => {
+          // Update the selected task state
+          setSelectedTask(updatedTask);
+          // Update the tasks list to reflect the changes
+          setTasks(prev => prev.map(task => 
+            task.id === updatedTask.id ? updatedTask : task
+          ));
+          // Update the allTasks list to reflect the changes
+          setAllTasks(prev => prev.map(task => 
+            task.id === updatedTask.id ? updatedTask : task
+          ));
+        }}
+      />
     </div>
   )
 }

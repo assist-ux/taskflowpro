@@ -117,6 +117,11 @@ export const timeEntryService = {
     
     if (snapshot.exists()) {
       const entries = snapshot.val()
+      
+      // Fix for date range filtering: set end date to end of day to include all entries for that day
+      const adjustedEndDate = new Date(endDate)
+      adjustedEndDate.setHours(23, 59, 59, 999)
+      
       return Object.values(entries)
         .map((entry: any) => ({
           ...entry,
@@ -127,7 +132,7 @@ export const timeEntryService = {
         }))
         .filter((entry: TimeEntry) => {
           const entryDate = new Date(entry.startTime)
-          return entryDate >= startDate && entryDate <= endDate
+          return entryDate >= startDate && entryDate <= adjustedEndDate
         })
         .sort((a: TimeEntry, b: TimeEntry) => b.createdAt.getTime() - a.createdAt.getTime())
     }
@@ -250,6 +255,11 @@ export const timeEntryService = {
     
     if (snapshot.exists()) {
       const entries = snapshot.val()
+      
+      // Fix for date range filtering: set end date to end of day to include all entries for that day
+      const adjustedEndDate = new Date(endDate)
+      adjustedEndDate.setHours(23, 59, 59, 999)
+      
       return Object.values(entries)
         .map((entry: any) => ({
           ...entry,
@@ -260,7 +270,7 @@ export const timeEntryService = {
         }))
         .filter((entry: TimeEntry) => {
           const entryDate = new Date(entry.startTime)
-          return entryDate >= startDate && entryDate <= endDate
+          return entryDate >= startDate && entryDate <= adjustedEndDate
         })
         .sort((a: TimeEntry, b: TimeEntry) => b.createdAt.getTime() - a.createdAt.getTime())
     }

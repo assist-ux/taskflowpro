@@ -5,7 +5,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import Joi from 'joi';
-import moment from 'moment';
 import { v4 as uuidv4 } from 'uuid';
 
 // Initialize Firebase Admin
@@ -82,7 +81,7 @@ const formatTimeFromSeconds = (seconds: number): string => {
 // Routes
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (req: any, res: any) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
@@ -91,7 +90,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Time Entries API
-app.get('/api/time-entries', authenticateToken, async (req, res) => {
+app.get('/api/time-entries', authenticateToken, async (req: any, res: any) => {
   try {
     const { startDate, endDate, projectId, billableOnly } = req.query;
     const userId = req.user.uid;
@@ -140,7 +139,7 @@ app.get('/api/time-entries', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/api/time-entries', authenticateToken, async (req, res) => {
+app.post('/api/time-entries', authenticateToken, async (req: any, res: any) => {
   try {
     const { error, value } = timeEntrySchema.validate(req.body);
     if (error) {
@@ -190,7 +189,7 @@ app.post('/api/time-entries', authenticateToken, async (req, res) => {
 });
 
 // Projects API
-app.get('/api/projects', authenticateToken, async (req, res) => {
+app.get('/api/projects', authenticateToken, async (req: any, res: any) => {
   try {
     const snapshot = await db.ref('projects').once('value');
     const projects = snapshot.exists() ? Object.values(snapshot.val()) : [];
@@ -209,7 +208,7 @@ app.get('/api/projects', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/api/projects', authenticateToken, async (req, res) => {
+app.post('/api/projects', authenticateToken, async (req: any, res: any) => {
   try {
     const { error, value } = projectSchema.validate(req.body);
     if (error) {
@@ -243,7 +242,7 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
 });
 
 // Time Summary API
-app.get('/api/time-summary', authenticateToken, async (req, res) => {
+app.get('/api/time-summary', authenticateToken, async (req: any, res: any) => {
   try {
     const { period = 'month' } = req.query;
     const userId = req.user.uid;
@@ -274,9 +273,13 @@ app.get('/api/time-summary', authenticateToken, async (req, res) => {
     
     let entries: any[] = [];
     if (snapshot.exists()) {
+      // Fix for date range filtering: set end date to end of day to include all entries for that day
+      const adjustedEndDate = new Date(endDate);
+      adjustedEndDate.setHours(23, 59, 59, 999);
+      
       entries = Object.values(snapshot.val()).filter((entry: any) => {
         const entryDate = new Date(entry.startTime);
-        return entryDate >= startDate && entryDate <= endDate;
+        return entryDate >= startDate && entryDate <= adjustedEndDate;
       });
     }
     
@@ -310,7 +313,7 @@ app.get('/api/time-summary', authenticateToken, async (req, res) => {
 });
 
 // Calendar API
-app.get('/api/calendar', authenticateToken, async (req, res) => {
+app.get('/api/calendar', authenticateToken, async (req: any, res: any) => {
   try {
     const { year, month, projectId, billableOnly } = req.query;
     const userId = req.user.uid;
@@ -383,7 +386,7 @@ app.use((error: any, req: any, res: any, next: any) => {
 });
 
 // 404 handler
-app.use('*', (req, res) => {
+app.use('*', (req: any, res: any) => {
   res.status(404).json({ error: 'API endpoint not found' });
 });
 

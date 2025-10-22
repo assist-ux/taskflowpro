@@ -487,8 +487,10 @@ export const teamService = {
 
   // Utility functions
   async isUserTeamLeader(userId: string, teamId: string): Promise<boolean> {
-    const team = await this.getTeamById(teamId)
-    return team?.leaderId === userId
+    // Get team members and check if the user is a leader in the team members collection
+    const members = await this.getTeamMembers(teamId);
+    const member = members.find(m => m.userId === userId);
+    return member?.teamRole === 'leader';
   },
 
   async getUserTeamRole(userId: string, teamId: string): Promise<TeamRole | null> {
@@ -575,5 +577,103 @@ export const teamService = {
       console.error('Error getting mentionable users:', error);
       return [];
     }
+  },
+
+  // Get users who can be mentioned in task management context
+  // Only super admins, admins, and the task assignee can be mentioned
+  async getTaskMentionableUsers(currentUserId: string, assigneeId: string, companyId: string | null): Promise<any[]> {
+    try {
+      console.log('=== getTaskMentionableUsers called ===');
+      console.log('currentUserId:', currentUserId);
+      console.log('assigneeId:', assigneeId);
+      console.log('companyId:', companyId);
+      
+      // Validate inputs
+      if (!currentUserId) {
+        console.log('No current user ID provided');
+        return [];
+      }
+      
+      // Get the current user to determine their role
+      const { userService } = await import('./userService');
+      const currentUser = await userService.getUserById(currentUserId);
+      console.log('Current user:', currentUser);
+      
+      if (!currentUser) {
+        console.log('No current user found for ID:', currentUserId);
+        return [];
+      }
+      
+      // Get all users in the same company
+      let allUsers: any[] = [];
+      try {
+        allUsers = companyId 
+          ? await userService.getUsersForCompany(companyId)
+          : await userService.getAllUsers();
+        console.log('All users in company:', allUsers.length);
+      } catch (error) {
+        console.warn('Permission denied when getting users for company, falling back to individual user lookups:', error);
+        // Fallback: Get users individually if we can't get the full list
+        // This is for cases where employees don't have permission to access the full user list
+        const usersToCheck = [];
+        
+        // Add the assignee if different from current user
+        if (assigneeId && assigneeId !== currentUserId) {
+          try {
+            const assignee = await userService.getUserById(assigneeId);
+            if (assignee) {
+              usersToCheck.push(assignee);
+            }
+          } catch (assigneeError) {
+            console.warn('Could not load assignee:', assigneeError);
+          }
+        }
+        
+        // Try to get project managers for the company
+        try {
+          const projectManagers = await userService.getProjectManagersForCompany(companyId);
+          usersToCheck.push(...projectManagers);
+        } catch (pmError) {
+          console.warn('Could not load project managers:', pmError);
+        }
+        
+        allUsers = usersToCheck;
+      }
+      
+      // Filter users who can be mentioned:
+      // 1. Super admins
+      // 2. Admins
+      // 3. The assignee of the task (if different from current user)
+      const mentionableUsers = allUsers.filter(user => {
+        // Don't include the current user (can't mention yourself)
+        if (user.id === currentUserId) {
+          return false;
+        }
+        
+        // Include super admins and admins
+        if (user.role === 'super_admin' || user.role === 'admin' || user.role === 'root') {
+          return true;
+        }
+        
+        // Include the assignee if they're different from current user
+        if (assigneeId && user.id === assigneeId) {
+          return true;
+        }
+        
+        return false;
+      }).map(user => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }));
+      
+      console.log('Mentionable users for task:', mentionableUsers);
+      return mentionableUsers;
+    } catch (error) {
+      console.error('Error getting task mentionable users:', error);
+      return [];
+    }
   }
+
 }

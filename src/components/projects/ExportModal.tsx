@@ -8,6 +8,7 @@ import {
   TrendingUp,
   AlertCircle
 } from 'lucide-react'
+import { useTheme } from '../../contexts/ThemeContext'
 import { format, startOfWeek, endOfWeek, subWeeks, subDays, startOfMonth, endOfMonth } from 'date-fns'
 import { Client, TimeEntry } from '../../types'
 import { useAuth } from '../../contexts/AuthContext'
@@ -63,6 +64,22 @@ export default function ExportModal({
   projects
 }: ExportModalProps) {
   const { currentUser } = useAuth()
+  const { isDarkMode } = useTheme()
+  
+  // Helper function to format date for input field (YYYY-MM-DD format in local timezone)
+  const formatDateForInput = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  
+  // Helper function to parse date from input field
+  const parseDateFromInput = (dateString: string): Date => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   const [useCustomTimeData, setUseCustomTimeData] = useState(false)
   const [editableTimeData, setEditableTimeData] = useState({
     totalHours: timeData.totalHours,
@@ -237,6 +254,8 @@ export default function ExportModal({
       case 'yesterday':
         startDate = subDays(now, 1)
         endDate = subDays(now, 1)
+        // Fix for same-day filtering: set end date to end of day
+        endDate.setHours(23, 59, 59, 999)
         break
       case 'this-month':
         startDate = startOfMonth(now)
@@ -245,6 +264,9 @@ export default function ExportModal({
       case 'custom':
         startDate = customPeriod.startDate
         endDate = customPeriod.endDate
+        // Fix for date range filtering: set start date to beginning of day and end date to end of day
+        startDate.setHours(0, 0, 0, 0)
+        endDate.setHours(23, 59, 59, 999)
         break
       default:
         // All time - use a wide range
@@ -259,16 +281,16 @@ export default function ExportModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className={`rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Export Report</h2>
+        <div className={`flex items-center justify-between p-6 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+          <h2 className={`text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>Export Report</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
             disabled={isExporting}
           >
-            <X className="h-5 w-5 text-gray-500" />
+            <X className={`h-5 w-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
           </button>
         </div>
 
@@ -276,71 +298,73 @@ export default function ExportModal({
         <div className="p-6 space-y-6">
           {/* Error Message */}
           {error && (
-            <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-              <p className="text-sm text-red-700">{error}</p>
+            <div className={`flex items-center space-x-2 p-3 rounded-lg ${isDarkMode ? 'bg-red-900/30 border border-red-800' : 'bg-red-50 border border-red-200'}`}>
+              <AlertCircle className={`h-5 w-5 flex-shrink-0 ${isDarkMode ? 'text-red-400' : 'text-red-500'}`} />
+              <p className={`text-sm ${isDarkMode ? 'text-red-200' : 'text-red-700'}`}>{error}</p>
             </div>
           )}
 
           {/* Client Info (if exporting for a specific client) */}
           {client && (
-            <div className="bg-gray-50 rounded-lg p-4">
+            <div className={`rounded-lg p-4 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
               <div className="flex items-center space-x-3 mb-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <FileText className="h-5 w-5 text-blue-600" />
+                <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-100'}`}>
+                  <FileText className={`h-5 w-5 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900">{client.name}</h3>
-                  <p className="text-sm text-gray-500">Client Report</p>
+                  <h3 className={`font-medium ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>{client.name}</h3>
+                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Client Report</p>
                 </div>
               </div>
               
               <div className="space-y-2 text-sm">
                 <div>
-                  <span className="text-gray-500">Company:</span>
-                  <span className="ml-2 font-medium">{client.company || 'N/A'}</span>
+                  <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Company:</span>
+                  <span className={`ml-2 font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{client.company || 'N/A'}</span>
                 </div>
                 {currentUser && canViewHourlyRates(currentUser.role) ? (
                   <>
                     <div>
-                      <span className="text-gray-500">Rate:</span>
-                      <span className="ml-2 font-medium">${client.hourlyRate || 0}/hr</span>
+                      <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Rate:</span>
+                      <span className={`ml-2 font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>${client.hourlyRate || 0}/hr</span>
                     </div>
                     <div>
-                      <span className="text-gray-500">Billable Amount:</span>
-                      <span className="ml-2 font-medium">${(dynamicTimeData.totalHours * (client.hourlyRate || 0)).toFixed(2)}</span>
+                      <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Billable Amount:</span>
+                      <span className={`ml-2 font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>${(dynamicTimeData.totalHours * (client.hourlyRate || 0)).toFixed(2)}</span>
                     </div>
                   </>
                 ) : (
                   <>
                     <div>
-                      <span className="text-gray-500">Rate:</span>
-                      <span className="ml-2 font-medium">--</span>
+                      <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Rate:</span>
+                      <span className={`ml-2 font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>--</span>
                     </div>
                     <div>
-                      <span className="text-gray-500">Billable Amount:</span>
-                      <span className="ml-2 font-medium">--</span>
+                      <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Billable Amount:</span>
+                      <span className={`ml-2 font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>--</span>
                     </div>
                   </>
                 )}
                 <div>
-                  <span className="text-gray-500">Period:</span>
-                  <span className="ml-2 font-medium">{getPeriodText()}</span>
+                  <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Period:</span>
+                  <span className={`ml-2 font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{getPeriodText()}</span>
                 </div>
               </div>
             </div>
           )}
 
           {/* Period Filter */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="font-medium text-gray-900 mb-3">Select Period</h3>
+          <div className={`rounded-lg p-4 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+            <h3 className={`font-medium mb-3 ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>Select Period</h3>
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setExportPeriod('this-week')}
                 className={`px-3 py-2 text-sm rounded-lg transition-colors ${
                   exportPeriod === 'this-week'
                     ? 'bg-primary-500 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                    : isDarkMode
+                      ? 'bg-gray-600 text-gray-200 hover:bg-gray-500 border border-gray-500'
+                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
                 }`}
               >
                 This Week
@@ -350,7 +374,9 @@ export default function ExportModal({
                 className={`px-3 py-2 text-sm rounded-lg transition-colors ${
                   exportPeriod === 'last-week'
                     ? 'bg-primary-500 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                    : isDarkMode
+                      ? 'bg-gray-600 text-gray-200 hover:bg-gray-500 border border-gray-500'
+                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
                 }`}
               >
                 Last Week
@@ -360,7 +386,9 @@ export default function ExportModal({
                 className={`px-3 py-2 text-sm rounded-lg transition-colors ${
                   exportPeriod === 'yesterday'
                     ? 'bg-primary-500 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                    : isDarkMode
+                      ? 'bg-gray-600 text-gray-200 hover:bg-gray-500 border border-gray-500'
+                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
                 }`}
               >
                 Yesterday
@@ -370,7 +398,9 @@ export default function ExportModal({
                 className={`px-3 py-2 text-sm rounded-lg transition-colors ${
                   exportPeriod === 'this-month'
                     ? 'bg-primary-500 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                    : isDarkMode
+                      ? 'bg-gray-600 text-gray-200 hover:bg-gray-500 border border-gray-500'
+                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
                 }`}
               >
                 This Month
@@ -380,7 +410,9 @@ export default function ExportModal({
                 className={`px-3 py-2 text-sm rounded-lg transition-colors ${
                   exportPeriod === 'all'
                     ? 'bg-primary-500 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                    : isDarkMode
+                      ? 'bg-gray-600 text-gray-200 hover:bg-gray-500 border border-gray-500'
+                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
                 }`}
               >
                 All Time
@@ -390,7 +422,9 @@ export default function ExportModal({
                 className={`px-3 py-2 text-sm rounded-lg transition-colors ${
                   exportPeriod === 'custom'
                     ? 'bg-primary-500 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                    : isDarkMode
+                      ? 'bg-gray-600 text-gray-200 hover:bg-gray-500 border border-gray-500'
+                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
                 }`}
               >
                 Custom
@@ -399,26 +433,32 @@ export default function ExportModal({
 
             {/* Custom Date Range */}
             {exportPeriod === 'custom' && (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Custom Date Range</h4>
+              <div className={`mt-4 pt-4 border-t ${isDarkMode ? 'border-gray-600' : 'border-gray-200'}`}>
+                <h4 className={`text-sm font-medium mb-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Custom Date Range</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Start Date</label>
+                    <label className={`block text-xs mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Start Date</label>
                     <input
                       type="date"
-                      value={customPeriod.startDate.toISOString().split('T')[0]}
-                      onChange={(e) => setCustomPeriod(prev => ({ ...prev, startDate: new Date(e.target.value) }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      value={formatDateForInput(customPeriod.startDate)}
+                      onChange={(e) => {
+                        const date = parseDateFromInput(e.target.value);
+                        setCustomPeriod(prev => ({ ...prev, startDate: date }));
+                      }}
+                      className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDarkMode ? 'bg-gray-600 border-gray-500 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                       disabled={isExporting}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">End Date</label>
+                    <label className={`block text-xs mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>End Date</label>
                     <input
                       type="date"
-                      value={customPeriod.endDate.toISOString().split('T')[0]}
-                      onChange={(e) => setCustomPeriod(prev => ({ ...prev, endDate: new Date(e.target.value) }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      value={formatDateForInput(customPeriod.endDate)}
+                      onChange={(e) => {
+                        const date = parseDateFromInput(e.target.value);
+                        setCustomPeriod(prev => ({ ...prev, endDate: date }));
+                      }}
+                      className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDarkMode ? 'bg-gray-600 border-gray-500 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                       disabled={isExporting}
                     />
                   </div>
@@ -428,18 +468,18 @@ export default function ExportModal({
           </div>
 
           {/* Time Data Summary */}
-          <div className="bg-blue-50 rounded-lg p-4">
+          <div className={`rounded-lg p-4 ${isDarkMode ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-medium text-gray-900">Time Data Summary</h3>
+              <h3 className={`font-medium ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>Time Data Summary</h3>
               <label className="flex items-center space-x-2">
                 <input
                   type="checkbox"
                   checked={useCustomTimeData}
                   onChange={(e) => setUseCustomTimeData(e.target.checked)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className={`h-4 w-4 rounded focus:ring-blue-500 ${isDarkMode ? 'bg-gray-600 border-gray-500 text-blue-500' : 'border-gray-300 text-blue-600'}`}
                   disabled={isExporting}
                 />
-                <span className="text-sm text-gray-700">Edit values</span>
+                <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Edit values</span>
               </label>
             </div>
             
@@ -450,7 +490,7 @@ export default function ExportModal({
             ) : useCustomTimeData ? (
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Total Time (hours)</label>
+                  <label className={`block text-xs mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Total Time (hours)</label>
                   <input
                     type="number"
                     step="0.1"
@@ -460,13 +500,13 @@ export default function ExportModal({
                       ...prev, 
                       totalHours: parseFloat(e.target.value) || 0 
                     }))}
-                    className="w-full px-3 py-2 text-center text-lg font-bold text-blue-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full px-3 py-2 text-center text-lg font-bold rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDarkMode ? 'bg-gray-600 border-gray-500 text-blue-400' : 'bg-white border-gray-300 text-blue-600'}`}
                     disabled={isExporting}
                   />
                 </div>
                 {currentUser && canViewHourlyRates(currentUser.role) ? (
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Billable Amount ($)</label>
+                    <label className={`block text-xs mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Billable Amount ($)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -476,30 +516,30 @@ export default function ExportModal({
                         ...prev, 
                         billableAmount: parseFloat(e.target.value) || 0 
                       }))}
-                      className="w-full px-3 py-2 text-center text-lg font-bold text-green-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className={`w-full px-3 py-2 text-center text-lg font-bold rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDarkMode ? 'bg-gray-600 border-gray-500 text-green-400' : 'bg-white border-gray-300 text-green-600'}`}
                       disabled={isExporting}
                     />
                   </div>
                 ) : (
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Billable Amount ($)</label>
+                    <label className={`block text-xs mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Billable Amount ($)</label>
                     <input
                       type="text"
                       value="--"
                       readOnly
-                      className="w-full px-3 py-2 text-center text-lg font-bold text-green-600 border border-gray-300 rounded-lg bg-gray-100"
+                      className={`w-full px-3 py-2 text-center text-lg font-bold rounded-lg ${isDarkMode ? 'bg-gray-700 text-green-400' : 'bg-gray-100 text-green-600'}`}
                       disabled={isExporting}
                     />
                   </div>
                 )}
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Time Entries</label>
+                  <label className={`block text-xs mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Time Entries</label>
                   <input
                     type="number"
                     min="0"
                     value={dynamicTimeData.timeEntries}
                     readOnly
-                    className="w-full px-3 py-2 text-center text-lg font-bold text-purple-600 border border-gray-300 rounded-lg bg-gray-100"
+                    className={`w-full px-3 py-2 text-center text-lg font-bold rounded-lg ${isDarkMode ? 'bg-gray-700 text-purple-400' : 'bg-gray-100 text-purple-600'}`}
                     disabled={isExporting}
                   />
                 </div>
@@ -507,29 +547,29 @@ export default function ExportModal({
             ) : (
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <div className="text-2xl font-bold text-blue-600">{dynamicTimeData.formattedTime}</div>
-                  <div className="text-sm text-gray-600">Total Time</div>
+                  <div className={`text-2xl font-bold ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>{dynamicTimeData.formattedTime}</div>
+                  <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Time</div>
                 </div>
                 {currentUser && canViewHourlyRates(currentUser.role) ? (
                   <div>
-                    <div className="text-2xl font-bold text-green-600">${dynamicTimeData.billableAmount.toFixed(2)}</div>
-                    <div className="text-sm text-gray-600">Billable Amount</div>
+                    <div className={`text-2xl font-bold ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>${dynamicTimeData.billableAmount.toFixed(2)}</div>
+                    <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Billable Amount</div>
                   </div>
                 ) : (
                   <div>
-                    <div className="text-2xl font-bold text-green-600">--</div>
-                    <div className="text-sm text-gray-600">Billable Amount</div>
+                    <div className={`text-2xl font-bold ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>--</div>
+                    <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Billable Amount</div>
                   </div>
                 )}
                 <div>
-                  <div className="text-2xl font-bold text-purple-600">{dynamicTimeData.timeEntries}</div>
-                  <div className="text-sm text-gray-600">Time Entries</div>
+                  <div className={`text-2xl font-bold ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>{dynamicTimeData.timeEntries}</div>
+                  <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Time Entries</div>
                 </div>
               </div>
             )}
             
             {useCustomTimeData && (
-              <div className="mt-3 text-xs text-gray-500">
+              <div className={`mt-3 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                 <p>💡 <strong>Tip:</strong> You can override the actual tracked data with custom values for this export.</p>
               </div>
             )}
@@ -537,18 +577,18 @@ export default function ExportModal({
 
           {/* Export Options */}
           <div className="space-y-4">
-            <h3 className="font-medium text-gray-900">Export Options</h3>
+            <h3 className={`font-medium ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>Export Options</h3>
             
             {/* Report Title */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Report Title
               </label>
               <input
                 type="text"
                 value={exportData.reportTitle}
                 onChange={(e) => setExportData(prev => ({ ...prev, reportTitle: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'}`}
                 placeholder="Enter report title"
                 disabled={isExporting}
               />
@@ -556,14 +596,14 @@ export default function ExportModal({
 
             {/* Report Description */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Report Description
               </label>
               <textarea
                 value={exportData.reportDescription}
                 onChange={(e) => setExportData(prev => ({ ...prev, reportDescription: e.target.value }))}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'}`}
                 placeholder="Enter report description (optional)"
                 disabled={isExporting}
               />
@@ -571,7 +611,7 @@ export default function ExportModal({
 
             {/* Include Options */}
             <div className="space-y-3">
-              <h4 className="text-sm font-medium text-gray-700">Include in Report:</h4>
+              <h4 className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Include in Report:</h4>
               
               <div className="space-y-2">
                 <label className="flex items-center space-x-3">
@@ -579,12 +619,12 @@ export default function ExportModal({
                     type="checkbox"
                     checked={exportData.includeTimeBreakdown}
                     onChange={(e) => setExportData(prev => ({ ...prev, includeTimeBreakdown: e.target.checked }))}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className={`h-4 w-4 rounded focus:ring-blue-500 ${isDarkMode ? 'bg-gray-600 border-gray-500 text-blue-500' : 'border-gray-300 text-blue-600'}`}
                     disabled={isExporting}
                   />
                   <div className="flex items-center space-x-2">
-                    <Clock className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm text-gray-700">Time breakdown by day/project</span>
+                    <Clock className={`h-4 w-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+                    <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Time breakdown by day/project</span>
                   </div>
                 </label>
 
@@ -593,12 +633,12 @@ export default function ExportModal({
                     type="checkbox"
                     checked={exportData.includeBillingDetails}
                     onChange={(e) => setExportData(prev => ({ ...prev, includeBillingDetails: e.target.checked }))}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className={`h-4 w-4 rounded focus:ring-blue-500 ${isDarkMode ? 'bg-gray-600 border-gray-500 text-blue-500' : 'border-gray-300 text-blue-600'}`}
                     disabled={isExporting}
                   />
                   <div className="flex items-center space-x-2">
-                    <DollarSign className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm text-gray-700">Billing details and calculations</span>
+                    <DollarSign className={`h-4 w-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+                    <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Billing details and calculations</span>
                   </div>
                 </label>
 
@@ -607,12 +647,12 @@ export default function ExportModal({
                     type="checkbox"
                     checked={exportData.includeProjectDetails}
                     onChange={(e) => setExportData(prev => ({ ...prev, includeProjectDetails: e.target.checked }))}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className={`h-4 w-4 rounded focus:ring-blue-500 ${isDarkMode ? 'bg-gray-600 border-gray-500 text-blue-500' : 'border-gray-300 text-blue-600'}`}
                     disabled={isExporting}
                   />
                   <div className="flex items-center space-x-2">
-                    <FileText className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm text-gray-700">Project details and descriptions</span>
+                    <FileText className={`h-4 w-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+                    <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Project details and descriptions</span>
                   </div>
                 </label>
 
@@ -621,12 +661,12 @@ export default function ExportModal({
                     type="checkbox"
                     checked={exportData.includeComments}
                     onChange={(e) => setExportData(prev => ({ ...prev, includeComments: e.target.checked }))}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className={`h-4 w-4 rounded focus:ring-blue-500 ${isDarkMode ? 'bg-gray-600 border-gray-500 text-blue-500' : 'border-gray-300 text-blue-600'}`}
                     disabled={isExporting}
                   />
                   <div className="flex items-center space-x-2">
-                    <FileText className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm text-gray-700">Time entry comments and notes</span>
+                    <FileText className={`h-4 w-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+                    <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Time entry comments and notes</span>
                   </div>
                 </label>
               </div>
@@ -634,18 +674,18 @@ export default function ExportModal({
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+          <div className={`flex justify-end space-x-3 pt-6 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
             <button
               type="button"
               onClick={onClose}
-              className="btn-secondary"
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${isDarkMode ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
               disabled={isExporting}
             >
               Cancel
             </button>
             <button
               onClick={handleConfirm}
-              className="btn-primary flex items-center space-x-2"
+              className={`px-4 py-2 rounded-lg font-medium text-white transition-colors flex items-center space-x-2 ${isDarkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-600 hover:bg-blue-700'}`}
               disabled={isExporting || loading}
             >
               {isExporting ? (

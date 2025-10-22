@@ -33,26 +33,32 @@ export const userService = {
 
   // Get users for current company (multi-tenant safe)
   async getUsersForCompany(companyId: string | null): Promise<User[]> {
-    const usersRef = ref(database, 'users')
-    const snapshot = await get(usersRef)
+    if (!companyId) return []
     
-    if (snapshot.exists()) {
-      const users = snapshot.val()
-      return Object.entries(users)
-        .map(([id, user]: [string, any]) => ({
-          ...user,
-          id: user.uid || id,
-          createdAt: new Date(user.createdAt),
-          updatedAt: new Date(user.updatedAt)
-        }))
-        .filter((user: User) => {
-          // Filter by company and active status
-          return user.isActive && user.companyId === companyId
-        })
-        .sort((a: User, b: User) => a.name.localeCompare(b.name))
+    try {
+      // Query users by companyId for better performance and proper permission handling
+      const usersRef = ref(database, 'users')
+      const q = query(usersRef, orderByChild('companyId'), equalTo(companyId))
+      const snapshot = await get(q)
+      
+      if (snapshot.exists()) {
+        const users = snapshot.val()
+        return Object.entries(users)
+          .map(([id, user]: [string, any]) => ({
+            ...user,
+            id: user.uid || id,
+            createdAt: new Date(user.createdAt),
+            updatedAt: new Date(user.updatedAt)
+          }))
+          .filter((user: User) => user.isActive)
+          .sort((a: User, b: User) => a.name.localeCompare(b.name))
+      }
+      
+      return []
+    } catch (error) {
+      console.error('Error getting users for company:', error)
+      return []
     }
-    
-    return []
   },
 
   // Get users not in a specific team (company-scoped)
@@ -95,8 +101,8 @@ export const userService = {
     }
   },
 
-  // Get users by role
-  async getUsersByRole(role: 'employee' | 'admin'): Promise<User[]> {
+  // Get users by role - updated to support all roles
+  async getUsersByRole(role: UserRole): Promise<User[]> {
     const usersRef = ref(database, 'users')
     const q = query(usersRef, orderByChild('role'), equalTo(role))
     const snapshot = await get(q)
@@ -117,6 +123,73 @@ export const userService = {
     return []
   },
 
+  // Get users by role within a specific company
+  async getUsersByRoleInCompany(role: UserRole, companyId: string | null): Promise<User[]> {
+    if (!companyId) return [];
+    
+    try {
+      // Query users by both role and companyId for better performance and proper permission handling
+      const usersRef = ref(database, 'users');
+      // Note: This might still have permission issues for regular employees
+      // We'll handle that in the calling code with individual lookups
+      const roleQuery = query(usersRef, orderByChild('role'), equalTo(role));
+      const snapshot = await get(roleQuery);
+      
+      if (snapshot.exists()) {
+        const users = snapshot.val();
+        return Object.entries(users)
+          .map(([id, user]: [string, any]) => ({
+            ...user,
+            id: user.uid || id,
+            createdAt: new Date(user.createdAt),
+            updatedAt: new Date(user.updatedAt)
+          }))
+          .filter((user: User) => user.isActive && user.companyId === companyId)
+          .sort((a: User, b: User) => a.name.localeCompare(b.name));
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('Error getting users by role in company:', error);
+      throw error;
+    }
+  },
+
+  // Get project managers (admins, super_admins, roots) for a company
+  async getProjectManagersForCompany(companyId: string | null): Promise<User[]> {
+    if (!companyId) return [];
+    
+    try {
+      const usersRef = ref(database, 'users');
+      const snapshot = await get(usersRef);
+      
+      if (snapshot.exists()) {
+        const users = snapshot.val();
+        const projectManagers = Object.entries(users)
+          .map(([id, user]: [string, any]) => ({
+            ...user,
+            id: user.uid || id,
+            createdAt: new Date(user.createdAt),
+            updatedAt: new Date(user.updatedAt)
+          }))
+          .filter((user: User) => 
+            user.isActive && 
+            user.companyId === companyId && 
+            (user.role === 'admin' || user.role === 'super_admin' || user.role === 'root')
+          )
+          .sort((a: User, b: User) => a.name.localeCompare(b.name));
+          
+        return projectManagers;
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('Error getting project managers for company:', error);
+      // Return empty array instead of throwing to prevent breaking the UI
+      return [];
+    }
+  },
+
   // Update user team information
   async updateUserTeam(userId: string, teamId: string | null, teamRole: 'member' | 'leader' | null): Promise<void> {
     const userRef = ref(database, `users/${userId}`)
@@ -128,7 +201,7 @@ export const userService = {
   },
 
   // Update user information
-  async updateUser(userId: string, updates: Partial<Pick<User, 'name' | 'email' | 'role' | 'isActive'>>): Promise<void> {
+  async updateUser(userId: string, updates: Partial<Pick<User, 'name' | 'email' | 'role' | 'isActive' | 'timezone'>>): Promise<void> {
     const userRef = ref(database, `users/${userId}`)
     await update(userRef, {
       ...updates,

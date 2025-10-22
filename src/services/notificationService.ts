@@ -47,7 +47,7 @@ class NotificationService {
     this.closeNotification()
 
     try {
-      this.notification = new Notification('Task Flow Pro - Timer Running', {
+      this.notification = new Notification('NexiFlow - Timer Running', {
         body: `${data.projectName}: ${data.description}`,
         icon: '/favicon.ico',
         badge: '/favicon.ico',

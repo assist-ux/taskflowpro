@@ -131,7 +131,7 @@ export default function TaskModal({
               companyId: currentUser.companyId,
               teamId: currentUser.teamId,
               teamRole: currentUser.teamRole,
-              timezone: 'America/New_York',
+              timezone: 'GMT+0 (Greenwich Mean Time)',
               isActive: true,
               createdAt: new Date(),
               updatedAt: new Date()
@@ -149,7 +149,7 @@ export default function TaskModal({
             companyId: currentUser.companyId,
             teamId: currentUser.teamId,
             teamRole: currentUser.teamRole,
-            timezone: 'America/New_York',
+            timezone: 'GMT+0 (Greenwich Mean Time)',
             isActive: true,
             createdAt: new Date(),
             updatedAt: new Date()

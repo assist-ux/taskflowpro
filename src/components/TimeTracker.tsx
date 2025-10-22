@@ -123,10 +123,10 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
   // Update document title with running time
   useEffect(() => {
     if (isRunning) {
-      document.title = `${formatElapsedTime(elapsedTime)} - TaskFlowPro`
+      document.title = `${formatElapsedTime(elapsedTime)} - NF`
     } else {
       // Reset to default title when timer is not running
-      document.title = 'Task Flow Pro - Time Tracking & Project Management'
+      document.title = 'NexiFlow - Time Tracking & Project Management'
     }
   }, [isRunning, elapsedTime])
 
@@ -419,42 +419,37 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Client <span className="text-red-500 dark:text-red-400">*</span>
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Building2 className="h-4 w-4 text-gray-400" />
-                </div>
-                <select
-                  value={selectedClientId}
-                  onChange={(e) => {
-                    setSelectedClientId(e.target.value)
-                    // Don't automatically reset project selection
-                    // Only reset if the selected project is not valid for the new client
-                    const newClientId = e.target.value
-                    if (newClientId && formData.projectId) {
-                      // Check if the currently selected project belongs to the new client
-                      const projectBelongsToClient = projects.some(
-                        p => p.id === formData.projectId && p.clientId === newClientId
-                      )
-                      if (!projectBelongsToClient) {
-                        // Only reset project if it doesn't belong to the new client
-                        setFormData(prev => ({ ...prev, projectId: '' }))
-                      }
-                    } else if (!newClientId) {
-                      // If no client is selected, reset project selection
+              <select
+                value={selectedClientId}
+                onChange={(e) => {
+                  setSelectedClientId(e.target.value)
+                  // Don't automatically reset project selection
+                  // Only reset if the selected project is not valid for the new client
+                  const newClientId = e.target.value
+                  if (newClientId && formData.projectId) {
+                    // Check if the currently selected project belongs to the new client
+                    const projectBelongsToClient = projects.some(
+                      p => p.id === formData.projectId && p.clientId === newClientId
+                    )
+                    if (!projectBelongsToClient) {
+                      // Only reset project if it doesn't belong to the new client
                       setFormData(prev => ({ ...prev, projectId: '' }))
                     }
-                  }}
-                  className="input pl-10"
-                  required
-                >
-                  <option value="">Select a client</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  } else if (!newClientId) {
+                    // If no client is selected, reset project selection
+                    setFormData(prev => ({ ...prev, projectId: '' }))
+                  }
+                }}
+                className="input"
+                required
+              >
+                <option value="">Select a client</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Project Selection */}

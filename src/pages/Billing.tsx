@@ -186,6 +186,8 @@ export default function Billing() {
       case 'custom':
         startDate = customStartDate
         endDate = customEndDate
+        // Fix for date range filtering: set end date to end of day to include all entries for that day
+        endDate.setHours(23, 59, 59, 999)
         break
       default:
         startDate = startOfMonth(now)
@@ -221,8 +223,12 @@ export default function Billing() {
 
   const getRevenueChartData = () => {
     const { startDate, endDate } = getDateRange()
+    // Fix for date range filtering: set end date to end of day to include all entries for that day
+    const adjustedEndDate = new Date(endDate)
+    adjustedEndDate.setHours(23, 59, 59, 999)
+    
     const filteredInvoices = invoices.filter(inv => 
-      inv.issueDate >= startDate && inv.issueDate <= endDate
+      inv.issueDate >= startDate && inv.issueDate <= adjustedEndDate
     )
 
     const monthlyData: { [key: string]: { paid: number; pending: number; overdue: number } } = {}
