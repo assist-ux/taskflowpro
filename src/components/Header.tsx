@@ -12,7 +12,8 @@ import {
   ChevronDown,
   Menu,
   Bot,
-  Gift
+  Gift,
+  Shield
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useSearch } from '../contexts/SearchContext'
@@ -417,6 +418,12 @@ export default function Header({ onMenuClick }: HeaderProps) {
                   <div className="h-8 w-8 rounded-full bg-primary-500 flex items-center justify-center text-white font-medium">
                     {currentUser?.name?.charAt(0) || currentUser?.email?.charAt(0) || 'U'}
                   </div>
+                  {/* Root user badge */}
+                  {currentUser?.role === 'root' && (
+                    <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 flex items-center justify-center">
+                      <Shield className="h-2.5 w-2.5 text-white" />
+                    </div>
+                  )}
                 </div>
                 <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
               </button>
@@ -425,8 +432,16 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 <div className="origin-top-right absolute right-0 mt-2 w-64 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none user-menu z-50">
                   <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center space-x-3">
-                      <div className="h-10 w-10 rounded-full bg-primary-500 flex items-center justify-center text-white font-medium">
-                        {currentUser?.name?.charAt(0) || currentUser?.email?.charAt(0) || 'U'}
+                      <div className="relative">
+                        <div className="h-10 w-10 rounded-full bg-primary-500 flex items-center justify-center text-white font-medium">
+                          {currentUser?.name?.charAt(0) || currentUser?.email?.charAt(0) || 'U'}
+                        </div>
+                        {/* Root user badge in dropdown */}
+                        {currentUser?.role === 'root' && (
+                          <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 flex items-center justify-center">
+                            <Shield className="h-3 w-3 text-white" />
+                          </div>
+                        )}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
@@ -435,9 +450,16 @@ export default function Header({ onMenuClick }: HeaderProps) {
                         <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                           {currentUser?.email}
                         </p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500 capitalize">
-                          {currentUser?.role?.replace('_', ' ')}
-                        </p>
+                        <div className="flex items-center space-x-1">
+                          <p className="text-xs text-gray-400 dark:text-gray-500 capitalize">
+                            {currentUser?.role?.replace('_', ' ')}
+                          </p>
+                          {currentUser?.role === 'root' && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100">
+                              ROOT
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

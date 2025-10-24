@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { 
   Users, 
   Clock, 
@@ -35,6 +36,14 @@ import { canViewHourlyRates, getRoleDisplayName, canAccessFeature } from '../uti
 
 export default function AdminDashboard() {
   const { currentUser } = useAuth()
+  const navigate = useNavigate()
+
+  // Redirect root users to the root dashboard
+  useEffect(() => {
+    if (currentUser?.role === 'root') {
+      navigate('/root')
+    }
+  }, [currentUser, navigate])
   const [users, setUsers] = useState<User[]>([])
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([])
   const [projects, setProjects] = useState<Project[]>([])

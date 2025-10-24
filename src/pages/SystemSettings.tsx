@@ -10,7 +10,9 @@ import {
   Key,
   AlertTriangle,
   CheckCircle,
-  XCircle
+  XCircle,
+  Building2,
+  UserCheck
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { companyService } from '../services/companyService'
@@ -48,7 +50,7 @@ export default function SystemSettings() {
               Access Denied
             </h2>
             <p className="text-gray-600 dark:text-gray-400">
-              You don't have permission to access system settings.
+              You don't have permission to access system settings. This section is reserved for root users only.
             </p>
           </div>
         </div>
@@ -59,7 +61,8 @@ export default function SystemSettings() {
   const tabs = [
     { id: 'overview', name: 'System Overview', icon: Activity },
     { id: 'users', name: 'User Management', icon: Users },
-    { id: 'companies', name: 'Company Management', icon: Globe },
+    { id: 'companies', name: 'Company Management', icon: Building2 },
+    { id: 'admins', name: 'Admin Management', icon: UserCheck },
     { id: 'security', name: 'Security Settings', icon: Shield },
     { id: 'database', name: 'Database', icon: Database },
     { id: 'server', name: 'Server Status', icon: Server }
@@ -273,26 +276,37 @@ export default function SystemSettings() {
           </button>
         </div>
       </div>
+    </div>
+  )
 
+  const renderAdmins = () => (
+    <div className="space-y-6">
       <div className="card">
-        <h4 className="text-md font-medium text-gray-900 dark:text-gray-100 mb-3">Create Super Admin</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <select className="input" value={superAdminForm.companyId} onChange={e => setSuperAdminForm({ ...superAdminForm, companyId: e.target.value })}>
-            <option value="">Select company</option>
-            {companies.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-          <input type="text" className="input" placeholder="Full name" value={superAdminForm.name} onChange={e => setSuperAdminForm({ ...superAdminForm, name: e.target.value })} />
-          <input type="email" className="input" placeholder="Email" value={superAdminForm.email} onChange={e => setSuperAdminForm({ ...superAdminForm, email: e.target.value })} />
-          <input type="password" className="input" placeholder="Password" value={superAdminForm.password} onChange={e => setSuperAdminForm({ ...superAdminForm, password: e.target.value })} />
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Super Admin Management</h3>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">
+          Create and manage Super Admins for each company. Super Admins have full access to their company's data.
+        </p>
+        
+        <div className="card">
+          <h4 className="text-md font-medium text-gray-900 dark:text-gray-100 mb-3">Create Super Admin</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <select className="input" value={superAdminForm.companyId} onChange={e => setSuperAdminForm({ ...superAdminForm, companyId: e.target.value })}>
+              <option value="">Select company</option>
+              {companies.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <input type="text" className="input" placeholder="Full name" value={superAdminForm.name} onChange={e => setSuperAdminForm({ ...superAdminForm, name: e.target.value })} />
+            <input type="email" className="input" placeholder="Email" value={superAdminForm.email} onChange={e => setSuperAdminForm({ ...superAdminForm, email: e.target.value })} />
+            <input type="password" className="input" placeholder="Password" value={superAdminForm.password} onChange={e => setSuperAdminForm({ ...superAdminForm, password: e.target.value })} />
+          </div>
+          <div className="mt-3">
+            <button onClick={handleCreateSuperAdmin} disabled={creatingSuperAdmin || !superAdminForm.companyId || !superAdminForm.name || !superAdminForm.email || !superAdminForm.password} className="btn-primary">
+              {creatingSuperAdmin ? 'Creating...' : 'Create Super Admin'}
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">Note: In this build, after creating the account, set the user's companyId to the selected company in the database.</p>
         </div>
-        <div className="mt-3">
-          <button onClick={handleCreateSuperAdmin} disabled={creatingSuperAdmin || !superAdminForm.companyId || !superAdminForm.name || !superAdminForm.email || !superAdminForm.password} className="btn-primary">
-            {creatingSuperAdmin ? 'Creating...' : 'Create Super Admin'}
-          </button>
-        </div>
-        <p className="text-xs text-gray-500 mt-2">Note: In this build, after creating the account, set the user's companyId to the selected company in the database.</p>
       </div>
     </div>
   )
@@ -397,6 +411,8 @@ export default function SystemSettings() {
         return renderUsers()
       case 'companies':
         return renderCompanies()
+      case 'admins':
+        return renderAdmins()
       case 'security':
         return renderSecurity()
       case 'database':
@@ -414,7 +430,7 @@ export default function SystemSettings() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">System Settings</h1>
-          <p className="text-gray-600 dark:text-gray-400">Platform administration and management</p>
+          <p className="text-gray-600 dark:text-gray-400">Root-level platform administration and management</p>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 bg-green-500 rounded-full"></div>

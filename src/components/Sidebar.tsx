@@ -14,7 +14,8 @@ import {
   Calendar,
   FileText,
   Home,
-  User
+  User,
+  Shield
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { canAccessFeature } from '../utils/permissions'
@@ -28,26 +29,40 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
   const location = useLocation()
   const { currentUser } = useAuth()
 
-  const allNavigation = [
-    { name: 'Dashboard', href: '/', icon: Home, requiredFeature: null },
-    { name: 'Time Tracker', href: '/tracker', icon: Clock, requiredFeature: null },
-    { name: 'Calendar', href: '/calendar', icon: Calendar, requiredFeature: null },
-    { name: 'Projects', href: '/projects', icon: FolderOpen, requiredFeature: 'projects' },
-    { name: 'Clients', href: '/clients', icon: Building2, requiredFeature: 'clients' },
-    { name: 'Task Management', href: '/management', icon: Kanban, requiredFeature: null },
-    { name: 'Teams', href: '/teams', icon: UserCheck, requiredFeature: 'teams' },
-    { name: 'Messaging', href: '/messaging', icon: MessageSquare, requiredFeature: null },
-    { name: 'Reports', href: '/reports', icon: BarChart3, requiredFeature: null },
-    { name: 'Billing', href: '/billing', icon: DollarSign, requiredFeature: 'billing' },
-    { name: 'Feedbacks', href: '/feedbacks', icon: MessageSquare, requiredFeature: null },
-    { name: 'Admin Dashboard', href: '/admin', icon: User, requiredFeature: 'admin-dashboard' },
-    { name: 'Settings', href: '/settings', icon: Settings, requiredFeature: null },
-  ]
+  // Define navigation items based on user role
+  const getNavigationItems = () => {
+    // Special navigation for root users
+    if (currentUser?.role === 'root') {
+      return [
+        { name: 'Root Dashboard', href: '/root', icon: Shield, requiredFeature: null },
+        { name: 'System Settings', href: '/system', icon: Settings, requiredFeature: null },
+      ]
+    }
 
-  // Filter navigation based on user permissions
-  const navigation = allNavigation.filter(item => 
-    !item.requiredFeature || (currentUser?.role && canAccessFeature(currentUser.role, item.requiredFeature))
-  )
+    // Regular navigation for other users
+    const allNavigation = [
+      { name: 'Dashboard', href: '/', icon: Home, requiredFeature: null },
+      { name: 'Time Tracker', href: '/tracker', icon: Clock, requiredFeature: null },
+      { name: 'Calendar', href: '/calendar', icon: Calendar, requiredFeature: null },
+      { name: 'Projects', href: '/projects', icon: FolderOpen, requiredFeature: 'projects' },
+      { name: 'Clients', href: '/clients', icon: Building2, requiredFeature: 'clients' },
+      { name: 'Task Management', href: '/management', icon: Kanban, requiredFeature: null },
+      { name: 'Teams', href: '/teams', icon: UserCheck, requiredFeature: 'teams' },
+      { name: 'Messaging', href: '/messaging', icon: MessageSquare, requiredFeature: null },
+      { name: 'Reports', href: '/reports', icon: BarChart3, requiredFeature: null },
+      { name: 'Billing', href: '/billing', icon: DollarSign, requiredFeature: 'billing' },
+      { name: 'Feedbacks', href: '/feedbacks', icon: MessageSquare, requiredFeature: null },
+      { name: 'Admin Dashboard', href: '/admin', icon: User, requiredFeature: 'admin-dashboard' },
+      { name: 'Settings', href: '/settings', icon: Settings, requiredFeature: null },
+    ]
+
+    // Filter navigation based on user permissions
+    return allNavigation.filter(item => 
+      !item.requiredFeature || (currentUser?.role && canAccessFeature(currentUser.role, item.requiredFeature))
+    )
+  }
+
+  const navigation = getNavigationItems()
 
   return (
     <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
