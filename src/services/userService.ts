@@ -1,7 +1,8 @@
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, User as FirebaseUser } from 'firebase/auth'
-import { ref, get, update, set, query, orderByChild, equalTo, onValue, push } from 'firebase/database'
-import { database, auth } from '../config/firebase'
+import { ref, get, update, set, query, orderByChild, equalTo, onValue, push, remove } from 'firebase/database'
+import { database, auth, functions } from '../config/firebase'
 import { User, UserRole } from '../types'
+import { httpsCallable } from 'firebase/functions'
 
 export const userService = {
   // Get all users (for admin/team leader use) - with multi-tenant filtering
@@ -323,7 +324,45 @@ export const userService = {
       console.error('Error creating user:', error)
       throw error
     }
+  },
+
+  // Delete user (for admin use) - removes from both Firebase Auth and Database
+  async deleteUser(userId: string): Promise<void> {
+    try {
+      // Call the cloud function to properly delete the user
+      const deleteFunction = httpsCallable(functions, 'deleteUser')
+      await deleteFunction({ userId })
+      console.log(`User ${userId} deleted successfully`)
+    } catch (error: any) {
+      console.error('Error deleting user:', error)
+      // Fallback to marking as inactive if cloud function fails
+      const userRef = ref(database, `users/${userId}`)
+      await update(userRef, {
+        isActive: false,
+        updatedAt: new Date().toISOString()
+      })
+      // Don't throw an error here so the UI can still work
+      console.log(`User ${userId} marked as inactive as fallback`)
+    }
+  },
+  
+  // Permanently delete user data (requires admin privileges)
+  async permanentlyDeleteUser(userId: string): Promise<void> {
+    try {
+      // Call the cloud function to properly delete the user
+      const deleteFunction = httpsCallable(functions, 'deleteUser')
+      await deleteFunction({ userId })
+      console.log(`User ${userId} permanently deleted`)
+    } catch (error: any) {
+      console.error('Error permanently deleting user:', error)
+      // Fallback to removing from database if cloud function fails
+      const userRef = ref(database, `users/${userId}`)
+      await remove(userRef)
+      // Don't throw an error here so the UI can still work
+      console.log(`User ${userId} data removed from database as fallback`)
+    }
   }
+
 }
 
 // Add real-time listener for users

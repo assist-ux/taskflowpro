@@ -103,9 +103,15 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Clie
     setError('')
 
     try {
-      if (isEdit) {
+      if (isEdit && client) {
         await projectService.updateClient(client.id, formData)
       } else {
+        // Check if client with same email already exists
+        const existingClient = await projectService.getClientByEmail(formData.email, currentUser.companyId)
+        if (existingClient) {
+          throw new Error('A client with this email already exists. Please use a different email address.')
+        }
+        
         await projectService.createClient(formData, currentUser.uid, currentUser.companyId)
       }
       onSuccess()

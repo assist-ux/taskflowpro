@@ -123,22 +123,17 @@ export default function UserCreateModal({
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Full Name
             </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <User className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-              </div>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                required
-                value={formData.name}
-                onChange={handleInputChange}
-                className="input pl-10"
-                placeholder="Enter full name"
-                disabled={loading}
-              />
-            </div>
+            <input
+              id="name"
+              name="name"
+              type="text"
+              required
+              value={formData.name}
+              onChange={handleInputChange}
+              className="input"
+              placeholder="Enter full name"
+              disabled={loading}
+            />
           </div>
 
           {/* Email Field */}
@@ -146,22 +141,17 @@ export default function UserCreateModal({
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Email Address
             </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Mail className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-              </div>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                value={formData.email}
-                onChange={handleInputChange}
-                className="input pl-10"
-                placeholder="Enter email address"
-                disabled={loading}
-              />
-            </div>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              value={formData.email}
+              onChange={handleInputChange}
+              className="input"
+              placeholder="Enter email address"
+              disabled={loading}
+            />
           </div>
 
           {/* Password Field */}
@@ -170,9 +160,6 @@ export default function UserCreateModal({
               Password
             </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Lock className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-              </div>
               <input
                 id="password"
                 name="password"
@@ -180,7 +167,7 @@ export default function UserCreateModal({
                 required
                 value={formData.password}
                 onChange={handleInputChange}
-                className="input pl-10 pr-10"
+                className="input pr-10"
                 placeholder="Enter password"
                 disabled={loading}
               />
@@ -200,25 +187,20 @@ export default function UserCreateModal({
             <label htmlFor="role" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Role
             </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Shield className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-              </div>
-              <select
-                id="role"
-                name="role"
-                value={formData.role}
-                onChange={handleInputChange}
-                className="input pl-10"
-                disabled={loading}
-              >
-                {availableRoles.map(role => (
-                  <option key={role} value={role}>
-                    {getRoleDisplayName(role)}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <select
+              id="role"
+              name="role"
+              value={formData.role}
+              onChange={handleInputChange}
+              className="input"
+              disabled={loading}
+            >
+              {availableRoles.map(role => (
+                <option key={role} value={role}>
+                  {getRoleDisplayName(role)}
+                </option>
+              ))}
+            </select>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               {getRoleDescription(formData.role)}
             </p>

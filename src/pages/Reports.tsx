@@ -106,8 +106,10 @@ export default function Reports() {
     }
     
     try {
-      // Load clients data
-      const clientsData = await projectService.getClients()
+      // Load clients data with company scoping
+      const clientsData = currentUser?.companyId 
+        ? await projectService.getClientsForCompany(currentUser.companyId)
+        : await projectService.getClients()
       setClients(clientsData)
       
       // First get the time summary to match Time Tracker data

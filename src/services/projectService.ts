@@ -248,6 +248,39 @@ export const projectService = {
     return null
   },
 
+  // Add this new function to check if a client with the same email already exists
+  async getClientByEmail(email: string, companyId?: string | null): Promise<Client | null> {
+    const clientsRef = ref(database, 'clients')
+    const snapshot = await get(clientsRef)
+    
+    if (snapshot.exists()) {
+      const clients = snapshot.val()
+      const clientList = Object.values(clients)
+        .map((client: any) => ({
+          ...client,
+          createdAt: new Date(client.createdAt),
+          updatedAt: new Date(client.updatedAt),
+          startDate: client.startDate ? new Date(client.startDate) : undefined,
+          endDate: client.endDate ? new Date(client.endDate) : undefined
+        }))
+        .filter((client: Client) => !client.isArchived)
+      
+      // If companyId is provided, filter by company (multi-tenant)
+      const filteredClients = companyId 
+        ? clientList.filter((client: Client) => (client as any).companyId === companyId)
+        : clientList
+      
+      // Find client with matching email (case insensitive)
+      const existingClient = filteredClients.find((client: Client) => 
+        client.email.toLowerCase() === email.toLowerCase()
+      )
+      
+      return existingClient || null
+    }
+    
+    return null
+  },
+
   async updateClient(clientId: string, updates: Partial<CreateClientData>): Promise<void> {
     const clientRef = ref(database, `clients/${clientId}`)
     

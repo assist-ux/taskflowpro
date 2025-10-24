@@ -3,6 +3,7 @@ import { X, AlertCircle } from 'lucide-react'
 import { Project, Client, CreateProjectData } from '../../types'
 import { projectService } from '../../services/projectService'
 import { useAuth } from '../../contexts/AuthContext'
+import { useTheme } from '../../contexts/ThemeContext'
 import { canAccessFeature } from '../../utils/permissions'
 
 interface ProjectModalProps {
@@ -33,6 +34,7 @@ const PRIORITY_OPTIONS = [
 
 export default function ProjectModal({ isOpen, onClose, project, onSuccess }: ProjectModalProps) {
   const { currentUser } = useAuth()
+  const { isDarkMode } = useTheme()
   const [formData, setFormData] = useState<CreateProjectData>({
     name: '',
     description: '',
@@ -75,7 +77,10 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
 
   const loadClients = async () => {
     try {
-      const clientsData = await projectService.getClients()
+      // Use company-scoped client loading to respect multi-tenancy
+      const clientsData = currentUser?.companyId 
+        ? await projectService.getClientsForCompany(currentUser.companyId)
+        : await projectService.getClients()
       setClients(clientsData)
     } catch (error) {
       console.error('Error loading clients:', error)
@@ -123,17 +128,17 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className={`rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">
+        <div className={`flex items-center justify-between p-6 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+          <h2 className={`text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
             {isEdit ? 'Edit Project' : 'Create New Project'}
           </h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
           >
-            <X className="h-5 w-5 text-gray-500" />
+            <X className={`h-5 w-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
           </button>
         </div>
 
@@ -141,15 +146,15 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Error Message */}
           {error && (
-            <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-              <p className="text-sm text-red-700">{error}</p>
+            <div className={`flex items-center space-x-2 p-3 rounded-lg ${isDarkMode ? 'bg-red-900/30 border border-red-800' : 'bg-red-50 border border-red-200'}`}>
+              <AlertCircle className={`h-5 w-5 flex-shrink-0 ${isDarkMode ? 'text-red-400' : 'text-red-500'}`} />
+              <p className={`text-sm ${isDarkMode ? 'text-red-200' : 'text-red-700'}`}>{error}</p>
             </div>
           )}
 
           {/* Project Name */}
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="name" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               Project Name *
             </label>
             <input
@@ -158,7 +163,7 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
               name="name"
               value={formData.name}
               onChange={handleInputChange}
-              className="input"
+              className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'}`}
               placeholder="Enter project name"
               required
               disabled={loading}
@@ -167,7 +172,7 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
 
           {/* Description */}
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="description" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               Description
             </label>
             <textarea
@@ -175,7 +180,7 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
               name="description"
               value={formData.description}
               onChange={handleInputChange}
-              className="input"
+              className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'}`}
               rows={3}
               placeholder="Enter project description"
               disabled={loading}
@@ -185,7 +190,7 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
           {/* Color and Status */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Color
               </label>
               <div className="flex flex-wrap gap-2">
@@ -195,7 +200,13 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
                     type="button"
                     onClick={() => setFormData(prev => ({ ...prev, color }))}
                     className={`w-8 h-8 rounded-full border-2 ${
-                      formData.color === color ? 'border-gray-900' : 'border-gray-300'
+                      formData.color === color 
+                        ? isDarkMode 
+                          ? 'border-gray-300' 
+                          : 'border-gray-900' 
+                        : isDarkMode 
+                          ? 'border-gray-600' 
+                          : 'border-gray-300'
                     }`}
                     style={{ backgroundColor: color }}
                     disabled={loading}
@@ -205,7 +216,7 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
             </div>
 
             <div>
-              <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="status" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Status
               </label>
               <select
@@ -213,7 +224,7 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
                 name="status"
                 value={formData.status}
                 onChange={handleInputChange}
-                className="input"
+                className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                 disabled={loading}
               >
                 {STATUS_OPTIONS.map((option) => (
@@ -228,7 +239,7 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
           {/* Priority and Client */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="priority" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Priority
               </label>
               <select
@@ -236,7 +247,7 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
                 name="priority"
                 value={formData.priority}
                 onChange={handleInputChange}
-                className="input"
+                className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                 disabled={loading}
               >
                 {PRIORITY_OPTIONS.map((option) => (
@@ -248,7 +259,7 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
             </div>
 
             <div>
-              <label htmlFor="clientId" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="clientId" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Client
               </label>
               <select
@@ -256,7 +267,7 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
                 name="clientId"
                 value={formData.clientId || ''}
                 onChange={handleInputChange}
-                className="input"
+                className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                 disabled={loading}
               >
                 <option value="">No client</option>
@@ -271,18 +282,18 @@ export default function ProjectModal({ isOpen, onClose, project, onSuccess }: Pr
 
 
           {/* Actions */}
-          <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+          <div className={`flex justify-end space-x-3 pt-6 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
             <button
               type="button"
               onClick={onClose}
-              className="btn-secondary"
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${isDarkMode ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
               disabled={loading}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="btn-primary"
+              className={`px-4 py-2 rounded-lg font-medium text-white transition-colors ${isDarkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-600 hover:bg-blue-700'}`}
               disabled={loading}
             >
               {loading ? 'Saving...' : (isEdit ? 'Update Project' : 'Create Project')}

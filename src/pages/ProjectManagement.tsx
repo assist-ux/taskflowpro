@@ -207,6 +207,7 @@ export default function TaskManagement() {
 
   const handleEditTask = (task: Task) => {
     setSelectedTask(task)
+    setShowTaskViewModal(false) // Close the view modal
     setShowTaskModal(true)
   }
 

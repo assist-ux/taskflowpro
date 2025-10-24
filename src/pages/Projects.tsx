@@ -51,6 +51,7 @@ export default function Projects() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [error, setError] = useState('')
   const [showClients, setShowClients] = useState(false)
+  const [openProjectId, setOpenProjectId] = useState<string | null>(null)
 
   useEffect(() => {
     loadData()
@@ -86,6 +87,7 @@ export default function Projects() {
   const handleEditProject = (project: Project) => {
     setSelectedProject(project)
     setShowProjectModal(true)
+    setOpenProjectId(null) // Close dropdown after selection
   }
 
   const handleDeleteProject = async (project: Project) => {
@@ -97,6 +99,7 @@ export default function Projects() {
         setError('Failed to delete project')
       }
     }
+    setOpenProjectId(null) // Close dropdown after selection
   }
 
   const handleArchiveProject = async (project: Project) => {
@@ -106,6 +109,7 @@ export default function Projects() {
     } catch (error) {
       setError('Failed to archive project')
     }
+    setOpenProjectId(null) // Close dropdown after selection
   }
 
   const handleCreateClient = () => {
@@ -368,9 +372,45 @@ export default function Projects() {
                       </div>
                     </div>
                     <div className="relative">
-                      <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenProjectId(openProjectId === project.id ? null : project.id);
+                        }}
+                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                      >
                         <MoreVertical className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                       </button>
+                      
+                      {/* Dropdown Menu */}
+                      {openProjectId === project.id && (
+                        <div 
+                          className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-10 border border-gray-200 dark:border-gray-700"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            onClick={() => handleEditProject(project)}
+                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleArchiveProject(project)}
+                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          >
+                            <Archive className="h-4 w-4 mr-2" />
+                            Archive
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProject(project)}
+                            className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -427,30 +467,51 @@ export default function Projects() {
                       </span>
                     </div>
                   </div>
+                  
+                  {/* Action Menu for List View */}
+                  <div className="relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenProjectId(openProjectId === project.id ? null : project.id);
+                      }}
+                      className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </button>
+                    
+                    {/* Dropdown Menu */}
+                    {openProjectId === project.id && (
+                      <div 
+                        className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-10 border border-gray-200 dark:border-gray-700"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={() => handleEditProject(project)}
+                          className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleArchiveProject(project)}
+                          className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          <Archive className="h-4 w-4 mr-2" />
+                          Archive
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProject(project)}
+                          className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
-
-              {/* Action Menu */}
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => handleEditProject(project)}
-                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                >
-                  <Edit className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => handleArchiveProject(project)}
-                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                >
-                  <Archive className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => handleDeleteProject(project)}
-                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-red-700 dark:hover:text-red-400"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
             </div>
           ))}
         </div>

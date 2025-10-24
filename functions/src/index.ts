@@ -376,6 +376,95 @@ app.get('/api/calendar', authenticateToken, async (req: any, res: any) => {
   }
 });
 
+// Delete user API (admin only)
+app.delete('/api/users/:userId', authenticateToken, async (req: any, res: any) => {
+  try {
+    const { userId } = req.params;
+    const requesterId = req.user.uid;
+    
+    // Verify requester is an admin, super_admin, or root
+    const requesterRef = db.ref(`users/${requesterId}`);
+    const requesterSnapshot = await requesterRef.once('value');
+    
+    if (!requesterSnapshot.exists()) {
+      return res.status(403).json({ error: 'User not found' });
+    }
+    
+    const requesterData = requesterSnapshot.val();
+    const isAdmin = ['admin', 'super_admin', 'root'].includes(requesterData.role);
+    
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+    
+    // If requester is not root, verify they're deleting a user from their company
+    if (requesterData.role !== 'root') {
+      const userToDeleteRef = db.ref(`users/${userId}`);
+      const userToDeleteSnapshot = await userToDeleteRef.once('value');
+      
+      if (!userToDeleteSnapshot.exists()) {
+        return res.status(404).json({ error: 'User to delete not found' });
+      }
+      
+      const userToDeleteData = userToDeleteSnapshot.val();
+      if (userToDeleteData.companyId !== requesterData.companyId) {
+        return res.status(403).json({ error: 'Cannot delete users from other companies' });
+      }
+    }
+    
+    // Delete user from Firebase Authentication
+    try {
+      await auth.deleteUser(userId);
+      console.log(`User ${userId} deleted from Firebase Auth`);
+    } catch (authError) {
+      console.warn(`Failed to delete user ${userId} from Firebase Auth:`, authError);
+      // Continue with database deletion even if Auth deletion fails
+    }
+    
+    // Delete user data from Realtime Database
+    const userRef = db.ref(`users/${userId}`);
+    await userRef.remove();
+    
+    // Delete user's time entries
+    const timeEntriesRef = db.ref('timeEntries');
+    const timeEntriesQuery = timeEntriesRef.orderByChild('userId').equalTo(userId);
+    const timeEntriesSnapshot = await timeEntriesQuery.once('value');
+    
+    if (timeEntriesSnapshot.exists()) {
+      const updates: { [key: string]: null } = {};
+      Object.keys(timeEntriesSnapshot.val()).forEach(entryId => {
+        updates[`timeEntries/${entryId}`] = null;
+      });
+      await db.ref().update(updates);
+    }
+    
+    // Delete user from any teams they're a member of
+    const teamsRef = db.ref('teams');
+    const teamsSnapshot = await teamsRef.once('value');
+    
+    if (teamsSnapshot.exists()) {
+      const updates: { [key: string]: any } = {};
+      Object.entries(teamsSnapshot.val()).forEach(([teamId, team]: [string, any]) => {
+        if (team.members && team.members[userId]) {
+          updates[`teams/${teamId}/members/${userId}`] = null;
+        }
+      });
+      
+      if (Object.keys(updates).length > 0) {
+        await db.ref().update(updates);
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: 'User deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
 // Error handling middleware
 app.use((error: any, req: any, res: any, next: any) => {
   console.error('Unhandled error:', error);
@@ -392,3 +481,122 @@ app.use('*', (req: any, res: any) => {
 
 // Export the Express app as a Firebase Function
 export const api = functions.https.onRequest(app);
+
+// Export the deleteUser function as a callable function
+export const deleteUser = functions.https.onCall(async (data: any, context: any) => {
+  // Check if user is authenticated
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'The function must be called while authenticated.'
+    );
+  }
+
+  const userId = data.userId;
+  if (!userId) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'The function must be called with a userId.'
+    );
+  }
+
+  // Verify requester is an admin, super_admin, or root
+  const requesterId = context.auth.uid;
+  const requesterRef = db.ref(`users/${requesterId}`);
+  const requesterSnapshot = await requesterRef.once('value');
+  
+  if (!requesterSnapshot.exists()) {
+    throw new functions.https.HttpsError(
+      'not-found',
+      'User not found.'
+    );
+  }
+  
+  const requesterData = requesterSnapshot.val();
+  const isAdmin = ['admin', 'super_admin', 'root'].includes(requesterData.role);
+  
+  if (!isAdmin) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Insufficient permissions.'
+    );
+  }
+  
+  // If requester is not root, verify they're deleting a user from their company
+  if (requesterData.role !== 'root') {
+    const userToDeleteRef = db.ref(`users/${userId}`);
+    const userToDeleteSnapshot = await userToDeleteRef.once('value');
+    
+    if (!userToDeleteSnapshot.exists()) {
+      throw new functions.https.HttpsError(
+        'not-found',
+        'User to delete not found.'
+      );
+    }
+    
+    const userToDeleteData = userToDeleteSnapshot.val();
+    if (userToDeleteData.companyId !== requesterData.companyId) {
+      throw new functions.https.HttpsError(
+        'permission-denied',
+        'Cannot delete users from other companies.'
+      );
+    }
+  }
+  
+  try {
+    // Delete user from Firebase Authentication
+    try {
+      await auth.deleteUser(userId);
+      console.log(`User ${userId} deleted from Firebase Auth`);
+    } catch (authError) {
+      console.warn(`Failed to delete user ${userId} from Firebase Auth:`, authError);
+      // Continue with database deletion even if Auth deletion fails
+    }
+    
+    // Delete user data from Realtime Database
+    const userRef = db.ref(`users/${userId}`);
+    await userRef.remove();
+    
+    // Delete user's time entries
+    const timeEntriesRef = db.ref('timeEntries');
+    const timeEntriesQuery = timeEntriesRef.orderByChild('userId').equalTo(userId);
+    const timeEntriesSnapshot = await timeEntriesQuery.once('value');
+    
+    if (timeEntriesSnapshot.exists()) {
+      const updates: { [key: string]: null } = {};
+      Object.keys(timeEntriesSnapshot.val()).forEach(entryId => {
+        updates[`timeEntries/${entryId}`] = null;
+      });
+      await db.ref().update(updates);
+    }
+    
+    // Delete user from any teams they're a member of
+    const teamsRef = db.ref('teams');
+    const teamsSnapshot = await teamsRef.once('value');
+    
+    if (teamsSnapshot.exists()) {
+      const updates: { [key: string]: any } = {};
+      Object.entries(teamsSnapshot.val()).forEach(([teamId, team]: [string, any]) => {
+        if (team.members && team.members[userId]) {
+          updates[`teams/${teamId}/members/${userId}`] = null;
+        }
+      });
+      
+      if (Object.keys(updates).length > 0) {
+        await db.ref().update(updates);
+      }
+    }
+    
+    return { success: true, message: 'User deleted successfully' };
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to delete user.'
+    );
+  }
+});
+
+export const helloWorld = functions.https.onRequest((request, response) => {
+  response.send("Hello from Firebase!");
+});

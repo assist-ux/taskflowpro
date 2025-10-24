@@ -92,7 +92,9 @@ export default function AdminDashboard() {
       const [timeEntriesData, projectsData, clientsData, teamsData] = await Promise.all([
         timeEntryService.getAllTimeEntries(),
         projectService.getProjects(),
-        projectService.getClients(),
+        currentUser?.role === 'root' && !currentUser?.companyId
+          ? projectService.getClients() // Root can see all clients
+          : projectService.getClientsForCompany(currentUser?.companyId || null), // Company admins see only their company's clients
         teamService.getTeams()
       ])
       
@@ -439,13 +441,18 @@ export default function AdminDashboard() {
     if (window.confirm(`Are you sure you want to delete "${user.name}"? This action cannot be undone.`)) {
       try {
         setError('')
-        // Note: In a real application, you would need to implement user deletion
-        // For now, we'll just show a message since user deletion is complex
-        // (involves removing from auth, database, and all related data)
-        alert('User deletion is not implemented yet. This would require removing the user from Firebase Auth and all related data.')
-        console.log('Would delete user:', user.id)
-      } catch (error) {
-        setError('Failed to delete user')
+        // Actually delete the user
+        await userService.deleteUser(user.id)
+        
+        // Update local state to remove the user
+        setUsers(prevUsers => prevUsers.filter(u => u.id !== user.id))
+        
+        // Also refresh the data to ensure consistency
+        await loadData()
+        
+        console.log('User deletion process completed for:', user.id)
+      } catch (error: any) {
+        setError(`Failed to delete user: ${error.message || 'Unknown error'}`)
         console.error('Error deleting user:', error)
       }
     }
