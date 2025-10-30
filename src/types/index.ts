@@ -25,6 +25,7 @@ export interface AuthUser {
   companyId?: string | null
   teamId?: string | null
   teamRole?: TeamRole | null
+  avatar?: string | null
 }
 
 export interface LoginCredentials {
@@ -325,6 +326,7 @@ export interface MentionNotification {
   message: string
   mentionedBy: string
   mentionedByName: string
+  mentionedUserId: string
   contextType: 'comment' | 'note' | 'task' | 'message'
   contextId: string
   contextTitle: string
@@ -511,7 +513,7 @@ export interface CreateTeamData {
 
 export interface UpdateTeamData {
   name?: string
-  description?: string
+  description?: string | null
   leaderId?: string
   color?: string
   isActive?: boolean

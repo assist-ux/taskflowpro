@@ -10,6 +10,13 @@ interface TimeTrackerProps {
   onTimeUpdate?: (timeSummary: any) => void
 }
 
+// Define the structure for persisted form data
+interface PersistedFormData {
+  selectedClientId: string
+  formData: CreateTimeEntryData
+  newTag: string
+}
+
 export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
   const { currentUser } = useAuth()
   const [isRunning, setIsRunning] = useState(false)
@@ -36,12 +43,40 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
     ? projects.filter(project => project.clientId === selectedClientId)
     : projects
 
+  // Save form data to localStorage whenever it changes (with immediate execution)
+  useEffect(() => {
+    if (currentUser) {
+      const persistedData: PersistedFormData = {
+        selectedClientId,
+        formData,
+        newTag
+      }
+      // Always save, regardless of whether we've loaded data before
+      localStorage.setItem(`timeTrackerFormData_${currentUser.uid}`, JSON.stringify(persistedData))
+    }
+  }, [selectedClientId, formData, newTag, currentUser])
+
   useEffect(() => {
     loadInitialData()
     // Subscribe to real-time running time entry updates
     let unsubscribe: (() => void) | null = null
     
     if (currentUser) {
+      // Load persisted form data from localStorage
+      const savedData = localStorage.getItem(`timeTrackerFormData_${currentUser.uid}`)
+      console.log('Loaded saved data from localStorage:', savedData)
+      if (savedData) {
+        try {
+          const parsedData: PersistedFormData = JSON.parse(savedData)
+          console.log('Parsed persisted data:', parsedData)
+          setSelectedClientId(parsedData.selectedClientId)
+          setFormData(parsedData.formData)
+          setNewTag(parsedData.newTag)
+        } catch (e) {
+          console.error('Failed to parse persisted form data:', e)
+        }
+      }
+      
       // Cast to any to access the real-time method added via Object.assign
       const realtimeService = timeEntryService as any
       unsubscribe = realtimeService.subscribeToRunningTimeEntry(currentUser.uid, (runningEntry: TimeEntry | null) => {
@@ -88,6 +123,12 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
             isBillable: false,
             tags: []
           })
+          setNewTag('')
+          
+          // Clear persisted data when timer stops
+          if (currentUser) {
+            localStorage.removeItem(`timeTrackerFormData_${currentUser.uid}`)
+          }
         }
       })
     }

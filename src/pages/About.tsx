@@ -134,11 +134,6 @@ const About = () => {
       description: "Communicate with your team through real-time messaging and file sharing."
     },
     {
-      icon: <DollarSign className="h-6 w-6 text-yellow-600" />,
-      title: "Billing & Invoicing",
-      description: "Track billable hours, calculate earnings, and generate client invoices automatically."
-    },
-    {
       icon: <BarChart3 className="h-6 w-6 text-red-600" />,
       title: "Analytics & Reports",
       description: "Get insights into productivity, time distribution, and team performance with detailed reports."
@@ -184,7 +179,7 @@ const About = () => {
       permissions: [
         "All HR permissions",
         "Create and manage projects",
-        "Manage clients and billing",
+        "Manage clients",
         "Access admin dashboard",
         "Configure system settings"
       ]

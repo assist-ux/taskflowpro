@@ -51,6 +51,55 @@ export const projectService = {
     return []
   },
 
+  // Get archived projects
+  async getArchivedProjects(): Promise<Project[]> {
+    const projectsRef = ref(database, 'projects')
+    const snapshot = await get(projectsRef)
+    
+    if (snapshot.exists()) {
+      const projects = snapshot.val()
+      return Object.values(projects)
+        .map((project: any) => ({
+          ...project,
+          startDate: project.startDate ? new Date(project.startDate) : undefined,
+          endDate: project.endDate ? new Date(project.endDate) : undefined,
+          createdAt: new Date(project.createdAt),
+          updatedAt: new Date(project.updatedAt)
+        }))
+        .filter((project: Project) => 
+          project.isArchived
+        )
+        .sort((a: Project, b: Project) => b.createdAt.getTime() - a.createdAt.getTime())
+    }
+    
+    return []
+  },
+
+  // Get archived projects for specific company (multi-tenant safe)
+  async getArchivedProjectsForCompany(companyId: string | null): Promise<Project[]> {
+    const projectsRef = ref(database, 'projects')
+    const snapshot = await get(projectsRef)
+    
+    if (snapshot.exists()) {
+      const projects = snapshot.val()
+      return Object.values(projects)
+        .map((project: any) => ({
+          ...project,
+          startDate: project.startDate ? new Date(project.startDate) : undefined,
+          endDate: project.endDate ? new Date(project.endDate) : undefined,
+          createdAt: new Date(project.createdAt),
+          updatedAt: new Date(project.updatedAt)
+        }))
+        .filter((project: Project) => {
+          // Filter by company and archived status
+          return project.isArchived && (project as any).companyId === companyId
+        })
+        .sort((a: Project, b: Project) => b.createdAt.getTime() - a.createdAt.getTime())
+    }
+    
+    return []
+  },
+
   // Get projects for specific company (multi-tenant safe)
   async getProjectsForCompany(companyId: string | null): Promise<Project[]> {
     const projectsRef = ref(database, 'projects')
@@ -129,6 +178,14 @@ export const projectService = {
     const projectRef = ref(database, `projects/${projectId}`)
     await update(projectRef, {
       isArchived: true,
+      updatedAt: new Date()
+    })
+  },
+
+  async unarchiveProject(projectId: string): Promise<void> {
+    const projectRef = ref(database, `projects/${projectId}`)
+    await update(projectRef, {
+      isArchived: false,
       updatedAt: new Date()
     })
   },

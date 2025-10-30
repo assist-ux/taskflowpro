@@ -74,7 +74,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         name: credentials.name,
         companyId: credentials.role === 'root' ? null : undefined,
         teamId: null,
-        teamRole: null
+        teamRole: null,
+        avatar: null
       })
       
       // Log successful signup
@@ -110,7 +111,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
           name: userData.name,
           companyId: userData.companyId || null,
           teamId: userData.teamId || null,
-          teamRole: userData.teamRole || null
+          teamRole: userData.teamRole || null,
+          avatar: userData.avatar || null
         })
         
         // Log successful login
@@ -161,7 +163,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
               name: userData.name,
               companyId: userData.companyId || null,
               teamId: userData.teamId || null,
-              teamRole: userData.teamRole || null
+              teamRole: userData.teamRole || null,
+              avatar: userData.avatar || null
             })
           }
         } catch (error) {

@@ -50,10 +50,10 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
       { name: 'Teams', href: '/teams', icon: UserCheck, requiredFeature: 'teams' },
       { name: 'Messaging', href: '/messaging', icon: MessageSquare, requiredFeature: null },
       { name: 'Reports', href: '/reports', icon: BarChart3, requiredFeature: null },
-      { name: 'Billing', href: '/billing', icon: DollarSign, requiredFeature: 'billing' },
       { name: 'Feedbacks', href: '/feedbacks', icon: MessageSquare, requiredFeature: null },
       { name: 'Admin Dashboard', href: '/admin', icon: User, requiredFeature: 'admin-dashboard' },
       { name: 'Settings', href: '/settings', icon: Settings, requiredFeature: null },
+      { name: 'PDF Settings', href: '/pdf-settings', icon: FileText, requiredFeature: 'system-settings' },
     ]
 
     // Filter navigation based on user permissions

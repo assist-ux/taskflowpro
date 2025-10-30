@@ -63,6 +63,9 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     const unsubscribe = MentionNotificationService.subscribeToNotifications(
       currentUser.uid,
       (firebaseNotifications) => {
+        console.log('=== Firebase Notification Update ===');
+        console.log('Raw Firebase notifications:', firebaseNotifications);
+        
         // Convert Firebase notifications to the format expected by the UI
         const convertedNotifications = firebaseNotifications.map(notification => ({
           id: notification.id,
@@ -74,8 +77,12 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
           actionUrl: notification.actionUrl
         }))
         
+        console.log('Converted notifications:', convertedNotifications);
+        
         // Play sound for new mention notifications
         const previousNotificationIds = new Set(previousNotificationsRef.current.map(n => n.id));
+        console.log('Previous notification IDs:', Array.from(previousNotificationIds));
+        
         const newMentionNotifications = firebaseNotifications.filter(
           notification => !previousNotificationIds.has(notification.id) && notification.type === 'mention'
         );
@@ -94,6 +101,8 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         
         setNotifications(convertedNotifications)
         previousNotificationsRef.current = convertedNotifications;
+        
+        console.log('=== End Notification Update ===');
       }
     )
 
@@ -111,6 +120,9 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
   }, [notifications, currentUser])
 
   const addNotification = (notification: Omit<Notification, 'id' | 'timestamp' | 'isRead'>) => {
+    console.log('=== addNotification called ===');
+    console.log('Notification:', notification);
+    
     const newNotification: Notification = {
       ...notification,
       id: Date.now().toString(),
@@ -118,6 +130,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       isRead: false
     }
 
+    console.log('New notification:', newNotification);
     setNotifications(prev => [newNotification, ...prev])
 
     // Only play sounds for mention notifications, not for all notifications

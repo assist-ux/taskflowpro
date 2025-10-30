@@ -450,7 +450,10 @@ export default function Clients() {
         }
         
         // Use custom time data if provided, otherwise use actual data
-        const finalTimeData = exportData.customTimeData || timeData
+        const finalTimeData = exportData.customTimeData ? {
+          ...exportData.customTimeData,
+          formattedTime: formatSecondsToHHMMSS(exportData.customTimeData.totalHours * 3600)
+        } : timeData
         
         // Get daily time data for the client
         const dailyTimeData = getClientDailyTimeData(exportClient, timeEntriesForPeriod, startDate, endDate)
@@ -485,7 +488,16 @@ export default function Clients() {
           pdfSettings, // Pass PDF settings
           currentUser?.companyId || undefined, // Pass company ID, handling null case
           timeEntriesForPDF, // Pass time entries data
-          dailyTimeData // Pass daily time data for chart creation
+          dailyTimeData, // Pass daily time data for chart creation
+          exportData.includeTimeBreakdown, // Pass time breakdown option
+          exportData.includeBillingDetails, // Pass billing details option
+          exportData.includeProjectDetails, // Pass project details option
+          exportData.includeComments, // Pass comments option
+          exportData.includeTimeEntryDate, // Pass time entry date option
+          exportData.includeTimeEntryDuration, // Pass time entry duration option
+          exportData.includeTimeEntryProject, // Pass time entry project option
+          exportData.includeTimeEntryDescription, // Pass time entry description option
+          exportData.includeTimeEntryBillableStatus // Pass time entry billable status option
         )
       } else {
         // Export all clients
@@ -567,7 +579,16 @@ export default function Clients() {
           companyPhone: '+1 (555) 123-4567',
           pdfSettings, // Pass PDF settings
           companyId: currentUser?.companyId || undefined, // Pass company ID, handling null case
-          timeEntries: timeEntriesForPDF // Pass time entries data
+          timeEntries: timeEntriesForPDF, // Pass time entries data
+          includeTimeBreakdown: exportData.includeTimeBreakdown, // Pass time breakdown option
+          includeBillingDetails: exportData.includeBillingDetails, // Pass billing details option
+          includeProjectDetails: exportData.includeProjectDetails, // Pass project details option
+          includeComments: exportData.includeComments, // Pass comments option
+          includeTimeEntryDate: exportData.includeTimeEntryDate, // Pass time entry date option
+          includeTimeEntryDuration: exportData.includeTimeEntryDuration, // Pass time entry duration option
+          includeTimeEntryProject: exportData.includeTimeEntryProject, // Pass time entry project option
+          includeTimeEntryDescription: exportData.includeTimeEntryDescription, // Pass time entry description option
+          includeTimeEntryBillableStatus: exportData.includeTimeEntryBillableStatus // Pass time entry billable status option
         })
       }
       

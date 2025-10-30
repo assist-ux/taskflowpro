@@ -3,7 +3,10 @@ import { Search, Send, Paperclip, Smile, MoreVertical, Bell, Settings } from 'lu
 import { useMessaging } from '../contexts/MessagingContext'
 import { useAuth } from '../contexts/AuthContext'
 import { messagingService } from '../services/messagingService'
-import { TeamMessage } from '../types'
+import { TeamMessage, TeamMember } from '../types'
+import MentionInput from '../components/messaging/MentionInput'
+import { teamService } from '../services/teamService'
+
 
 export default function Messaging() {
   const [message, setMessage] = useState('')
@@ -13,6 +16,10 @@ export default function Messaging() {
   const { currentUser } = useAuth()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const hasMarkedAsRead = useRef(false)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [messageNotifications, setMessageNotifications] = useState(true)
+  const [soundAlerts, setSoundAlerts] = useState(true)
+  const [mentionNotifications, setMentionNotifications] = useState(true)
 
   // Load messages when active team changes
   useEffect(() => {
@@ -85,20 +92,98 @@ export default function Messaging() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!message.trim() || !activeTeam || !currentUser) return
+  // Function to extract mentioned users from message content
+  const extractMentionedUsers = async (content: string): Promise<string[]> => {
+    if (!activeTeam || !currentUser) return []
+
+    try {
+      console.log('=== extractMentionedUsers called ===');
+      console.log('Content:', content);
+      console.log('Active team ID:', activeTeam.id);
+      console.log('Current user ID:', currentUser.uid);
+      
+      // Get team members
+      const teamMembers = await teamService.getTeamMembers(activeTeam.id)
+      console.log('Team members:', teamMembers);
+      
+      // Filter out the current user and inactive members
+      const activeMembers = teamMembers.filter(
+        member => member.userId !== currentUser.uid && member.isActive
+      )
+      console.log('Active members (excluding current user):', activeMembers);
+      
+      // Extract mentioned user IDs
+      const mentionedUserIds: string[] = []
+      
+      // Find all mentions in the message
+      const mentionRegex = /@(\w+)/g
+      let match
+      while ((match = mentionRegex.exec(content)) !== null) {
+        const mentionedUserName = match[1]
+        console.log('Found mention:', mentionedUserName);
+        const mentionedMember = activeMembers.find(
+          member => member.userName === mentionedUserName
+        )
+        if (mentionedMember) {
+          console.log('Found matching member:', mentionedMember);
+          mentionedUserIds.push(mentionedMember.userId)
+        } else {
+          console.log('No matching member found for:', mentionedUserName);
+        }
+      }
+      
+      console.log('Extracted mentioned user IDs:', mentionedUserIds);
+      return mentionedUserIds
+    } catch (error) {
+      console.error('Error extracting mentioned users:', error)
+      return []
+    }
+  }
+
+  // Function to handle sending messages with mentions
+  const handleSendMessageWithMentions = async (content: string, mentionedUserIds: string[]) => {
+    console.log('=== handleSendMessageWithMentions called ===');
+    console.log('Content:', content);
+    console.log('Mentioned user IDs:', mentionedUserIds);
+    
+    if (!content.trim() || !activeTeam || !currentUser) return
 
     try {
       await messagingService.createMessage(
         {
           teamId: activeTeam.id,
-          content: message
+          content: content
         },
         currentUser.uid,
         currentUser.name,
         currentUser.email
       )
+
+      // Send mention notifications
+      if (mentionedUserIds.length > 0) {
+        console.log('Sending mention notifications to', mentionedUserIds.length, 'users');
+        const { MentionNotificationService } = await import('../services/mentionNotificationService')
+        
+        // Send notification to each mentioned user
+        for (const userId of mentionedUserIds) {
+          if (userId !== currentUser.uid) {
+            console.log('Sending notification to user:', userId);
+            try {
+              await MentionNotificationService.createMentionNotification(
+                userId,
+                currentUser.name,
+                'message',
+                `${activeTeam.name}: ${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`,
+                activeTeam.id
+              )
+            } catch (error) {
+              console.error('Error sending mention notification:', error)
+            }
+          }
+        }
+      } else {
+        console.log('No mentions to send notifications for');
+      }
 
       setMessage('')
     } catch (error) {
@@ -107,6 +192,19 @@ export default function Messaging() {
       alert(error instanceof Error ? error.message : 'Failed to send message. Please try again.')
     }
   }
+
+  // Handle send button click
+  const handleSendButtonClick = async () => {
+    if (!message.trim() || !activeTeam || !currentUser) return
+
+    // Extract mentioned users
+    const mentionedUserIds = await extractMentionedUsers(message)
+    
+    // Send message with mentions
+    await handleSendMessageWithMentions(message, mentionedUserIds)
+  }
+
+
 
   // Show loading state while context is loading
   if (contextLoading) {
@@ -232,10 +330,10 @@ export default function Messaging() {
               </div>
             </div>
             <div className="flex space-x-2">
-              <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-                <Bell className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-              </button>
-              <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+              <button 
+                onClick={() => setShowSettingsModal(true)}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
                 <Settings className="h-5 w-5 text-gray-500 dark:text-gray-400" />
               </button>
             </div>
@@ -309,7 +407,7 @@ export default function Messaging() {
         {/* Message Input */}
         {activeTeam && currentUser && (
           <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-            <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
+            <form onSubmit={(e) => { e.preventDefault(); }} className="flex items-center space-x-2">
               <button 
                 type="button"
                 className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -323,17 +421,20 @@ export default function Messaging() {
                 <Smile className="h-5 w-5 text-gray-500 dark:text-gray-400" />
               </button>
               <div className="flex-1 relative">
-                <input
-                  type="text"
+                <MentionInput
                   value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Type a message..."
-                  className="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:bg-white dark:focus:bg-gray-600 outline-none"
+                  onChange={setMessage}
+                  onSendMessage={handleSendMessageWithMentions}
+                  teamId={activeTeam.id}
+                  currentUserId={currentUser.uid}
+                  currentUserName={currentUser.name}
+                  placeholder="Type a message... @ to mention teammates"
                 />
               </div>
               <button
                 type="submit"
                 disabled={!message.trim()}
+                onClick={handleSendButtonClick}
                 className={`p-2 rounded-lg transition-colors flex items-center justify-center ${
                   message.trim()
                     ? 'bg-primary-500 hover:bg-primary-600 text-white'
@@ -346,6 +447,95 @@ export default function Messaging() {
           </div>
         )}
       </div>
+
+      {/* Team Messaging Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Team Messaging Settings</h3>
+                <button 
+                  onClick={() => setShowSettingsModal(false)}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">Message Notifications</h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Get notified when new messages arrive</p>
+                  </div>
+                  <button
+                    onClick={() => setMessageNotifications(!messageNotifications)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                      messageNotifications ? 'bg-primary-600' : 'bg-gray-200 dark:bg-gray-600'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        messageNotifications ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">Sound Alerts</h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Play sound when receiving messages</p>
+                  </div>
+                  <button
+                    onClick={() => setSoundAlerts(!soundAlerts)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                      soundAlerts ? 'bg-primary-600' : 'bg-gray-200 dark:bg-gray-600'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        soundAlerts ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">Mention Notifications</h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Get notified when you're mentioned</p>
+                  </div>
+                  <button
+                    onClick={() => setMentionNotifications(!mentionNotifications)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                      mentionNotifications ? 'bg-primary-600' : 'bg-gray-200 dark:bg-gray-600'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        mentionNotifications ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="mt-6 flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowSettingsModal(false)}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

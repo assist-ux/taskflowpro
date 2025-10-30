@@ -3,32 +3,40 @@ import { useAuth } from '../contexts/AuthContext'
 import { companyService } from '../services/companyService'
 import { pdfSettingsService } from '../services/pdfSettingsService'
 import PDFSettingsForm from '../components/settings/PDFSettingsForm'
-import { Company } from '../types'
+import { Company, CompanyWithPDFSettings } from '../types'
 
 export default function PDFSettingsPage() {
   const { currentUser } = useAuth()
-  const [companies, setCompanies] = useState<Company[]>([])
-  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
+  const [company, setCompany] = useState<CompanyWithPDFSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    loadCompanies()
+    loadCompany()
   }, [])
 
-  const loadCompanies = async () => {
+  const loadCompany = async () => {
     setLoading(true)
     try {
-      const companiesData = await companyService.getCompanies()
-      setCompanies(companiesData)
-      
-      // Select the first company by default if none is selected
-      if (companiesData.length > 0 && !selectedCompany) {
-        setSelectedCompany(companiesData[0])
+      // Super admins should only see their own company
+      if (currentUser?.companyId) {
+        const companiesData = await companyService.getCompanies()
+        const userCompany = companiesData.find(c => c.id === currentUser.companyId) || null
+        if (userCompany) {
+          // Type assertion to include pdfSettings property
+          setCompany(userCompany as CompanyWithPDFSettings)
+        }
+      } else if (currentUser?.role === 'root') {
+        // Root user can see all companies, but we'll still show the company selector for root
+        const companiesData = await companyService.getCompanies()
+        if (companiesData.length > 0) {
+          // Type assertion to include pdfSettings property
+          setCompany(companiesData[0] as CompanyWithPDFSettings)
+        }
       }
     } catch (error) {
-      console.error('Error loading companies:', error)
-      setError('Failed to load companies')
+      console.error('Error loading company:', error)
+      setError('Failed to load company')
     } finally {
       setLoading(false)
     }
@@ -53,6 +61,47 @@ export default function PDFSettingsPage() {
     )
   }
 
+  // For super admins, only show their company
+  if (currentUser.role === 'super_admin') {
+    return (
+      <div className="p-6 space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">PDF Settings</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            Customize PDF exports for your company
+          </p>
+        </div>
+
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            {error}
+          </div>
+        )}
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          {company ? (
+            <PDFSettingsForm 
+              companyId={company.id} 
+              onSettingsUpdate={(settings) => {
+                setCompany({ ...company, pdfSettings: settings })
+              }}
+            />
+          ) : (
+            <div className="text-center py-8">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                No Company Found
+              </h3>
+              <p className="text-gray-500 dark:text-gray-400">
+                You are not associated with any company.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // For root users, keep the original multi-company view
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -74,35 +123,31 @@ export default function PDFSettingsPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Companies</h2>
             <div className="space-y-2">
-              {companies.map((company) => (
+              {company ? (
                 <button
                   key={company.id}
-                  onClick={() => setSelectedCompany(company)}
                   className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                    selectedCompany?.id === company.id
-                      ? 'bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200'
-                      : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                    'bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200'
                   }`}
                 >
                   <div className="font-medium">{company.name}</div>
                 </button>
-              ))}
+              ) : (
+                <div className="text-gray-500 dark:text-gray-400 p-2">
+                  No companies found
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* PDF Settings Form */}
         <div className="lg:col-span-3">
-          {selectedCompany ? (
+          {company ? (
             <PDFSettingsForm 
-              companyId={selectedCompany.id} 
+              companyId={company.id} 
               onSettingsUpdate={(settings) => {
-                // Update the company in the list with new settings
-                setCompanies(prev => prev.map(company => 
-                  company.id === selectedCompany.id 
-                    ? { ...company, pdfSettings: settings } 
-                    : company
-                ))
+                setCompany({ ...company, pdfSettings: settings })
               }}
             />
           ) : (

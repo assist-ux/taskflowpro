@@ -591,7 +591,6 @@ export default function AdminDashboard() {
               { id: 'users', name: 'Users', icon: Users, requiredFeature: 'users' },
               { id: 'time-entries', name: 'Time Entries', icon: Clock, requiredFeature: 'time-entries' },
               { id: 'projects', name: 'Projects', icon: FolderOpen, requiredFeature: 'projects' },
-              { id: 'billing', name: 'Billing', icon: DollarSign, requiredFeature: 'billing' }
             ] as const)
               // If root, only show Overview and Users
               .filter(tab => currentUser?.role === 'root' ? ['overview', 'users'].includes(tab.id) : true)
@@ -1243,124 +1242,6 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* Billing Tab */}
-        {activeTab === 'billing' && (
-          <div className="space-y-6">
-            {/* Billing Overview */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Billing Overview</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Track revenue and billing information</p>
-                </div>
-                <button className="btn-primary flex items-center space-x-2">
-                  <DollarSign className="h-4 w-4" />
-                  <span>Create Invoice</span>
-                </button>
-              </div>
-
-              {/* Billing Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-green-50 dark:bg-green-900 rounded-lg p-4">
-                  <div className="flex items-center">
-                    <DollarSign className="h-8 w-8 text-green-600 dark:text-green-400" />
-                    <div className="ml-3">
-                      <p className="text-sm font-medium text-green-600 dark:text-green-400">Total Revenue</p>
-                      <p className="text-2xl font-bold text-green-900 dark:text-green-100">$0.00</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-blue-50 dark:bg-blue-900 rounded-lg p-4">
-                  <div className="flex items-center">
-                    <Building2 className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-                    <div className="ml-3">
-                      <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Active Clients</p>
-                      <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-                        {new Set(projects.map(p => p.clientName)).size}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-yellow-50 dark:bg-yellow-900 rounded-lg p-4">
-                  <div className="flex items-center">
-                    <Clock className="h-8 w-8 text-yellow-600 dark:text-yellow-400" />
-                    <div className="ml-3">
-                      <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400">Billable Hours</p>
-                      <p className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">
-                        {formatDurationToHHMMSS(totalHours)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-purple-50 dark:bg-purple-900 rounded-lg p-4">
-                  <div className="flex items-center">
-                    <TrendingUp className="h-8 w-8 text-purple-600 dark:text-purple-400" />
-                    <div className="ml-3">
-                      <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Avg. Rate</p>
-                      <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
-                        $0.00/hr
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Billing Table */}
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-700">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Client
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Project
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Hours
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Rate
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Amount
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {projectStats.map((project) => (
-                      <tr key={project.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{project.clientName}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 dark:text-gray-100">{project.name}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                          {formatDurationToHHMMSS(project.totalHours)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                          $0.00/hr
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                          $0.00
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
-                            Not Billed
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* User Details Modal */}
         <UserDetailsModal

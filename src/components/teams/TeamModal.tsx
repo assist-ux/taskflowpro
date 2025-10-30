@@ -119,23 +119,31 @@ export default function TeamModal({ isOpen, onClose, onSuccess, team, onAddMembe
         // Update existing team
         const updateData: UpdateTeamData = {
           name: formData.name.trim(),
-          description: formData.description.trim() || undefined,
           color: formData.color
         }
+        
+        // Only include description if it's not empty, otherwise explicitly set to null to remove it
+        if (formData.description.trim()) {
+          updateData.description = formData.description.trim()
+        } else if (team.description) {
+          // Only set to null if there was a previous description to remove
+          updateData.description = null
+        }
+        
         await teamService.updateTeam(team.id, updateData)
       } else {
         // Create new team
         const createData: CreateTeamData = {
           name: formData.name.trim(),
-          description: formData.description.trim() || undefined,
           leaderId: currentUser.uid,
           color: formData.color
         }
         
-        // Ensure description is undefined if empty
-        if (!createData.description) {
-          delete createData.description;
+        // Only include description if it's not empty
+        if (formData.description.trim()) {
+          createData.description = formData.description.trim()
         }
+        
         await teamService.createTeam(
           createData, 
           currentUser.uid, 

@@ -38,9 +38,14 @@ interface ExportData {
   reportTitle: string
   reportDescription: string
   includeTimeBreakdown: boolean
-  includeBillingDetails: boolean
   includeProjectDetails: boolean
   includeComments: boolean
+  // Advanced time entries options
+  includeTimeEntryDate: boolean
+  includeTimeEntryDuration: boolean
+  includeTimeEntryProject: boolean
+  includeTimeEntryDescription: boolean
+  includeTimeEntryBillableStatus: boolean
   customTimeData?: {
     totalHours: number
     billableAmount: number
@@ -89,9 +94,14 @@ export default function ExportModal({
     reportTitle: client ? `${client.name} - Time Report` : 'Time Report',
     reportDescription: '',
     includeTimeBreakdown: true,
-    includeBillingDetails: true,
     includeProjectDetails: true,
-    includeComments: true
+    includeComments: true,
+    // Advanced time entries options (default to true for backward compatibility)
+    includeTimeEntryDate: true,
+    includeTimeEntryDuration: true,
+    includeTimeEntryProject: true,
+    includeTimeEntryDescription: true,
+    includeTimeEntryBillableStatus: true
   })
   const [customPeriod, setCustomPeriod] = useState({
     startDate: customStartDate || new Date(),
@@ -110,9 +120,14 @@ export default function ExportModal({
         reportTitle: client ? `${client.name} - Time Report` : 'Time Report',
         reportDescription: '',
         includeTimeBreakdown: true,
-        includeBillingDetails: true,
         includeProjectDetails: true,
-        includeComments: true
+        includeComments: true,
+        // Advanced time entries options (default to true for backward compatibility)
+        includeTimeEntryDate: true,
+        includeTimeEntryDuration: true,
+        includeTimeEntryProject: true,
+        includeTimeEntryDescription: true,
+        includeTimeEntryBillableStatus: true
       })
       setUseCustomTimeData(false)
       setEditableTimeData({
@@ -631,15 +646,9 @@ export default function ExportModal({
                 <label className="flex items-center space-x-3">
                   <input
                     type="checkbox"
-                    checked={exportData.includeBillingDetails}
-                    onChange={(e) => setExportData(prev => ({ ...prev, includeBillingDetails: e.target.checked }))}
                     className={`h-4 w-4 rounded focus:ring-blue-500 ${isDarkMode ? 'bg-gray-600 border-gray-500 text-blue-500' : 'border-gray-300 text-blue-600'}`}
                     disabled={isExporting}
                   />
-                  <div className="flex items-center space-x-2">
-                    <DollarSign className={`h-4 w-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
-                    <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Billing details and calculations</span>
-                  </div>
                 </label>
 
                 <label className="flex items-center space-x-3">
@@ -672,6 +681,72 @@ export default function ExportModal({
               </div>
             </div>
           </div>
+
+          {/* Advanced Time Entries Options */}
+          {exportData.includeProjectDetails && (
+            <div className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <h4 className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Time Entries Table Details:
+              </h4>
+              
+              <div className="space-y-2 ml-2">
+                <label className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    checked={exportData.includeTimeEntryDate}
+                    onChange={(e) => setExportData(prev => ({ ...prev, includeTimeEntryDate: e.target.checked }))}
+                    className={`h-4 w-4 rounded focus:ring-blue-500 ${isDarkMode ? 'bg-gray-600 border-gray-500 text-blue-500' : 'border-gray-300 text-blue-600'}`}
+                    disabled={isExporting}
+                  />
+                  <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Include Date</span>
+                </label>
+
+                <label className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    checked={exportData.includeTimeEntryDuration}
+                    onChange={(e) => setExportData(prev => ({ ...prev, includeTimeEntryDuration: e.target.checked }))}
+                    className={`h-4 w-4 rounded focus:ring-blue-500 ${isDarkMode ? 'bg-gray-600 border-gray-500 text-blue-500' : 'border-gray-300 text-blue-600'}`}
+                    disabled={isExporting}
+                  />
+                  <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Include Duration</span>
+                </label>
+
+                <label className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    checked={exportData.includeTimeEntryProject}
+                    onChange={(e) => setExportData(prev => ({ ...prev, includeTimeEntryProject: e.target.checked }))}
+                    className={`h-4 w-4 rounded focus:ring-blue-500 ${isDarkMode ? 'bg-gray-600 border-gray-500 text-blue-500' : 'border-gray-300 text-blue-600'}`}
+                    disabled={isExporting}
+                  />
+                  <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Include Project Name</span>
+                </label>
+
+                <label className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    checked={exportData.includeTimeEntryDescription}
+                    onChange={(e) => setExportData(prev => ({ ...prev, includeTimeEntryDescription: e.target.checked }))}
+                    className={`h-4 w-4 rounded focus:ring-blue-500 ${isDarkMode ? 'bg-gray-600 border-gray-500 text-blue-500' : 'border-gray-300 text-blue-600'}`}
+                    disabled={isExporting}
+                  />
+                  <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Include Description</span>
+                </label>
+
+                <label className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    checked={exportData.includeTimeEntryBillableStatus}
+                    onChange={(e) => setExportData(prev => ({ ...prev, includeTimeEntryBillableStatus: e.target.checked }))}
+                    className={`h-4 w-4 rounded focus:ring-blue-500 ${isDarkMode ? 'bg-gray-600 border-gray-500 text-blue-500' : 'border-gray-300 text-blue-600'}`}
+                    disabled={isExporting}
+                  />
+                  <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Include Billable Status</span>
+                </label>
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className={`flex justify-end space-x-3 pt-6 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>

@@ -1,7 +1,6 @@
 import { UserRole } from '../types'
 
 export interface Permission {
-  canViewBilling: boolean
   canManageProjects: boolean
   canManageClients: boolean
   canManageUsers: boolean
@@ -17,7 +16,6 @@ export interface Permission {
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
   employee: {
-    canViewBilling: false,
     canManageProjects: false,
     canManageClients: false,
     canManageUsers: false,
@@ -31,7 +29,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
     canEditHourlyRates: false  // Employees cannot edit hourly rates
   },
   hr: {
-    canViewBilling: false,
     canManageProjects: false,
     canManageClients: false,
     canManageUsers: true,
@@ -45,7 +42,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
     canEditHourlyRates: true
   },
   admin: {
-    canViewBilling: true,
     canManageProjects: true,
     canManageClients: true,
     canManageUsers: true,
@@ -59,7 +55,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
     canEditHourlyRates: false   // pati ito
   },
   super_admin: {
-    canViewBilling: true,
     canManageProjects: true,
     canManageClients: true,
     canManageUsers: true,
@@ -73,7 +68,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
     canEditHourlyRates: true    // Super admin can edit hourly rates
   },
   root: {
-    canViewBilling: true,
     canManageProjects: true,
     canManageClients: true,
     canManageUsers: true,
@@ -94,8 +88,6 @@ export function hasPermission(userRole: UserRole, permission: keyof Permission):
 
 export function canAccessFeature(userRole: UserRole, feature: string): boolean {
   switch (feature) {
-    case 'billing':
-      return hasPermission(userRole, 'canViewBilling')
     case 'projects':
       return hasPermission(userRole, 'canManageProjects')
     case 'clients':
@@ -149,7 +141,7 @@ export function getRoleDescription(role: UserRole): string {
     case 'hr':
       return 'Manage employees and view user details'
     case 'admin':
-      return 'Full system access including user management, projects, and billing'
+      return 'Full system access including user management and projects'
     case 'super_admin':
       return 'Complete company access and all permissions'
     case 'root':

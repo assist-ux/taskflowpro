@@ -97,6 +97,54 @@ describe('MentionNotificationService', () => {
     consoleSpy.mockRestore()
   })
 
+  it('should create mention notification with correct context type for notes', async () => {
+    const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
+    
+    await MentionNotificationService.createMentionNotification(
+      'user123',
+      'John Doe',
+      'note',
+      'Test Task',
+      'task456',
+      'project789',
+      'task456'
+    )
+    
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Mention notification created for user:',
+      'user123',
+      expect.objectContaining({
+        message: 'John Doe mentioned you in notes'
+      })
+    )
+    
+    consoleSpy.mockRestore()
+  })
+
+  it('should create mention notification with correct context type for messages', async () => {
+    const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
+    
+    await MentionNotificationService.createMentionNotification(
+      'user123',
+      'John Doe',
+      'message',
+      'Team Alpha: Hello everyone!',
+      'team456',
+      undefined,
+      undefined
+    )
+    
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Mention notification created for user:',
+      'user123',
+      expect.objectContaining({
+        message: 'John Doe mentioned you in a team message'
+      })
+    )
+    
+    consoleSpy.mockRestore()
+  })
+
   it('should send notification to correct user', async () => {
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
     

@@ -96,9 +96,11 @@
       ".indexOn": ["feedbackId", "userId"]
     },
     "mentionNotifications": {
-      "$notificationId": {
-        ".read": "auth != null && data.child('mentionedUserId').val() === auth.uid",
-        ".write": "auth != null && data.child('mentionedUserId').val() === auth.uid"
+      "$userId": {
+        "$notificationId": {
+          ".read": "auth != null && $userId === auth.uid",
+          ".write": "auth != null && $userId === auth.uid"
+        }
       },
       ".read": "auth != null",
       ".write": "auth != null",

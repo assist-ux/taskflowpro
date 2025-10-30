@@ -10,15 +10,11 @@ import {
   Archive,
   Calendar,
   DollarSign,
-  User,
-  AlertCircle,
-  Eye,
-  EyeOff
+  AlertCircle
 } from 'lucide-react'
 import { Project, Client } from '../types'
 import { projectService } from '../services/projectService'
 import ProjectModal from '../components/projects/ProjectModal'
-import ClientModal from '../components/projects/ClientModal'
 import { useAuth } from '../contexts/AuthContext'
 import { canAccessFeature } from '../utils/permissions'
 import { formatDate } from '../utils'
@@ -46,33 +42,40 @@ export default function Projects() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [showProjectModal, setShowProjectModal] = useState(false)
-  const [showClientModal, setShowClientModal] = useState(false)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [error, setError] = useState('')
-  const [showClients, setShowClients] = useState(false)
   const [openProjectId, setOpenProjectId] = useState<string | null>(null)
+  const [showArchived, setShowArchived] = useState(false)
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [showArchived, currentUser?.companyId])
 
   const loadData = async () => {
     setLoading(true)
     try {
       // Use company-scoped data loading for multi-tenant isolation
-      const [projectsData, clientsData] = await Promise.all([
-        currentUser?.companyId 
-          ? projectService.getProjectsForCompany(currentUser.companyId)
-          : projectService.getProjects(),
+      let projectsData: Project[] = [];
+      const [clientsData] = await Promise.all([
         currentUser?.companyId 
           ? projectService.getClientsForCompany(currentUser.companyId)
           : projectService.getClients()
       ])
+      
+      if (showArchived) {
+        projectsData = currentUser?.companyId 
+          ? await projectService.getArchivedProjectsForCompany(currentUser.companyId)
+          : await projectService.getArchivedProjects()
+      } else {
+        projectsData = currentUser?.companyId 
+          ? await projectService.getProjectsForCompany(currentUser.companyId)
+          : await projectService.getProjects()
+      }
+      
       setProjects(projectsData)
       setClients(clientsData)
     } catch (error) {
-      setError('Failed to load projects and clients')
+      setError('Failed to load projects')
       console.error('Error loading data:', error)
     } finally {
       setLoading(false)
@@ -112,33 +115,22 @@ export default function Projects() {
     setOpenProjectId(null) // Close dropdown after selection
   }
 
-  const handleCreateClient = () => {
-    setSelectedClient(null)
-    setShowClientModal(true)
-  }
-
-  const handleEditClient = (client: Client) => {
-    setSelectedClient(client)
-    setShowClientModal(true)
-  }
-
-  const handleDeleteClient = async (client: Client) => {
-    if (window.confirm(`Are you sure you want to delete "${client.name}"?`)) {
-      try {
-        await projectService.deleteClient(client.id)
-        loadData()
-      } catch (error) {
-        setError('Failed to delete client')
-      }
+  const handleUnarchiveProject = async (project: Project) => {
+    try {
+      await projectService.unarchiveProject(project.id)
+      loadData()
+    } catch (error) {
+      setError('Failed to unarchive project')
     }
+    setOpenProjectId(null) // Close dropdown after selection
   }
 
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         project.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         project.clientName?.toLowerCase().includes(searchTerm.toLowerCase())
+                         project.description?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === 'all' || project.status === statusFilter
-    return matchesSearch && matchesStatus
+    const matchesArchived = showArchived ? project.isArchived : !project.isArchived
+    return matchesSearch && matchesStatus && matchesArchived
   })
 
   const getClientName = (clientId?: string) => {
@@ -176,19 +168,10 @@ export default function Projects() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Projects</h1>
-          <p className="text-gray-600 dark:text-gray-400">Manage your projects and clients</p>
+          <p className="text-gray-600 dark:text-gray-400">Manage your projects</p>
         </div>
         
         <div className="flex space-x-3">
-          {currentUser?.role && canAccessFeature(currentUser.role, 'clients') && (
-            <button
-              onClick={handleCreateClient}
-              className="btn-secondary flex items-center space-x-2"
-            >
-              <User className="h-4 w-4" />
-              <span>Add Client</span>
-            </button>
-          )}
           {currentUser?.role && canAccessFeature(currentUser.role, 'projects') && (
             <button
               onClick={handleCreateProject}
@@ -251,77 +234,19 @@ export default function Projects() {
               <List className="h-4 w-4" />
             </button>
           </div>
+          
+          <button
+            onClick={() => setShowArchived(!showArchived)}
+            className={`px-3 rounded-lg border ${
+              showArchived 
+                ? 'bg-primary-100 dark:bg-primary-900 border-primary-300 dark:border-primary-700 text-primary-700 dark:text-primary-300' 
+                : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'
+            }`}
+          >
+            {showArchived ? 'Showing Archived' : 'Show Archived'}
+          </button>
         </div>
       </div>
-
-      {/* Clients Section Toggle Button */}
-      {clients.length > 0 && (
-        <div className="card">
-          <button
-            onClick={() => setShowClients(!showClients)}
-            className="flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
-          >
-            {showClients ? (
-              <>
-                <EyeOff className="h-4 w-4" />
-                <span>Hide Clients</span>
-              </>
-            ) : (
-              <>
-                <Eye className="h-4 w-4" />
-                <span>Show Clients ({clients.length})</span>
-              </>
-            )}
-          </button>
-          
-          {/* Clients Section */}
-          {showClients && (
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Clients</h2>
-                <button
-                  onClick={handleCreateClient}
-                  className="btn-secondary flex items-center space-x-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Add Client</span>
-                </button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {clients.map((client) => (
-                  <div key={client.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium text-gray-900 dark:text-gray-100">{client.name}</h3>
-                        {client.company && (
-                          <p className="text-sm text-gray-500 dark:text-gray-400">{client.company}</p>
-                        )}
-                        {client.email && (
-                          <p className="text-sm text-gray-500 dark:text-gray-400">{client.email}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <button
-                          onClick={() => handleEditClient(client)}
-                          className="p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteClient(client)}
-                          className="p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-gray-500 dark:text-gray-400 hover:text-red-700 dark:hover:text-red-400"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Projects Grid/List */}
       {filteredProjects.length === 0 ? (
@@ -329,14 +254,18 @@ export default function Projects() {
           <div className="p-4 bg-gray-100 dark:bg-gray-700 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
             <Plus className="h-8 w-8 text-gray-400 dark:text-gray-500" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No projects found</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+            {showArchived ? 'No archived projects found' : 'No projects found'}
+          </h3>
           <p className="text-gray-500 dark:text-gray-400 mb-4">
             {searchTerm || statusFilter !== 'all' 
               ? 'Try adjusting your search or filters'
-              : 'Get started by creating your first project'
+              : showArchived 
+                ? 'There are no archived projects yet'
+                : 'Get started by creating your first project'
             }
           </p>
-          {!searchTerm && statusFilter === 'all' && (
+          {!searchTerm && statusFilter === 'all' && !showArchived && (
             <button
               onClick={handleCreateProject}
               className="btn-primary"
@@ -395,13 +324,23 @@ export default function Projects() {
                             <Edit className="h-4 w-4 mr-2" />
                             Edit
                           </button>
-                          <button
-                            onClick={() => handleArchiveProject(project)}
-                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          >
-                            <Archive className="h-4 w-4 mr-2" />
-                            Archive
-                          </button>
+                          {showArchived ? (
+                            <button
+                              onClick={() => handleUnarchiveProject(project)}
+                              className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            >
+                              <Archive className="h-4 w-4 mr-2" />
+                              Unarchive
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleArchiveProject(project)}
+                              className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            >
+                              <Archive className="h-4 w-4 mr-2" />
+                              Archive
+                            </button>
+                          )}
                           <button
                             onClick={() => handleDeleteProject(project)}
                             className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -493,13 +432,23 @@ export default function Projects() {
                           <Edit className="h-4 w-4 mr-2" />
                           Edit
                         </button>
-                        <button
-                          onClick={() => handleArchiveProject(project)}
-                          className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                        >
-                          <Archive className="h-4 w-4 mr-2" />
-                          Archive
-                        </button>
+                        {showArchived ? (
+                          <button
+                            onClick={() => handleUnarchiveProject(project)}
+                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          >
+                            <Archive className="h-4 w-4 mr-2" />
+                            Unarchive
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleArchiveProject(project)}
+                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          >
+                            <Archive className="h-4 w-4 mr-2" />
+                            Archive
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDeleteProject(project)}
                           className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -522,13 +471,6 @@ export default function Projects() {
         isOpen={showProjectModal}
         onClose={() => setShowProjectModal(false)}
         project={selectedProject}
-        onSuccess={loadData}
-      />
-      
-      <ClientModal
-        isOpen={showClientModal}
-        onClose={() => setShowClientModal(false)}
-        client={selectedClient}
         onSuccess={loadData}
       />
     </div>

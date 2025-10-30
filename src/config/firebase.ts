@@ -4,6 +4,7 @@ import { getAuth } from 'firebase/auth'
 import { getDatabase } from 'firebase/database'
 import { getFirestore } from 'firebase/firestore'
 import { getFunctions } from 'firebase/functions'
+import { getStorage } from 'firebase/storage'
 
 // Your Firebase configuration
 // Replace these with your actual Firebase project credentials
@@ -32,5 +33,8 @@ export const db = getFirestore(app)
 
 // Initialize Firebase Functions and get a reference to the service
 export const functions = getFunctions(app)
+
+// Initialize Firebase Storage and get a reference to the service
+export const storage = getStorage(app)
 
 export default app

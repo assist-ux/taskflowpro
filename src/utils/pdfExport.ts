@@ -30,6 +30,17 @@ interface PDFExportData {
   pdfSettings?: PDFSettings | null
   companyId?: string
   timeEntries?: any[]
+  // Add export options
+  includeTimeBreakdown?: boolean
+  includeBillingDetails?: boolean
+  includeProjectDetails?: boolean
+  includeComments?: boolean
+  // Advanced time entries options
+  includeTimeEntryDate?: boolean
+  includeTimeEntryDuration?: boolean
+  includeTimeEntryProject?: boolean
+  includeTimeEntryDescription?: boolean
+  includeTimeEntryBillableStatus?: boolean
 }
 
 export const generateClientReportPDF = async (
@@ -186,33 +197,48 @@ export const generateClientReportPDF = async (
   
   currentY += 25
 
-  // Summary statistics with improved styling
-  addText('Summary', margin, currentY, { fontSize: 18, color: '#1F2937', fontStyle: 'bold' })
-  currentY += 10
+  // Use export options with defaults (if not provided, include everything)
+  const includeTimeBreakdown = data.includeTimeBreakdown !== false; // default true
+  const includeBillingDetails = data.includeBillingDetails !== false; // default true
+  const includeProjectDetails = data.includeProjectDetails !== false; // default true
+  const includeComments = data.includeComments !== false; // default true
+  // Advanced time entries options with defaults (if not provided, include everything)
+  const includeTimeEntryDate = data.includeTimeEntryDate !== false; // default true
+  const includeTimeEntryDuration = data.includeTimeEntryDuration !== false; // default true
+  const includeTimeEntryProject = data.includeTimeEntryProject !== false; // default true
+  const includeTimeEntryDescription = data.includeTimeEntryDescription !== false; // default true
+  const includeTimeEntryBillableStatus = data.includeTimeEntryBillableStatus !== false; // default true
 
-  addLine(margin, currentY, pageWidth - margin, currentY)
-  currentY += 15
-
-  // Stats in a grid with better styling
-  const stats = [
-    { label: 'Total Time', value: `${data.billingStats.formattedTotalTime}`, color: '#3B82F6' },
-    { label: 'Total Billable Amount', value: `$${data.billingStats.totalBillableAmount.toFixed(2)}`, color: '#10B981' },
-    { label: 'Active Clients', value: `${data.billingStats.activeClientsWithTime}`, color: '#8B5CF6' }
-  ]
-
-  const colWidth = contentWidth / 3
-  stats.forEach((stat, index) => {
-    const x = margin + (index * colWidth)
-    addText(stat.label, x, currentY, { fontSize: 10, color: '#6B7280' })
-    addText(stat.value, x, currentY + 8, { fontSize: 16, color: stat.color, fontStyle: 'bold' })
-  })
-
-  currentY += 35
-
-  // Chart section
-  if (data.chartData.length > 0) {
-    addText('Time Tracking by Client', margin, currentY, { fontSize: 18, color: '#1F2937', fontStyle: 'bold' })
+  // Summary statistics - only if billing details are included
+  if (includeBillingDetails) {
+    addText('Summary', margin, currentY, { fontSize: 18, color: '#1F2937', fontStyle: 'bold' })
     currentY += 10
+
+    addLine(margin, currentY, pageWidth - margin, currentY)
+    currentY += 15
+
+    // Stats in a grid with better styling
+    const stats = [
+      { label: 'Total Time', value: `${data.billingStats.formattedTotalTime}`, color: '#3B82F6' },
+      { label: 'Total Billable Amount', value: `$${data.billingStats.totalBillableAmount.toFixed(2)}`, color: '#10B981' },
+      { label: 'Active Clients', value: `${data.billingStats.activeClientsWithTime}`, color: '#8B5CF6' }
+    ]
+
+    const colWidth = contentWidth / 3
+    stats.forEach((stat, index) => {
+      const x = margin + (index * colWidth)
+      addText(stat.label, x, currentY, { fontSize: 10, color: '#6B7280' })
+      addText(stat.value, x, currentY + 8, { fontSize: 16, color: stat.color, fontStyle: 'bold' })
+    })
+
+    currentY += 35
+
+  }
+
+  // Chart section - only if time breakdown is included
+  if (includeTimeBreakdown && chartElement) {
+    addText('Time Rendered by Client', margin, currentY, { fontSize: 18, color: '#1F2937', fontStyle: 'bold' })
+    currentY += 15
 
     addLine(margin, currentY, pageWidth - margin, currentY)
     currentY += 15
@@ -297,10 +323,27 @@ export const generateClientReportPDF = async (
     // Time entries table
     pdf.setFillColor(243, 244, 246) // Light gray background
     pdf.rect(margin, currentY - 8, contentWidth, 12, 'F')
-    addText('Description', margin, currentY, { fontSize: 12, color: '#1F2937', fontStyle: 'bold' })
-    addText('Project', margin + 80, currentY, { fontSize: 12, color: '#1F2937', fontStyle: 'bold' })
-    addText('Duration', margin + 120, currentY, { fontSize: 12, color: '#1F2937', fontStyle: 'bold' })
-    addText('Date', margin + 160, currentY, { fontSize: 12, color: '#1F2937', fontStyle: 'bold' })
+    // Only show column headers if the corresponding option is enabled
+    let headerX = margin;
+    if (includeTimeEntryDescription) {
+      addText('Description', headerX, currentY, { fontSize: 12, color: '#1F2937', fontStyle: 'bold' });
+    }
+    if (includeTimeEntryProject) {
+      headerX += 80;
+      addText('Project', headerX, currentY, { fontSize: 12, color: '#1F2937', fontStyle: 'bold' });
+    }
+    if (includeTimeEntryDuration) {
+      headerX += 40;
+      addText('Duration', headerX, currentY, { fontSize: 12, color: '#1F2937', fontStyle: 'bold' });
+    }
+    if (includeTimeEntryDate) {
+      headerX += 40;
+      addText('Date', headerX, currentY, { fontSize: 12, color: '#1F2937', fontStyle: 'bold' });
+    }
+    if (includeTimeEntryBillableStatus) {
+      headerX += 40;
+      addText('Billable', headerX, currentY, { fontSize: 12, color: '#1F2937', fontStyle: 'bold' });
+    }
     currentY += 10
 
     addLine(margin, currentY, pageWidth - margin, currentY, [156, 163, 175])
@@ -323,11 +366,29 @@ export const generateClientReportPDF = async (
       const projectName = entry.projectName || 'No project'
       const duration = entry.formattedDuration || '00:00:00'
       const date = entry.startTime ? format(new Date(entry.startTime), 'MMM dd') : 'N/A'
+      const billableStatus = entry.isBillable ? 'Yes' : 'No'
 
-      addText(description.length > 25 ? description.substring(0, 25) + '...' : description, margin, currentY, { fontSize: 10, color: '#1F2937' })
-      addText(projectName.length > 15 ? projectName.substring(0, 15) + '...' : projectName, margin + 80, currentY, { fontSize: 10, color: '#1F2937' })
-      addText(duration, margin + 120, currentY, { fontSize: 10, color: '#1F2937' })
-      addText(date, margin + 160, currentY, { fontSize: 10, color: '#1F2937' })
+      // Position text based on enabled options
+      let currentX = margin;
+      if (includeTimeEntryDescription) {
+        addText(description.length > 25 ? description.substring(0, 25) + '...' : description, currentX, currentY, { fontSize: 10, color: '#1F2937' });
+        currentX += 80;
+      }
+      if (includeTimeEntryProject) {
+        addText(projectName.length > 15 ? projectName.substring(0, 15) + '...' : projectName, currentX, currentY, { fontSize: 10, color: '#1F2937' });
+        currentX += 40;
+      }
+      if (includeTimeEntryDuration) {
+        addText(duration, currentX, currentY, { fontSize: 10, color: '#1F2937' });
+        currentX += 40;
+      }
+      if (includeTimeEntryDate) {
+        addText(date, currentX, currentY, { fontSize: 10, color: '#1F2937' });
+        currentX += 40;
+      }
+      if (includeTimeEntryBillableStatus) {
+        addText(billableStatus, currentX, currentY, { fontSize: 10, color: '#1F2937' });
+      }
       currentY += 10
     })
 
@@ -370,27 +431,52 @@ export const generateClientReportPDF = async (
     })
   }
   
-  addText(`Page 1 of 1`, pageWidth - margin, currentY + 10, { 
-    fontSize: 10, 
-    color: '#6B7280',
-    align: 'right' 
-  })
+  // Removed page numbering: Page 1 of 1
+  // addText(`Page 1 of 1`, pageWidth - margin, currentY + 10, { 
+  //   fontSize: 10, 
+  //   color: '#6B7280',
+  //   align: 'right' 
+  // })
 
   // Save the PDF
   const fileName = `client-report-${data.timeFilter}-${format(new Date(), 'yyyy-MM-dd')}.pdf`
   pdf.save(fileName)
 }
 
+interface IndividualClientPDFData {
+  name: string
+  hours: number
+  amount: number
+  formattedTime: string
+}
+
+interface DailyTimeData {
+  date: string
+  hours: number
+  formattedDate: string
+}
+
 export const generateIndividualClientPDF = async (
-  clientName: string,
-  clientData: ClientTimeData,
+  reportTitle: string,
+  clientData: IndividualClientPDFData,
   timeFilter: string,
-  customStartDate?: Date,
-  customEndDate?: Date,
-  pdfSettings?: PDFSettings | null,
-  companyId?: string,
-  timeEntries?: any[],
-  dailyTimeData?: { date: string; hours: number; formattedDate: string }[]
+  customStartDate: Date | undefined,
+  customEndDate: Date | undefined,
+  pdfSettings: PDFSettings | null | undefined,
+  companyId: string | undefined,
+  timeEntries: any[] | undefined,
+  dailyTimeData: DailyTimeData[] | undefined,
+  // Add export options
+  includeTimeBreakdown: boolean = true,
+  includeBillingDetails: boolean = true,
+  includeProjectDetails: boolean = true,
+  includeComments: boolean = true,
+  // Advanced time entries options
+  includeTimeEntryDate: boolean = true,
+  includeTimeEntryDuration: boolean = true,
+  includeTimeEntryProject: boolean = true,
+  includeTimeEntryDescription: boolean = true,
+  includeTimeEntryBillableStatus: boolean = true
 ): Promise<void> => {
   // Create new PDF document
   const pdf = new jsPDF('p', 'mm', 'a4')
@@ -420,6 +506,7 @@ export const generateIndividualClientPDF = async (
   let currentY = 50 // Start below header
 
   // Client name
+  const clientName = clientData.name; // Define clientName from clientData
   pdf.setFontSize(20)
   pdf.setTextColor('#1F2937')
   pdf.setFont(undefined, 'bold')
@@ -459,102 +546,107 @@ export const generateIndividualClientPDF = async (
   pdf.text(getPeriodText(), margin, currentY)
   currentY += 15
 
-  // Summary section
-  pdf.setFontSize(18)
-  pdf.setTextColor('#1F2937')
-  pdf.setFont(undefined, 'bold')
-  pdf.text('Summary', margin, currentY)
-  pdf.setFont(undefined, 'normal')
-  currentY += 15
+  // Summary section - only if billing details are included
+  if (includeBillingDetails) {
+    pdf.setFontSize(18)
+    pdf.setTextColor('#1F2937')
+    pdf.setFont(undefined, 'bold')
+    pdf.text('Summary', margin, currentY)
+    pdf.setFont(undefined, 'normal')
+    currentY += 15
 
-  // Summary stats in a grid
-  pdf.setFillColor(243, 244, 246) // Light gray background
-  pdf.rect(margin, currentY - 5, contentWidth, 35, 'F')
+    // Summary stats in a grid
+    pdf.setFillColor(243, 244, 246) // Light gray background
+    pdf.rect(margin, currentY - 5, contentWidth, 35, 'F')
   
-  pdf.setFontSize(12)
-  pdf.setTextColor('#1F2937')
-  pdf.text('Total Time', margin + 10, currentY + 8)
-  pdf.text('Billable Amount', margin + (contentWidth / 2) + 10, currentY + 8)
-  
-  pdf.setTextColor('#059669')
-  pdf.setFont(undefined, 'bold')
-  pdf.text(clientData.formattedTime, margin + 10, currentY + 22)
-  pdf.text(`$${clientData.amount.toFixed(2)}`, margin + (contentWidth / 2) + 10, currentY + 22)
-  pdf.setFont(undefined, 'normal')
-  currentY += 45
-
-  // Chart section - day by day bar graph
-  // Add a title for the chart section
-  pdf.setFontSize(16)
-  pdf.setTextColor('#1F2937')
-  pdf.setFont(undefined, 'bold')
-  pdf.text('Daily Time Tracking', margin, currentY)
-  pdf.setFont(undefined, 'normal')
-  currentY += 15
-
-  // Create bar chart directly in PDF using daily time data
-  if (dailyTimeData && dailyTimeData.length > 0) {
-    // Create a simple bar chart in the PDF
-    const chartHeight = 50; // Reduced height to prevent overlapping
-    const chartWidth = contentWidth * 0.8; // Reduced width
-    const barWidth = Math.max(12, chartWidth / dailyTimeData.length - 8); // Adjusted bar width
-    const maxHours = Math.max(...dailyTimeData.map(d => d.hours), 0.1); // Ensure at least 0.1 to avoid division by zero
-    
-    // Draw chart title
-    pdf.setFontSize(10);
-    pdf.setTextColor('#6B7280');
-    pdf.text('Hours per day', margin + chartWidth / 2, currentY, { align: 'center' });
-    currentY += 10;
-    
-    // Draw Y-axis labels
-    for (let i = 0; i <= 4; i++) {
-      const yValue = (maxHours * i / 4).toFixed(1);
-      pdf.setFontSize(7);
-      pdf.setTextColor('#9CA3AF');
-      pdf.text(yValue, margin - 5, currentY + chartHeight - (i * chartHeight / 4), { align: 'right' });
-    }
-    
-    // Draw bars
-    const chartStartX = margin + 20;
-    const chartStartY = currentY + chartHeight;
-    
-    dailyTimeData.forEach((dayData, index) => {
-      const day = dayData.formattedDate || format(new Date(dayData.date), 'EEE');
-      const hours = dayData.hours;
-      
-      const barHeight = maxHours > 0 ? (hours / maxHours) * chartHeight : 0;
-      const barX = chartStartX + index * (barWidth + 6); // Reduced spacing
-      const barY = chartStartY - barHeight;
-      
-      // Draw bar
-      pdf.setFillColor('#3B82F6');
-      pdf.rect(barX, barY, barWidth, barHeight, 'F');
-      
-      // Draw day label
-      pdf.setFontSize(7);
-      pdf.setTextColor('#6B7280');
-      pdf.text(day, barX + barWidth / 2, chartStartY + 10, { align: 'center' });
-      
-      // Draw hours value in HH:MM:SS format
-      pdf.setFontSize(7);
-      pdf.setTextColor('#1F2937');
-      // Convert decimal hours to HH:MM:SS format
-      const hoursInSeconds = hours * 3600;
-      const formattedHours = formatSecondsToHHMMSS(hoursInSeconds);
-      pdf.text(formattedHours, barX + barWidth / 2, barY - 3, { align: 'center' });
-    });
-    
-    // Draw X-axis line
-    pdf.setDrawColor(200, 200, 200);
-    pdf.line(chartStartX, chartStartY, chartStartX + chartWidth, chartStartY);
-    
-    currentY += chartHeight + 20; // Reduced spacing
-  } else {
-    // Show a message when there's no data
     pdf.setFontSize(12)
-    pdf.setTextColor('#6B7280')
-    pdf.text('No time entries available for the selected period', margin, currentY)
-    currentY += 20
+    pdf.setTextColor('#1F2937')
+    pdf.text('Total Time', margin + 10, currentY + 8)
+    pdf.text('Billable Amount', margin + (contentWidth / 2) + 10, currentY + 8)
+  
+    pdf.setTextColor('#059669')
+    pdf.setFont(undefined, 'bold')
+    pdf.text(clientData.formattedTime, margin + 10, currentY + 22)
+    pdf.text(`$${clientData.amount.toFixed(2)}`, margin + (contentWidth / 2) + 10, currentY + 22)
+    pdf.setFont(undefined, 'normal')
+    currentY += 45
+
+  }
+
+  // Chart section - day by day bar graph - only if time breakdown is included
+  if (includeTimeBreakdown) {
+    // Add a title for the chart section
+    pdf.setFontSize(16)
+    pdf.setTextColor('#1F2937')
+    pdf.setFont(undefined, 'bold')
+    pdf.text('Daily Time Tracking', margin, currentY)
+    pdf.setFont(undefined, 'normal')
+    currentY += 15
+
+    // Create bar chart directly in PDF using daily time data
+    if (dailyTimeData && dailyTimeData.length > 0) {
+      // Create a simple bar chart in the PDF
+      const chartHeight = 50; // Reduced height to prevent overlapping
+      const chartWidth = contentWidth * 0.8; // Reduced width
+      const barWidth = Math.max(12, chartWidth / dailyTimeData.length - 8); // Adjusted bar width
+      const maxHours = Math.max(...dailyTimeData.map(d => d.hours), 0.1); // Ensure at least 0.1 to avoid division by zero
+      
+      // Draw chart title
+      pdf.setFontSize(10);
+      pdf.setTextColor('#6B7280');
+      pdf.text('Hours per day', margin + chartWidth / 2, currentY, { align: 'center' });
+      currentY += 10;
+      
+      // Draw Y-axis labels
+      for (let i = 0; i <= 4; i++) {
+        const yValue = (maxHours * i / 4).toFixed(1);
+        pdf.setFontSize(7);
+        pdf.setTextColor('#9CA3AF');
+        pdf.text(yValue, margin - 5, currentY + chartHeight - (i * chartHeight / 4), { align: 'right' });
+      }
+      
+      // Draw bars
+      const chartStartX = margin + 20;
+      const chartStartY = currentY + chartHeight;
+      
+      dailyTimeData.forEach((dayData, index) => {
+        const day = dayData.formattedDate || format(new Date(dayData.date), 'EEE');
+        const hours = dayData.hours;
+        
+        const barHeight = maxHours > 0 ? (hours / maxHours) * chartHeight : 0;
+        const barX = chartStartX + index * (barWidth + 6); // Reduced spacing
+        const barY = chartStartY - barHeight;
+        
+        // Draw bar
+        pdf.setFillColor('#3B82F6');
+        pdf.rect(barX, barY, barWidth, barHeight, 'F');
+        
+        // Draw day label
+        pdf.setFontSize(7);
+        pdf.setTextColor('#6B7280');
+        pdf.text(day, barX + barWidth / 2, chartStartY + 10, { align: 'center' });
+        
+        // Draw hours value in HH:MM:SS format
+        pdf.setFontSize(7);
+        pdf.setTextColor('#1F2937');
+        // Convert decimal hours to HH:MM:SS format
+        const hoursInSeconds = hours * 3600;
+        const formattedHours = formatSecondsToHHMMSS(hoursInSeconds);
+        pdf.text(formattedHours, barX + barWidth / 2, barY - 3, { align: 'center' });
+      });
+      
+      // Draw X-axis line
+      pdf.setDrawColor(200, 200, 200);
+      pdf.line(chartStartX, chartStartY, chartStartX + chartWidth, chartStartY);
+      
+      currentY += chartHeight + 20; // Reduced spacing
+    } else {
+      // Show a message when there's no data but time breakdown is requested
+      pdf.setFontSize(12)
+      pdf.setTextColor('#6B7280')
+      pdf.text('No time entries available for the selected period', margin, currentY)
+      currentY += 20
+    }
   }
 
   // Check if we need to add time entries to a new page
@@ -571,103 +663,106 @@ export const generateIndividualClientPDF = async (
   await addHeaderToPage(pdf, settings, pageWidth, margin, companyName)
   currentY = 50 // Start below header
 
-  // Time entries section
-  if (timeEntries && timeEntries.length > 0) {
+  // Time entries section - only if project details are included
+  if (includeProjectDetails && timeEntries && timeEntries.length > 0) {
     pdf.setFontSize(18)
     pdf.setTextColor('#1F2937')
     pdf.setFont(undefined, 'bold')
-    pdf.text('Time Entries', margin, currentY)
+    pdf.text('Work Entries', margin, currentY)
     pdf.setFont(undefined, 'normal')
     currentY += 15
 
-    // Add project distribution section before the table
-    // Group time entries by project and calculate totals
-    const projectTotals: { [projectName: string]: { hours: number, seconds: number, count: number } } = {};
-    
-    timeEntries.forEach(entry => {
-      const projectName = entry.projectName || 'No project';
-      const durationInSeconds = entry.duration || 0;
-      const durationInHours = durationInSeconds / 3600;
+    // Add project distribution section before the table - only if project details are included
+    if (includeProjectDetails) {
+      // Group time entries by project and calculate totals
+      const projectTotals: { [projectName: string]: { hours: number, seconds: number, count: number } } = {};
       
-      if (!projectTotals[projectName]) {
-        projectTotals[projectName] = { hours: 0, seconds: 0, count: 0 };
-      }
-      
-      projectTotals[projectName].hours += durationInHours;
-      projectTotals[projectName].seconds += durationInSeconds;
-      projectTotals[projectName].count += 1;
-    });
-
-    // Create project distribution data
-    const projectNames = Object.keys(projectTotals);
-    const totalHours = Object.values(projectTotals).reduce((sum, project) => sum + project.hours, 0);
-    
-    if (projectNames.length > 0) {
-      // Add section title
-      pdf.setFontSize(14)
-      pdf.setTextColor('#1F2937')
-      pdf.setFont(undefined, 'bold')
-      pdf.text('Time Distribution by Project', margin, currentY)
-      pdf.setFont(undefined, 'normal')
-      currentY += 15
-
-      // Create a visual representation of the project distribution using a horizontal bar chart
-      const colors = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444', '#6366F1', '#14B8A6', '#F97316'];
-      
-      // Calculate chart dimensions - make it thinner to fit better
-      const chartWidth = contentWidth * 0.6;
-      const chartX = margin;
-      const chartY = currentY + 12;
-      
-      // Find maximum hours for scaling
-      const maxHours = Math.max(...Object.values(projectTotals).map(p => p.hours), 0.1);
-      
-      // Draw bars for each project - make them thinner
-      const barHeight = 12;
-      const barSpacing = 6;
-      
-      // Add a title for the chart
-      pdf.setFontSize(12);
-      pdf.setTextColor('#1F2937');
-      pdf.setFont(undefined, 'bold');
-      pdf.text('Project Distribution', chartX, chartY - 3);
-      pdf.setFont(undefined, 'normal');
-      
-      projectNames.forEach((projectName, index) => {
-        const project = projectTotals[projectName];
-        const percentage = totalHours > 0 ? (project.hours / totalHours) * 100 : 0;
-        const barWidth = Math.max(8, chartWidth * (project.hours / maxHours)); // Minimum width of 8px
+      timeEntries.forEach(entry => {
+        const projectName = entry.projectName || 'No project';
+        const durationInSeconds = entry.duration || 0;
+        const durationInHours = durationInSeconds / 3600;
         
-        const barY = chartY + index * (barHeight + barSpacing) + 3;
+        if (!projectTotals[projectName]) {
+          projectTotals[projectName] = { hours: 0, seconds: 0, count: 0 };
+        }
         
-        // Draw bar with border for better visibility
-        pdf.setFillColor(parseInt(colors[index % colors.length].slice(1, 3), 16),
-                        parseInt(colors[index % colors.length].slice(3, 5), 16),
-                        parseInt(colors[index % colors.length].slice(5, 7), 16));
-        pdf.rect(chartX, barY, barWidth, barHeight, 'F');
-        
-        // Draw border around bar
-        pdf.setDrawColor(200, 200, 200);
-        pdf.rect(chartX, barY, barWidth, barHeight);
-        
-        // Draw project name and value - more compact
-        pdf.setFontSize(8);
-        pdf.setTextColor('#1F2937');
-        pdf.text(projectName.length > 18 ? projectName.substring(0, 18) + '...' : projectName, chartX + barWidth + 10, barY + 8);
-        
-        pdf.setFontSize(7);
-        pdf.setTextColor('#6B7280');
-        pdf.text(`${percentage.toFixed(1)}% (${formatSecondsToHHMMSS(project.seconds)})`, chartX + barWidth + 10, barY + 15);
+        projectTotals[projectName].hours += durationInHours;
+        projectTotals[projectName].seconds += durationInSeconds;
+        projectTotals[projectName].count += 1;
       });
+
+      // Create project distribution data
+      const projectNames = Object.keys(projectTotals);
+      const totalHours = Object.values(projectTotals).reduce((sum, project) => sum + project.hours, 0);
       
-      currentY = chartY + projectNames.length * (barHeight + barSpacing) + 25;
+      if (projectNames.length > 0) {
+        // Add section title
+        pdf.setFontSize(14)
+        pdf.setTextColor('#1F2937')
+        pdf.setFont(undefined, 'bold')
+        pdf.text('Time Distribution by Project', margin, currentY)
+        pdf.setFont(undefined, 'normal')
+        currentY += 15
+
+        // Create a visual representation of the project distribution using a horizontal bar chart
+        const colors = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444', '#6366F1', '#14B8A6', '#F97316'];
+      
+        // Calculate chart dimensions - make it thinner to fit better
+        const chartWidth = contentWidth * 0.6;
+        const chartX = margin;
+        const chartY = currentY + 12;
+      
+        // Find maximum hours for scaling
+        const maxHours = Math.max(...Object.values(projectTotals).map(p => p.hours), 0.1);
+      
+        // Draw bars for each project - make them thinner
+        const barHeight = 12;
+        const barSpacing = 6;
+      
+        // Add a title for the chart
+        pdf.setFontSize(12);
+        pdf.setTextColor('#1F2937');
+        pdf.setFont(undefined, 'bold');
+        pdf.text('Project Distribution', chartX, chartY - 3);
+        pdf.setFont(undefined, 'normal');
+      
+        projectNames.forEach((projectName, index) => {
+          const project = projectTotals[projectName];
+          const percentage = totalHours > 0 ? (project.hours / totalHours) * 100 : 0;
+          const barWidth = Math.max(8, chartWidth * (project.hours / maxHours)); // Minimum width of 8px
+        
+          const barY = chartY + index * (barHeight + barSpacing) + 3;
+        
+          // Draw bar with border for better visibility
+          pdf.setFillColor(parseInt(colors[index % colors.length].slice(1, 3), 16),
+                          parseInt(colors[index % colors.length].slice(3, 5), 16),
+                          parseInt(colors[index % colors.length].slice(5, 7), 16));
+          pdf.rect(chartX, barY, barWidth, barHeight, 'F');
+        
+          // Draw border around bar
+          pdf.setDrawColor(200, 200, 200);
+          pdf.rect(chartX, barY, barWidth, barHeight);
+        
+          // Draw project name and value - more compact
+          pdf.setFontSize(8);
+          pdf.setTextColor('#1F2937');
+          pdf.text(projectName.length > 18 ? projectName.substring(0, 18) + '...' : projectName, chartX + barWidth + 10, barY + 8);
+        
+          pdf.setFontSize(7);
+          pdf.setTextColor('#6B7280');
+          pdf.text(`${percentage.toFixed(1)}% (${formatSecondsToHHMMSS(project.seconds)})`, chartX + barWidth + 10, barY + 15);
+        });
+      
+        currentY = chartY + projectNames.length * (barHeight + barSpacing) + 25;
+      }
+
     }
 
     // Time entries table (reduced size)
     pdf.setFontSize(16)
     pdf.setTextColor('#1F2937')
     pdf.setFont(undefined, 'bold')
-    pdf.text('All Time Entries', margin, currentY)
+    pdf.text('All Work Entries', margin, currentY)
     pdf.setFont(undefined, 'normal')
     currentY += 12
 
@@ -677,10 +772,27 @@ export const generateIndividualClientPDF = async (
     pdf.setFontSize(10) // Reduced font size
     pdf.setTextColor('#1F2937')
     pdf.setFont(undefined, 'bold')
-    pdf.text('Description', margin, currentY)
-    pdf.text('Project', margin + 60, currentY) // Reduced column width
-    pdf.text('Duration', margin + 110, currentY) // Reduced column width
-    pdf.text('Date', margin + 150, currentY) // Reduced column width
+    // Only show column headers if the corresponding option is enabled
+    let headerX = margin;
+    if (includeTimeEntryDescription) {
+      pdf.text('Description', headerX, currentY);
+    }
+    if (includeTimeEntryProject) {
+      headerX += 60;
+      pdf.text('Project', headerX, currentY); // Reduced column width
+    }
+    if (includeTimeEntryDuration) {
+      headerX += 50;
+      pdf.text('Duration', headerX, currentY); // Reduced column width
+    }
+    if (includeTimeEntryDate) {
+      headerX += 40;
+      pdf.text('Date', headerX, currentY); // Reduced column width
+    }
+    if (includeTimeEntryBillableStatus) {
+      headerX += 40;
+      pdf.text('Billable', headerX, currentY); // Reduced column width
+    }
     pdf.setFont(undefined, 'normal')
     currentY += 10
 
@@ -706,6 +818,7 @@ export const generateIndividualClientPDF = async (
       const projectName = entry.projectName || 'No project'
       const duration = entry.formattedDuration || '00:00:00'
       const date = entry.startTime ? format(new Date(entry.startTime), 'MMM dd') : 'N/A'
+      const billableStatus = entry.isBillable ? 'Yes' : 'No'
 
       // Alternate row background
       if (index % 2 === 1) {
@@ -715,10 +828,28 @@ export const generateIndividualClientPDF = async (
 
       pdf.setFontSize(8) // Reduced font size
       pdf.setTextColor('#1F2937')
-      pdf.text(description.length > 20 ? description.substring(0, 20) + '...' : description, margin, currentY) // Reduced text length
-      pdf.text(projectName.length > 12 ? projectName.substring(0, 12) + '...' : projectName, margin + 60, currentY) // Reduced column width
-      pdf.text(duration, margin + 110, currentY) // Reduced column width
-      pdf.text(date, margin + 150, currentY) // Reduced column width
+      
+      // Position text based on enabled options
+      let currentX = margin;
+      if (includeTimeEntryDescription) {
+        pdf.text(description.length > 20 ? description.substring(0, 20) + '...' : description, currentX, currentY); // Reduced text length
+      }
+      if (includeTimeEntryProject) {
+        currentX += 60;
+        pdf.text(projectName.length > 12 ? projectName.substring(0, 12) + '...' : projectName, currentX, currentY); // Reduced column width
+      }
+      if (includeTimeEntryDuration) {
+        currentX += 50;
+        pdf.text(duration, currentX, currentY); // Reduced column width
+      }
+      if (includeTimeEntryDate) {
+        currentX += 40;
+        pdf.text(date, currentX, currentY); // Reduced column width
+      }
+      if (includeTimeEntryBillableStatus) {
+        currentX += 40;
+        pdf.text(billableStatus, currentX, currentY); // Reduced column width
+      }
       currentY += 10 // Reduced row spacing
     })
   }
@@ -727,7 +858,7 @@ export const generateIndividualClientPDF = async (
   addFooterToPage(pdf, settings, pageWidth, margin, companyName, currentPage, totalPages);
 
   // Save the PDF
-  const fileName = `${clientName.toLowerCase().replace(/\s+/g, '-')}-report-${timeFilter}-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+  const fileName = `client-report-${timeFilter}-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
   pdf.save(fileName)
 }
 
@@ -863,7 +994,8 @@ const addFooterToPage = (pdf: jsPDF, settings: PDFSettings, pageWidth: number, m
     pdf.text('Powered by Nexistry Digital Solutions', margin, footerTextY + 18)
   }
 
-  pdf.setFontSize(10)
-  pdf.setTextColor('#6B7280')
-  pdf.text(`Page ${pageNumber} of ${totalPages}`, pageWidth - margin, footerTextY + 10, { align: 'right' })
+  // Removed page numbering: Page ${pageNumber} of ${totalPages}
+  // pdf.setFontSize(10)
+  // pdf.setTextColor('#6B7280')
+  // pdf.text(`Page ${pageNumber} of ${totalPages}`, pageWidth - margin, footerTextY + 10, { align: 'right' })
 }

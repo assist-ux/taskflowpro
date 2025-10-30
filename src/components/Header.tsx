@@ -167,7 +167,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
   };
 
   // Filter notifications to show only unread ones in the dropdown
+  console.log('=== Header: Filtering unread notifications ===');
+  console.log('All notifications:', notifications);
   const unreadNotifications = notifications.filter(notification => !notification.isRead);
+  console.log('Unread notifications:', unreadNotifications);
+  console.log('Unread count:', unreadNotifications.length);
 
   return (
     <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
@@ -415,9 +419,17 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors user-menu-button"
               >
                 <div className="relative">
-                  <div className="h-8 w-8 rounded-full bg-primary-500 flex items-center justify-center text-white font-medium">
-                    {currentUser?.name?.charAt(0) || currentUser?.email?.charAt(0) || 'U'}
-                  </div>
+                  {currentUser?.avatar ? (
+                    <img 
+                      src={currentUser.avatar} 
+                      alt="Profile" 
+                      className="h-8 w-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-8 w-8 rounded-full bg-primary-500 flex items-center justify-center text-white font-medium">
+                      {currentUser?.name?.charAt(0) || currentUser?.email?.charAt(0) || 'U'}
+                    </div>
+                  )}
                   {/* Root user badge */}
                   {currentUser?.role === 'root' && (
                     <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 flex items-center justify-center">
@@ -433,9 +445,17 @@ export default function Header({ onMenuClick }: HeaderProps) {
                   <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center space-x-3">
                       <div className="relative">
-                        <div className="h-10 w-10 rounded-full bg-primary-500 flex items-center justify-center text-white font-medium">
-                          {currentUser?.name?.charAt(0) || currentUser?.email?.charAt(0) || 'U'}
-                        </div>
+                        {currentUser?.avatar ? (
+                          <img 
+                            src={currentUser.avatar} 
+                            alt="Profile" 
+                            className="h-10 w-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded-full bg-primary-500 flex items-center justify-center text-white font-medium">
+                            {currentUser?.name?.charAt(0) || currentUser?.email?.charAt(0) || 'U'}
+                          </div>
+                        )}
                         {/* Root user badge in dropdown */}
                         {currentUser?.role === 'root' && (
                           <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 flex items-center justify-center">

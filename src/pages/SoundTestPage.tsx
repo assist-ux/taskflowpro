@@ -25,9 +25,26 @@ Sound Manager Status:
     console.log('Simulating mention notification')
     // Simulate a mention notification
     const { addNotification } = useNotifications()
-    // We can't call hook inside function, so we'll just log
-    console.log('Would add mention notification here')
-    setTestResult('Simulated mention notification. Check console for logs.')
+    addNotification({
+      title: 'Test Mention',
+      message: 'You were mentioned in a test message',
+      type: 'mention',
+      actionUrl: '/messages'
+    })
+    setTestResult('Simulated mention notification. Check the notification bell for the notification.')
+  }
+
+  const testMentionService = async () => {
+    console.log('Testing mention notification service')
+    try {
+      // This would create a notification in Firebase if we had a user ID
+      // For now, just log that we would call the service
+      console.log('Would call MentionNotificationService.createMentionNotification()')
+      setTestResult('Tested mention notification service. Check console for logs.')
+    } catch (error) {
+      console.error('Error testing mention service:', error)
+      setTestResult('Error testing mention service. Check console for details.')
+    }
   }
 
   return (
@@ -57,6 +74,13 @@ Sound Manager Status:
             className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
           >
             Simulate Mention Notification
+          </button>
+          
+          <button
+            onClick={testMentionService}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+          >
+            Test Mention Service
           </button>
         </div>
       </div>

@@ -22,6 +22,9 @@ export class MentionNotificationService {
     projectId?: string,
     taskId?: string
   ): Promise<void> {
+    console.log('=== createMentionNotification called ===');
+    console.log('Parameters:', { mentionedUserId, mentionedByName, contextType, contextTitle, contextId, projectId, taskId });
+    
     try {
       // Format the notification message based on context type
       let message = ''
@@ -40,8 +43,8 @@ export class MentionNotificationService {
           actionUrl = taskId ? `/tasks/${taskId}` : '/tasks'
           break
         case 'message':
-          message = `${mentionedByName} mentioned you in a message`
-          contextDescription = 'a message'
+          message = `${mentionedByName} mentioned you in a team message`
+          contextDescription = 'a team message'
           actionUrl = '/messages'
           break
         case 'task':
@@ -62,6 +65,7 @@ export class MentionNotificationService {
         message: message,
         mentionedBy: mentionedByName,
         mentionedByName: mentionedByName,
+        mentionedUserId: mentionedUserId,
         contextType: contextType,
         contextId: contextId,
         contextTitle: contextTitle,
@@ -74,11 +78,19 @@ export class MentionNotificationService {
       // Store the notification in Firebase under the mentioned user's notifications
       const notificationsRef = ref(database, `mentionNotifications/${mentionedUserId}`)
       const newNotificationRef = push(notificationsRef)
-      await set(newNotificationRef, {
-        ...notificationData,
-        id: newNotificationRef.key,
-        createdAt: new Date().toISOString()
-      })
+      
+      // Filter out undefined values before storing in Firebase
+      const filteredNotificationData = Object.fromEntries(
+        Object.entries({
+          ...notificationData,
+          id: newNotificationRef.key,
+          createdAt: new Date().toISOString()
+        }).filter(([_, value]) => value !== undefined)
+      );
+      
+      await set(newNotificationRef, filteredNotificationData);
+      
+      console.log('Notification data to be stored:', filteredNotificationData);
       
       console.log('Mention notification created for user:', mentionedUserId, notificationData)
       
@@ -159,12 +171,13 @@ export class MentionNotificationService {
    */
   static async sendNotificationToUser(
     userId: string,
-    notification: Omit<MentionNotification, 'id' | 'isRead' | 'createdAt'>
+    notification: Omit<MentionNotification, 'id' | 'isRead' | 'createdAt' | 'mentionedUserId'>
   ): Promise<void> {
     try {
       // Create the full notification object
       const notificationWithDefaults = {
         ...notification,
+        mentionedUserId: userId, // Add mentionedUserId for Firebase security rules
         id: '',
         isRead: false,
         createdAt: new Date()
@@ -173,11 +186,17 @@ export class MentionNotificationService {
       // Store the notification in Firebase under the user's notifications
       const notificationsRef = ref(database, `mentionNotifications/${userId}`)
       const newNotificationRef = push(notificationsRef)
-      await set(newNotificationRef, {
-        ...notificationWithDefaults,
-        id: newNotificationRef.key,
-        createdAt: notificationWithDefaults.createdAt.toISOString()
-      })
+      
+      // Filter out undefined values before storing in Firebase
+      const filteredNotificationData = Object.fromEntries(
+        Object.entries({
+          ...notificationWithDefaults,
+          id: newNotificationRef.key,
+          createdAt: notificationWithDefaults.createdAt.toISOString()
+        }).filter(([_, value]) => value !== undefined)
+      );
+      
+      await set(newNotificationRef, filteredNotificationData);
       
       console.log('Notification sent to user:', userId)
       
@@ -192,19 +211,30 @@ export class MentionNotificationService {
    * @param callback - The callback function to call when notifications change
    */
   static subscribeToNotifications(userId: string, callback: (notifications: MentionNotification[]) => void): () => void {
+    console.log('=== subscribeToNotifications called ===');
+    console.log('User ID:', userId);
+    
     const notificationsRef = ref(database, `mentionNotifications/${userId}`)
     
     const unsubscribe = onValue(notificationsRef, (snapshot) => {
+      console.log('=== Firebase onValue callback ===');
+      console.log('Snapshot exists:', snapshot.exists());
+      
       if (snapshot.exists()) {
         const notifications = snapshot.val()
+        console.log('Raw notifications from Firebase:', notifications);
+        
         const notificationList = Object.values(notifications)
           .map((notification: any) => ({
             ...notification,
             createdAt: new Date(notification.createdAt)
           }))
           .sort((a: any, b: any) => b.createdAt.getTime() - a.createdAt.getTime()) as MentionNotification[]
+          
+        console.log('Converted notifications:', notificationList);
         callback(notificationList)
       } else {
+        console.log('No notifications found');
         callback([])
       }
     })

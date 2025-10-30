@@ -13,13 +13,13 @@ import Dashboard from './pages/Dashboard'
 import Projects from './pages/Projects'
 import Clients from './pages/Clients'
 import ClientDetails from './pages/ClientDetails'
+import EditClient from './pages/EditClient'
 import TimeTracker from './pages/TimeTracker'
 import Calendar from './pages/Calendar'
 import Reports from './pages/Reports'
 import TaskManagement from './pages/ProjectManagement'
 import Teams from './pages/Teams'
 import TeamDetails from './pages/TeamDetails'
-import Billing from './pages/Billing'
 import Feedbacks from './pages/Feedbacks'
 import AdminDashboard from './pages/AdminDashboard'
 import Settings from './pages/Settings'
@@ -128,6 +128,11 @@ function AppContent() {
                     <ClientDetails />
                   </ProtectedRoute>
                 } />
+                <Route path="/clients/edit/:clientId" element={
+                  <ProtectedRoute>
+                    <EditClient />
+                  </ProtectedRoute>
+                } />
                 <Route path="/reports" element={
                   <ProtectedRoute>
                     <Reports />
@@ -146,11 +151,6 @@ function AppContent() {
                 <Route path="/teams/:teamId" element={
                   <ProtectedRoute>
                     <TeamDetails />
-                  </ProtectedRoute>
-                } />
-                <Route path="/billing" element={
-                  <ProtectedRoute>
-                    <Billing />
                   </ProtectedRoute>
                 } />
                 <Route path="/feedbacks" element={

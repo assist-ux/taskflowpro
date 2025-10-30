@@ -108,7 +108,6 @@ This document explains how to create and use the **Root** user account in Clocki
 ```typescript
 // Root has all permissions
 root: {
-  canViewBilling: true,
   canManageProjects: true,
   canManageClients: true,
   canManageUsers: true,
@@ -138,7 +137,6 @@ root: {
 ### **3. Company Management**
 - View all companies
 - Company statistics
-- Billing management
 - Company settings
 
 ### **4. Security Settings**

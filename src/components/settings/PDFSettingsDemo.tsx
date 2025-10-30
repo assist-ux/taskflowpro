@@ -105,7 +105,7 @@ export default function PDFSettingsDemo({ pdfSettings }: PDFSettingsDemoProps) {
               {settings.showPoweredBy && (
                 <span>Powered by Nexistry Digital Solutions</span>
               )}
-              <span>Page 1 of 1</span>
+              {/* Removed page numbering: <span>Page 1 of 1</span> */}
             </div>
           </div>
         </div>

@@ -19,13 +19,15 @@ import {
   Mail,
   Download,
   Upload,
-  Trash
+  Trash,
+  ChevronRight
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { update, get, set } from 'firebase/database'
 import { ref } from 'firebase/database'
 import { format, isValid } from 'date-fns'
-import { database } from '../config/firebase'
+import { database, storage } from '../config/firebase'
 import { loggingService, SystemLog } from '../services/loggingService'
 import { formatDurationToHHMMSS } from '../utils'
 import { useTheme } from '../contexts/ThemeContext'
@@ -37,6 +39,7 @@ import {
   reauthenticateWithCredential as reauth 
 } from 'firebase/auth'
 import { auth } from '../config/firebase'
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import NotificationSettings from '../components/settings/NotificationSettings'
 
 interface BackupData {
@@ -58,7 +61,7 @@ interface BackupData {
 export default function Settings() {
   const { currentUser } = useAuth()
   const { isDarkMode, toggleDarkMode } = useTheme()
-  const [activeTab, setActiveTab] = useState<'profile' | 'general' | 'database' | 'logs' | 'security' | 'notifications'>('profile')
+  const [activeTab, setActiveTab] = useState<'profile' | 'general' | 'database' | 'logs' | 'security' | 'notifications' | 'pdf'>('profile')
   const [loading, setLoading] = useState(false)
   const [logs, setLogs] = useState<SystemLog[]>([])
   const [backupData, setBackupData] = useState<BackupData | null>(null)
@@ -71,7 +74,8 @@ export default function Settings() {
     name: currentUser?.name || '',
     email: currentUser?.email || '',
     timezone: 'GMT+0 (Greenwich Mean Time)',
-    hourlyRate: 25
+    hourlyRate: 25,
+    avatar: ''
   })
   
   // Password change
@@ -82,6 +86,7 @@ export default function Settings() {
   })
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
   
   // General settings
   const [generalSettings, setGeneralSettings] = useState({
@@ -149,7 +154,8 @@ export default function Settings() {
           name: userData.name || currentUser.name || '',
           email: userData.email || currentUser.email || '',
           timezone: userData.timezone || 'GMT+0 (Greenwich Mean Time)',
-          hourlyRate: userData.hourlyRate || 25
+          hourlyRate: userData.hourlyRate || 25,
+          avatar: userData.avatar || ''
         })
       }
     } catch (error) {
@@ -379,6 +385,71 @@ export default function Settings() {
     }
   }
   
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      // Check if file is an image
+      if (!file.type.startsWith('image/')) {
+        showMessage('error', 'Please select an image file (JPG, PNG, GIF)')
+        return
+      }
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        showMessage('error', 'File size must be less than 5MB')
+        return
+      }
+      setAvatarFile(file)
+    }
+  }
+  
+  const handleUploadAvatar = async () => {
+    if (!currentUser || !avatarFile) return
+    
+    try {
+      setLoading(true)
+      
+      // Create a reference to the file location in Firebase Storage
+      const fileRef = storageRef(storage, `avatars/${currentUser.uid}/${Date.now()}_${avatarFile.name}`)
+      
+      // Upload the file
+      await uploadBytes(fileRef, avatarFile)
+      
+      // Get the download URL
+      const downloadURL = await getDownloadURL(fileRef)
+      
+      // Update profile data with the new avatar URL
+      setProfileData(prev => ({ ...prev, avatar: downloadURL }))
+      
+      // Clear the file input
+      setAvatarFile(null)
+      
+      showMessage('success', 'Avatar uploaded successfully!')
+    } catch (error) {
+      console.error('Avatar upload error:', error)
+      showMessage('error', 'Failed to upload avatar')
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  const handleRemoveAvatar = async () => {
+    if (!currentUser) return
+    
+    try {
+      setLoading(true)
+      
+      // Update profile data to remove avatar
+      setProfileData(prev => ({ ...prev, avatar: '' }))
+      
+      showMessage('success', 'Avatar removed successfully!')
+    } catch (error) {
+      console.error('Avatar remove error:', error)
+      showMessage('error', 'Failed to remove avatar')
+    } finally {
+      setLoading(false)
+    }
+  }
+  
   const handleUpdateProfile = async () => {
     if (!currentUser) return
     
@@ -392,6 +463,7 @@ export default function Settings() {
       const updates: any = {
         name: profileData.name,
         timezone: profileData.timezone,
+        avatar: profileData.avatar,
         updatedAt: new Date().toISOString()
       }
       
@@ -537,9 +609,10 @@ export default function Settings() {
             { id: 'general', name: 'General', icon: SettingsIcon },
             { id: 'database', name: 'Database', icon: Database },
             { id: 'logs', name: 'System Logs', icon: FileText },
-            { id: 'security', name: 'Security', icon: Shield },
-            { id: 'notifications', name: 'Notifications', icon: Bell }
-          ].map((tab) => (
+            { id: 'notifications', name: 'Notifications', icon: Bell },
+            (currentUser?.role === 'super_admin' || currentUser?.role === 'root') && 
+              { id: 'pdf', name: 'PDF Settings', icon: FileText }
+          ].filter(Boolean).map((tab: any) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
@@ -564,6 +637,61 @@ export default function Settings() {
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Profile Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Profile Picture */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Profile Picture</label>
+                  <div className="flex items-center space-x-6">
+                    <div className="relative">
+                      {profileData.avatar ? (
+                        <img 
+                          src={profileData.avatar} 
+                          alt="Profile" 
+                          className="w-24 h-24 rounded-full object-cover border-2 border-gray-300 dark:border-gray-600"
+                        />
+                      ) : (
+                        <div className="w-24 h-24 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center border-2 border-gray-300 dark:border-gray-600">
+                          <span className="text-2xl font-bold text-gray-500 dark:text-gray-400">
+                            {profileData.name ? profileData.name.charAt(0).toUpperCase() : 'U'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-col space-y-3">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleAvatarFileChange(e)}
+                        className="block w-full text-sm text-gray-500 dark:text-gray-400
+                          file:mr-4 file:py-2 file:px-4
+                          file:rounded-lg file:border-0
+                          file:text-sm file:font-semibold
+                          file:bg-primary-600 file:text-white
+                          hover:file:bg-primary-700
+                          dark:file:bg-primary-700 dark:hover:file:bg-primary-600"
+                      />
+                      <button
+                        onClick={handleUploadAvatar}
+                        disabled={!avatarFile || loading}
+                        className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                      >
+                        Upload Picture
+                      </button>
+                      {profileData.avatar && (
+                        <button
+                          onClick={handleRemoveAvatar}
+                          disabled={loading}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                        >
+                          Remove Picture
+                        </button>
+                      )}
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Upload a profile picture. For best results, use a square image (200x200 pixels minimum). JPG, PNG, or GIF formats.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Full Name</label>
                   <input
@@ -878,33 +1006,33 @@ export default function Settings() {
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Database Management</h3>
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                   <div className="flex items-center space-x-3">
-                    <Download className="h-5 w-5 text-blue-600" />
+                    <Download className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     <div>
-                      <h4 className="font-medium text-gray-900">Backup Database</h4>
-                      <p className="text-sm text-gray-600">Download a complete backup of your database</p>
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100">Backup Database</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Download a complete backup of your database</p>
                     </div>
                   </div>
                   <button
                     onClick={handleBackupDatabase}
                     disabled={loading}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2 text-white rounded-lg"
                   >
                     <Download className="h-4 w-4" />
                     <span>Backup Now</span>
                   </button>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                   <div className="flex items-center space-x-3">
-                    <Upload className="h-5 w-5 text-green-600" />
+                    <Upload className="h-5 w-5 text-green-600 dark:text-green-400" />
                     <div>
-                      <h4 className="font-medium text-gray-900">Restore Database</h4>
-                      <p className="text-sm text-gray-600">Upload and restore from a backup file</p>
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100">Restore Database</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Upload and restore from a backup file</p>
                     </div>
                   </div>
-                  <label className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 cursor-pointer flex items-center space-x-2">
+                  <label className="px-4 py-2 bg-green-600 hover:bg-green-700 cursor-pointer flex items-center space-x-2 text-white rounded-lg">
                     <Upload className="h-4 w-4" />
                     <span>Choose File</span>
                     <input
@@ -917,9 +1045,9 @@ export default function Settings() {
                 </div>
 
                 {backupData && (
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <h4 className="font-medium text-gray-900 mb-2">Last Backup Info</h4>
-                    <div className="text-sm text-gray-600 space-y-1">
+                  <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Last Backup Info</h4>
+                    <div className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
                       <p>Date: {format(backupData.metadata.timestamp, 'MMM dd, yyyy HH:mm')}</p>
                       <p>Version: {backupData.metadata.version}</p>
                       <p>Total Records: {backupData.metadata.totalRecords}</p>
@@ -985,72 +1113,7 @@ export default function Settings() {
           </div>
         )}
 
-        {/* Security Settings */}
-        {activeTab === 'security' && (
-          <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Security Settings</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Session Timeout (minutes)</label>
-                  <input
-                    type="number"
-                    value={securitySettings.sessionTimeout}
-                    onChange={(e) => setSecuritySettings(prev => ({ ...prev, sessionTimeout: parseInt(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    min="5"
-                    max="480"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Password Minimum Length</label>
-                  <input
-                    type="number"
-                    value={securitySettings.passwordMinLength}
-                    onChange={(e) => setSecuritySettings(prev => ({ ...prev, passwordMinLength: parseInt(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    min="6"
-                    max="32"
-                  />
-                </div>
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
-                    id="requirePasswordChange"
-                    checked={securitySettings.requirePasswordChange}
-                    onChange={(e) => setSecuritySettings(prev => ({ ...prev, requirePasswordChange: e.target.checked }))}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                  />
-                  <label htmlFor="requirePasswordChange" className="text-sm text-gray-700">
-                    Require password change on next login
-                  </label>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
-                    id="twoFactorAuth"
-                    checked={securitySettings.twoFactorAuth}
-                    onChange={(e) => setSecuritySettings(prev => ({ ...prev, twoFactorAuth: e.target.checked }))}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                  />
-                  <label htmlFor="twoFactorAuth" className="text-sm text-gray-700">
-                    Enable two-factor authentication
-                  </label>
-                </div>
-              </div>
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={() => handleSaveSettings('security')}
-                  disabled={loading}
-                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 flex items-center space-x-2"
-                >
-                  <Save className="h-4 w-4" />
-                  <span>Save Settings</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+
 
         {/* Notification Settings */}
         {activeTab === 'notifications' && (
@@ -1064,74 +1127,74 @@ export default function Settings() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="font-medium text-gray-900">Email Notifications</h4>
-                    <p className="text-sm text-gray-600">Receive notifications via email</p>
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">Email Notifications</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Receive notifications via email</p>
                   </div>
                   <input
                     type="checkbox"
                     checked={notificationSettings.emailNotifications}
                     onChange={(e) => setNotificationSettings(prev => ({ ...prev, emailNotifications: e.target.checked }))}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
                   />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="font-medium text-gray-900">Push Notifications</h4>
-                    <p className="text-sm text-gray-600">Receive push notifications in browser</p>
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">Push Notifications</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Receive push notifications in browser</p>
                   </div>
                   <input
                     type="checkbox"
                     checked={notificationSettings.pushNotifications}
                     onChange={(e) => setNotificationSettings(prev => ({ ...prev, pushNotifications: e.target.checked }))}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
                   />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="font-medium text-gray-900">Weekly Reports</h4>
-                    <p className="text-sm text-gray-600">Get weekly time tracking reports</p>
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">Weekly Reports</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Get weekly time tracking reports</p>
                   </div>
                   <input
                     type="checkbox"
                     checked={notificationSettings.weeklyReports}
                     onChange={(e) => setNotificationSettings(prev => ({ ...prev, weeklyReports: e.target.checked }))}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
                   />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="font-medium text-gray-900">Project Deadlines</h4>
-                    <p className="text-sm text-gray-600">Notifications for upcoming project deadlines</p>
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">Project Deadlines</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Notifications for upcoming project deadlines</p>
                   </div>
                   <input
                     type="checkbox"
                     checked={notificationSettings.projectDeadlines}
                     onChange={(e) => setNotificationSettings(prev => ({ ...prev, projectDeadlines: e.target.checked }))}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
                   />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="font-medium text-gray-900">Team Updates</h4>
-                    <p className="text-sm text-gray-600">Notifications for team-related activities</p>
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">Team Updates</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Notifications for team-related activities</p>
                   </div>
                   <input
                     type="checkbox"
                     checked={notificationSettings.teamUpdates}
                     onChange={(e) => setNotificationSettings(prev => ({ ...prev, teamUpdates: e.target.checked }))}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
                   />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="font-medium text-gray-900">System Alerts</h4>
-                    <p className="text-sm text-gray-600">Important system notifications and alerts</p>
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">System Alerts</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Important system notifications and alerts</p>
                   </div>
                   <input
                     type="checkbox"
                     checked={notificationSettings.systemAlerts}
                     onChange={(e) => setNotificationSettings(prev => ({ ...prev, systemAlerts: e.target.checked }))}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
                   />
                 </div>
               </div>
@@ -1145,6 +1208,50 @@ export default function Settings() {
                   <span>Save Settings</span>
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* PDF Settings Link */}
+        {activeTab === 'profile' && (currentUser?.role === 'super_admin' || currentUser?.role === 'root') && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">PDF Export Settings</h3>
+            <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <FileText className="h-5 w-5 text-blue-600" />
+                <div>
+                  <h4 className="font-medium text-gray-900">Customize PDF Exports</h4>
+                  <p className="text-sm text-gray-600">Manage company-specific PDF branding and settings</p>
+                </div>
+              </div>
+              <Link 
+                to="/pdf-settings" 
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+              >
+                <span>Configure</span>
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* PDF Settings Tab */}
+        {activeTab === 'pdf' && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">PDF Export Settings</h3>
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <FileText className="h-16 w-16 text-blue-500 mb-4" />
+              <h4 className="text-xl font-medium text-gray-900 dark:text-gray-100 mb-2">Customize PDF Exports</h4>
+              <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md">
+                Manage company-specific PDF branding, including company name, logo, colors, and footer text.
+              </p>
+              <Link 
+                to="/pdf-settings" 
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+              >
+                <span>Go to PDF Settings</span>
+                <ChevronRight className="h-4 w-4" />
+              </Link>
             </div>
           </div>
         )}
