@@ -27,6 +27,8 @@ import SystemSettings from './pages/SystemSettings'
 import PDFSettings from './pages/PDFSettings'
 import SoundTestPage from './pages/SoundTestPage'
 import Auth from './pages/Auth'
+import SuperAdminSignup from './pages/SuperAdminSignup'
+import EmailVerification from './pages/EmailVerification' // Add this import
 import Landing from './pages/Landing'
 import About from './pages/About'
 import Messaging from './pages/Messaging'
@@ -60,6 +62,8 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/super-admin-signup" element={<SuperAdminSignup />} />
+          <Route path="/verify-email" element={<EmailVerification />} /> {/* Add this route */}
           <Route path="/landing" element={<Landing />} />
           <Route path="/about" element={<About />} />
           <Route path="*" element={<Landing />} />

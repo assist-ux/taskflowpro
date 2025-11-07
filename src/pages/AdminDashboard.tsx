@@ -34,6 +34,14 @@ import SimpleChart from '../components/charts/SimpleChart'
 import { formatDurationToHHMMSS } from '../utils'
 import { canViewHourlyRates, getRoleDisplayName, canAccessFeature } from '../utils/permissions'
 
+// Add interface for undo actions
+interface UndoAction {
+  id: string;
+  type: 'delete-user' | 'delete-time-entry' | 'edit-user' | 'edit-time-entry';
+  data: any;
+  timeoutId: NodeJS.Timeout;
+}
+
 export default function AdminDashboard() {
   const { currentUser } = useAuth()
   const navigate = useNavigate()
@@ -67,6 +75,10 @@ export default function AdminDashboard() {
   const [editingTimeEntry, setEditingTimeEntry] = useState<TimeEntry | null>(null)
   const [isTimeEntryEditModalOpen, setIsTimeEntryEditModalOpen] = useState(false)
   const [error, setError] = useState('')
+  // Add undo state
+  const [undoActions, setUndoActions] = useState<UndoAction[]>([])
+  const [showUndoNotification, setShowUndoNotification] = useState(false)
+  const [currentUndoAction, setCurrentUndoAction] = useState<UndoAction | null>(null)
 
   useEffect(() => {
     if (currentUser?.role && ['admin', 'hr', 'super_admin', 'root'].includes(currentUser.role)) {
@@ -441,6 +453,9 @@ export default function AdminDashboard() {
     if (window.confirm(`Are you sure you want to delete "${user.name}"? This action cannot be undone.`)) {
       try {
         setError('')
+        // Store user data for potential undo
+        const userForUndo = { ...user }
+        
         // Actually delete the user
         await userService.deleteUser(user.id)
         
@@ -449,6 +464,22 @@ export default function AdminDashboard() {
         
         // Also refresh the data to ensure consistency
         await loadData()
+        
+        // Add undo action
+        const undoAction: UndoAction = {
+          id: `delete-user-${user.id}-${Date.now()}`,
+          type: 'delete-user',
+          data: userForUndo,
+          timeoutId: setTimeout(() => {
+            // Remove undo action after 30 seconds
+            setUndoActions(prev => prev.filter(action => action.id !== undoAction.id))
+            setShowUndoNotification(false)
+          }, 30000)
+        }
+        
+        setUndoActions(prev => [...prev, undoAction])
+        setCurrentUndoAction(undoAction)
+        setShowUndoNotification(true)
         
         console.log('User deletion process completed for:', user.id)
       } catch (error: any) {
@@ -461,6 +492,9 @@ export default function AdminDashboard() {
   const handleUserUpdate = async (updatedUser: User) => {
     try {
       setError('')
+      // Store original user data for undo
+      const originalUser = users.find(u => u.id === updatedUser.id)
+      
       // Update user in the database
       await userService.updateUser(updatedUser.id, {
         name: updatedUser.name,
@@ -476,6 +510,24 @@ export default function AdminDashboard() {
           user.id === updatedUser.id ? updatedUser : user
         )
       )
+      
+      // Add undo action
+      if (originalUser) {
+        const undoAction: UndoAction = {
+          id: `edit-user-${updatedUser.id}-${Date.now()}`,
+          type: 'edit-user',
+          data: { originalUser, updatedUser },
+          timeoutId: setTimeout(() => {
+            // Remove undo action after 30 seconds
+            setUndoActions(prev => prev.filter(action => action.id !== undoAction.id))
+            setShowUndoNotification(false)
+          }, 30000)
+        }
+        
+        setUndoActions(prev => [...prev, undoAction])
+        setCurrentUndoAction(undoAction)
+        setShowUndoNotification(true)
+      }
       
       setIsEditModalOpen(false)
       setEditingUser(null)
@@ -502,6 +554,8 @@ export default function AdminDashboard() {
       // Add to local state
       setUsers(prevUsers => [...prevUsers, newUser])
       
+      // No undo functionality needed for user creation
+      
       setIsCreateModalOpen(false)
     } catch (error) {
       setError('Failed to create user')
@@ -514,20 +568,172 @@ export default function AdminDashboard() {
     setIsTimeEntryEditModalOpen(true)
   }
 
-  const handleTimeEntrySave = (updatedEntry: TimeEntry) => {
-    // Update local state
-    setTimeEntries(prevEntries => 
-      prevEntries.map(entry => 
-        entry.id === updatedEntry.id ? updatedEntry : entry
+  const handleTimeEntrySave = async (updatedEntry: TimeEntry) => {
+    try {
+      // Store original entry for undo
+      const originalEntry = timeEntries.find(e => e.id === updatedEntry.id)
+      
+      // Update in database
+      await timeEntryService.updateTimeEntry(updatedEntry.id, {
+        description: updatedEntry.description,
+        projectId: updatedEntry.projectId,
+        isBillable: updatedEntry.isBillable,
+        projectName: updatedEntry.projectName,
+        clientName: updatedEntry.clientName
+      })
+      
+      // Update local state
+      setTimeEntries(prevEntries => 
+        prevEntries.map(entry => 
+          entry.id === updatedEntry.id ? updatedEntry : entry
+        )
       )
-    )
+      
+      // Add undo action
+      if (originalEntry) {
+        const undoAction: UndoAction = {
+          id: `edit-time-entry-${updatedEntry.id}-${Date.now()}`,
+          type: 'edit-time-entry',
+          data: { originalEntry, updatedEntry },
+          timeoutId: setTimeout(() => {
+            // Remove undo action after 30 seconds
+            setUndoActions(prev => prev.filter(action => action.id !== undoAction.id))
+            setShowUndoNotification(false)
+          }, 30000)
+        }
+        
+        setUndoActions(prev => [...prev, undoAction])
+        setCurrentUndoAction(undoAction)
+        setShowUndoNotification(true)
+      }
+    } catch (error) {
+      setError('Failed to update time entry')
+      console.error('Error updating time entry:', error)
+    }
   }
 
-  const handleTimeEntryDelete = (entryId: string) => {
-    setTimeEntries(prevEntries => 
-      prevEntries.filter(entry => entry.id !== entryId)
-    )
+  const handleTimeEntryDelete = async (entryId: string) => {
+    try {
+      // Store deleted entry for undo
+      const deletedEntry = timeEntries.find(e => e.id === entryId)
+      
+      // Delete from database
+      await timeEntryService.deleteTimeEntry(entryId)
+      
+      // Update local state
+      setTimeEntries(prevEntries => 
+        prevEntries.filter(entry => entry.id !== entryId)
+      )
+      
+      // Add undo action
+      if (deletedEntry) {
+        const undoAction: UndoAction = {
+          id: `delete-time-entry-${entryId}-${Date.now()}`,
+          type: 'delete-time-entry',
+          data: deletedEntry,
+          timeoutId: setTimeout(() => {
+            // Remove undo action after 30 seconds
+            setUndoActions(prev => prev.filter(action => action.id !== undoAction.id))
+            setShowUndoNotification(false)
+          }, 30000)
+        }
+        
+        setUndoActions(prev => [...prev, undoAction])
+        setCurrentUndoAction(undoAction)
+        setShowUndoNotification(true)
+      }
+    } catch (error) {
+      setError('Failed to delete time entry')
+      console.error('Error deleting time entry:', error)
+    }
   }
+
+  // Add undo function
+  const handleUndo = async () => {
+    if (!currentUndoAction) return
+    
+    try {
+      // Clear the timeout
+      clearTimeout(currentUndoAction.timeoutId)
+      
+      switch (currentUndoAction.type) {
+        case 'delete-user':
+          // Restore the user by setting isActive back to true
+          const deletedUser = currentUndoAction.data
+          await userService.updateUser(deletedUser.id, {
+            isActive: true
+          })
+          setUsers(prevUsers => [...prevUsers, {...deletedUser, isActive: true}])
+          break
+          
+        case 'delete-time-entry':
+          // Recreate the time entry
+          const entryData = currentUndoAction.data
+          await timeEntryService.createTimeEntry({
+            projectId: entryData.projectId,
+            description: entryData.description,
+            isBillable: entryData.isBillable,
+            tags: entryData.tags,
+            clientId: entryData.clientId
+          }, entryData.userId, entryData.projectName, entryData.companyId, entryData.clientName)
+          setTimeEntries(prevEntries => [...prevEntries, entryData])
+          break
+          
+        case 'edit-user':
+          // Revert user edit
+          const { originalUser } = currentUndoAction.data
+          await userService.updateUser(originalUser.id, {
+            name: originalUser.name,
+            email: originalUser.email,
+            role: originalUser.role,
+            isActive: originalUser.isActive,
+            timezone: originalUser.timezone
+          })
+          setUsers(prevUsers => 
+            prevUsers.map(user => 
+              user.id === originalUser.id ? originalUser : user
+            )
+          )
+          break
+          
+        case 'edit-time-entry':
+          // Revert time entry edit
+          const { originalEntry } = currentUndoAction.data
+          await timeEntryService.updateTimeEntry(originalEntry.id, {
+            description: originalEntry.description,
+            projectId: originalEntry.projectId,
+            isBillable: originalEntry.isBillable,
+            projectName: originalEntry.projectName,
+            clientName: originalEntry.clientName
+          })
+          setTimeEntries(prevEntries => 
+            prevEntries.map(entry => 
+              entry.id === originalEntry.id ? originalEntry : entry
+            )
+          )
+          break
+      }
+      
+      // Remove the undo action
+      setUndoActions(prev => prev.filter(action => action.id !== currentUndoAction.id))
+      setShowUndoNotification(false)
+      setCurrentUndoAction(null)
+      
+      // Reload data to ensure consistency
+      await loadData()
+    } catch (error) {
+      setError('Failed to undo action')
+      console.error('Error undoing action:', error)
+    }
+  }
+
+  // Add cleanup effect for timeouts
+  useEffect(() => {
+    return () => {
+      // Clear all timeouts when component unmounts
+      undoActions.forEach(action => clearTimeout(action.timeoutId))
+    }
+  }, [undoActions])
 
   if (!currentUser?.role || !['admin', 'hr', 'super_admin', 'root'].includes(currentUser.role)) {
     return (
@@ -1015,6 +1221,26 @@ export default function AdminDashboard() {
                   />
                 </div>
               </div>
+              
+              {/* Dynamic Total Time */}
+              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-medium text-blue-900 dark:text-blue-200">
+                      Total Time for Selected Filters
+                    </h4>
+                    <p className="text-xs text-blue-700 dark:text-blue-300">
+                      {getFilteredTimeEntries().length} time entries
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                      {formatDurationToHHMMSS(getTotalHours())}
+                    </p>
+                    <p className="text-xs text-blue-600 dark:text-blue-400">Total Hours</p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Time Entries Table */}
@@ -1128,10 +1354,6 @@ export default function AdminDashboard() {
                   <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Projects Overview</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Manage and monitor all projects</p>
                 </div>
-                <button className="btn-primary flex items-center space-x-2">
-                  <FolderOpen className="h-4 w-4" />
-                  <span>Add Project</span>
-                </button>
               </div>
 
               {/* Projects Stats */}
@@ -1189,9 +1411,6 @@ export default function AdminDashboard() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                         Entries
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Actions
-                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -1222,16 +1441,6 @@ export default function AdminDashboard() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                           {project.entryCount}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex space-x-2">
-                            <button className="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300">
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            <button className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300">
-                              <Edit className="h-4 w-4" />
-                            </button>
-                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1286,6 +1495,37 @@ export default function AdminDashboard() {
               <button
                 onClick={() => setError('')}
                 className="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Undo Notification */}
+        {showUndoNotification && currentUndoAction && (
+          <div className="fixed bottom-4 right-4 bg-green-100 dark:bg-green-900 border border-green-400 dark:border-green-700 text-green-700 dark:text-green-300 px-4 py-3 rounded-lg shadow-lg z-50">
+            <div className="flex items-center space-x-2">
+              <span>
+                {currentUndoAction.type === 'delete-user' && 'User deleted'}
+                {currentUndoAction.type === 'delete-time-entry' && 'Time entry deleted'}
+                {currentUndoAction.type === 'edit-user' && 'User updated'}
+                {currentUndoAction.type === 'edit-time-entry' && 'Time entry updated'}
+              </span>
+              <button
+                onClick={handleUndo}
+                className="text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 font-medium"
+              >
+                Undo
+              </button>
+              <button
+                onClick={() => {
+                  clearTimeout(currentUndoAction.timeoutId)
+                  setUndoActions(prev => prev.filter(action => action.id !== currentUndoAction.id))
+                  setShowUndoNotification(false)
+                  setCurrentUndoAction(null)
+                }}
+                className="text-green-500 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
               >
                 <X className="h-4 w-4" />
               </button>

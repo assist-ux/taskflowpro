@@ -761,26 +761,7 @@ export default function Settings() {
                     <option value="GMT+14 (Line Islands)">GMT+14 (Line Islands)</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Hourly Rate ($)
-                    {!canEditRates && (
-                      <span className="block text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Only HR and Super Admin users can edit hourly rates
-                      </span>
-                    )}
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={profileData.hourlyRate}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, hourlyRate: parseFloat(e.target.value) || 0 }))}
-                    className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${!canEditRates ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''}`}
-                    placeholder="25.00"
-                    disabled={!canEditRates}
-                  />
-                </div>
+
               </div>
               <div className="mt-6 flex justify-end">
                 <button
@@ -875,116 +856,31 @@ export default function Settings() {
         {activeTab === 'general' && (
           <div className="space-y-6">
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Application Settings</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Application Name</label>
-                  <input
-                    type="text"
-                    value={generalSettings.appName}
-                    onChange={(e) => setGeneralSettings(prev => ({ ...prev, appName: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Timezone</label>
-                  <select
-                    value={generalSettings.timezone}
-                    onChange={(e) => setGeneralSettings(prev => ({ ...prev, timezone: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                  >
-                    <option value="GMT-12 (International Date Line West)">GMT-12 (International Date Line West)</option>
-                    <option value="GMT-11 (Midway Island, Samoa)">GMT-11 (Midway Island, Samoa)</option>
-                    <option value="GMT-10 (Hawaii)">GMT-10 (Hawaii)</option>
-                    <option value="GMT-9 (Alaska)">GMT-9 (Alaska)</option>
-                    <option value="GMT-8 (Pacific Time)">GMT-8 (Pacific Time)</option>
-                    <option value="GMT-7 (Mountain Time)">GMT-7 (Mountain Time)</option>
-                    <option value="GMT-6 (Central Time)">GMT-6 (Central Time)</option>
-                    <option value="GMT-5 (Eastern Time)">GMT-5 (Eastern Time)</option>
-                    <option value="GMT-4 (Atlantic Time)">GMT-4 (Atlantic Time)</option>
-                    <option value="GMT-3:30 (Newfoundland)">GMT-3:30 (Newfoundland)</option>
-                    <option value="GMT-3 (Brasília Time)">GMT-3 (Brasília Time)</option>
-                    <option value="GMT-2 (Mid-Atlantic)">GMT-2 (Mid-Atlantic)</option>
-                    <option value="GMT-1 (Azores)">GMT-1 (Azores)</option>
-                    <option value="GMT+0 (Greenwich Mean Time)">GMT+0 (Greenwich Mean Time)</option>
-                    <option value="GMT+1 (Central European Time)">GMT+1 (Central European Time)</option>
-                    <option value="GMT+2 (Eastern European Time)">GMT+2 (Eastern European Time)</option>
-                    <option value="GMT+3 (Moscow Time)">GMT+3 (Moscow Time)</option>
-                    <option value="GMT+3:30 (Iran)">GMT+3:30 (Iran)</option>
-                    <option value="GMT+4 (Gulf Standard Time)">GMT+4 (Gulf Standard Time)</option>
-                    <option value="GMT+4:30 (Afghanistan)">GMT+4:30 (Afghanistan)</option>
-                    <option value="GMT+5 (Pakistan)">GMT+5 (Pakistan)</option>
-                    <option value="GMT+5:30 (India Standard Time)">GMT+5:30 (India Standard Time)</option>
-                    <option value="GMT+5:45 (Nepal)">GMT+5:45 (Nepal)</option>
-                    <option value="GMT+6 (Bangladesh)">GMT+6 (Bangladesh)</option>
-                    <option value="GMT+6:30 (Myanmar)">GMT+6:30 (Myanmar)</option>
-                    <option value="GMT+7 (Indochina Time)">GMT+7 (Indochina Time)</option>
-                    <option value="GMT+8 (China Standard Time)">GMT+8 (China Standard Time)</option>
-                    <option value="GMT+8:45 (Australia Eucla)">GMT+8:45 (Australia Eucla)</option>
-                    <option value="GMT+9 (Japan Standard Time)">GMT+9 (Japan Standard Time)</option>
-                    <option value="GMT+9:30 (Australian Central Time)">GMT+9:30 (Australian Central Time)</option>
-                    <option value="GMT+10 (Australian Eastern Time)">GMT+10 (Australian Eastern Time)</option>
-                    <option value="GMT+10:30 (Lord Howe Island)">GMT+10:30 (Lord Howe Island)</option>
-                    <option value="GMT+11 (Solomon Islands)">GMT+11 (Solomon Islands)</option>
-                    <option value="GMT+12 (New Zealand Time)">GMT+12 (New Zealand Time)</option>
-                    <option value="GMT+12:45 (Chatham Islands)">GMT+12:45 (Chatham Islands)</option>
-                    <option value="GMT+13 (Tonga)">GMT+13 (Tonga)</option>
-                    <option value="GMT+14 (Line Islands)">GMT+14 (Line Islands)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Date Format</label>
-                  <select
-                    value={generalSettings.dateFormat}
-                    onChange={(e) => setGeneralSettings(prev => ({ ...prev, dateFormat: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                  >
-                    <option value="MM/dd/yyyy">MM/DD/YYYY</option>
-                    <option value="dd/MM/yyyy">DD/MM/YYYY</option>
-                    <option value="yyyy-MM-dd">YYYY-MM-DD</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Time Format</label>
-                  <select
-                    value={generalSettings.timeFormat}
-                    onChange={(e) => setGeneralSettings(prev => ({ ...prev, timeFormat: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                  >
-                    <option value="12h">12 Hour</option>
-                    <option value="24h">24 Hour</option>
-                  </select>
-                </div>
-              </div>
-              
-              {/* Theme Settings */}
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <h4 className="text-md font-medium text-gray-900 dark:text-gray-100 mb-4">Appearance</h4>
-                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-gray-200 dark:bg-gray-600 rounded-lg">
-                      <SettingsIcon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-900 dark:text-gray-100">Dark Mode</h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {isDarkMode ? 'Currently using dark theme' : 'Currently using light theme'}
-                      </p>
-                    </div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Appearance</h3>
+              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-gray-200 dark:bg-gray-600 rounded-lg">
+                    <SettingsIcon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
                   </div>
-                  <button
-                    onClick={toggleDarkMode}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
-                      isDarkMode ? 'bg-primary-600' : 'bg-gray-200'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        isDarkMode ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">Dark Mode</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {isDarkMode ? 'Currently using dark theme' : 'Currently using light theme'}
+                    </p>
+                  </div>
                 </div>
+                <button
+                  onClick={toggleDarkMode}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                    isDarkMode ? 'bg-primary-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      isDarkMode ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
               </div>
               <div className="mt-6 flex justify-end">
                 <button

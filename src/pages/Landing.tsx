@@ -594,10 +594,16 @@ const Landing = () => {
             >
               Sign In Now
             </button>
-            <button className="border border-white text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 cursor-pointer transition-all duration-200">
-              Contact Administrator
+            <button 
+              onClick={() => navigate('/super-admin-signup')}
+              className="border border-white text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 cursor-pointer transition-all duration-200"
+            >
+              Create New Company
             </button>
           </div>
+          <p className="text-blue-100 mt-4 text-sm">
+            Looking to create a new company account? <button onClick={() => navigate('/super-admin-signup')} className="underline font-medium">Sign up as Super Admin</button>
+          </p>
         </div>
       </section>
 

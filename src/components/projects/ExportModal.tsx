@@ -646,14 +646,6 @@ export default function ExportModal({
                 <label className="flex items-center space-x-3">
                   <input
                     type="checkbox"
-                    className={`h-4 w-4 rounded focus:ring-blue-500 ${isDarkMode ? 'bg-gray-600 border-gray-500 text-blue-500' : 'border-gray-300 text-blue-600'}`}
-                    disabled={isExporting}
-                  />
-                </label>
-
-                <label className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
                     checked={exportData.includeProjectDetails}
                     onChange={(e) => setExportData(prev => ({ ...prev, includeProjectDetails: e.target.checked }))}
                     className={`h-4 w-4 rounded focus:ring-blue-500 ${isDarkMode ? 'bg-gray-600 border-gray-500 text-blue-500' : 'border-gray-300 text-blue-600'}`}

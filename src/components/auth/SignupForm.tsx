@@ -95,14 +95,14 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
   return (
     <div className="w-full max-w-md mx-auto">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h1>
-        <p className="text-gray-600">Join NexiFlow and start tracking your time</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2 dark:text-white">Create Account</h1>
+        <p className="text-gray-600 dark:text-gray-400">Join NexiFlow and start tracking your time</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Full Name Field */}
         <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
             Full Name
           </label>
           <input
@@ -112,7 +112,7 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
             required
             value={credentials.name}
             onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
             placeholder="Enter your full name"
             disabled={loading}
           />
@@ -120,7 +120,7 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
 
         {/* Email Field */}
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
             Email Address
           </label>
           <input
@@ -130,37 +130,18 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
             required
             value={credentials.email}
             onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
             placeholder="Enter your email"
             disabled={loading}
           />
         </div>
 
-        {/* Role Selection */}
-        <div>
-          <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
-            Account Type
-          </label>
-          <select
-            id="role"
-            name="role"
-            value={credentials.role}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            disabled={loading}
-          >
-            <option value="employee">Employee</option>
-            <option value="hr">HR</option>
-            <option value="admin">Admin</option>
-          </select>
-          <p className="text-sm text-gray-500 mt-1">
-            {getRoleDescription(credentials.role)}
-          </p>
-        </div>
+        {/* Hidden Role Field - Default to employee for regular signup */}
+        <input type="hidden" name="role" value="employee" />
 
         {/* Password Field */}
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
             Password
           </label>
           <div className="relative">
@@ -171,7 +152,7 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
               required
               value={credentials.password}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
               placeholder="Create a strong password"
               disabled={loading}
             />
@@ -182,9 +163,9 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
               disabled={loading}
             >
               {showPassword ? (
-                <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300" />
               ) : (
-                <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300" />
               )}
             </button>
           </div>
@@ -236,7 +217,7 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
 
         {/* Confirm Password Field */}
         <div>
-          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
             Confirm Password
           </label>
           <div className="relative">
@@ -247,7 +228,7 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
               required
               value={credentials.confirmPassword}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
               placeholder="Confirm your password"
               disabled={loading}
             />
@@ -258,9 +239,9 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
               disabled={loading}
             >
               {showConfirmPassword ? (
-                <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300" />
               ) : (
-                <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300" />
               )}
             </button>
           </div>
@@ -268,15 +249,15 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
 
         {/* Error Message */}
         {error && (
-          <div className="flex items-start space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+          <div className="flex items-start space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/30 dark:border-red-800">
+            <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5 dark:text-red-400" />
             <div className="flex-1">
-              <p className="text-sm text-red-700">{error}</p>
+              <p className="text-sm text-red-700 dark:text-red-200">{error}</p>
               {error.includes('already registered') && (
                 <button
                   type="button"
                   onClick={onSwitchToLogin}
-                  className="text-sm text-primary-600 hover:text-primary-700 font-medium mt-1 underline"
+                  className="text-sm text-primary-600 hover:text-primary-700 font-medium mt-1 underline dark:text-primary-400 dark:hover:text-primary-300"
                 >
                   Sign in instead
                 </button>
@@ -297,12 +278,12 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
 
       {/* Switch to Login */}
       <div className="mt-8 text-center">
-        <p className="text-gray-600">
+        <p className="text-gray-600 dark:text-gray-400">
           Already have an account?{' '}
           <button
             type="button"
             onClick={onSwitchToLogin}
-            className="text-primary-600 hover:text-primary-700 font-medium"
+            className="text-primary-600 hover:text-primary-700 font-medium dark:text-primary-400 dark:hover:text-primary-300"
             disabled={loading}
           >
             Sign in

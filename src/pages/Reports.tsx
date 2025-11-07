@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { 
   Clock, 
   DollarSign, 
@@ -28,12 +29,14 @@ import { formatTimeFromSeconds } from '../utils'
 
 export default function Reports() {
   const { currentUser } = useAuth()
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [timeAnalytics, setTimeAnalytics] = useState<TimeAnalytics | null>(null)
   const [projectAnalytics, setProjectAnalytics] = useState<ProjectAnalytics[]>([])
   const [dailyAnalytics, setDailyAnalytics] = useState<DailyAnalytics[]>([])
   const [projects, setProjects] = useState<Project[]>([])
-  const [clients, setClients] = useState<Client[]>([]) // Add clients state
+  const [clients, setClients] = useState<Client[]>([])
+  const [filteredProjects, setFilteredProjects] = useState<Project[]>([]) // Start with empty array
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'quarter' | 'year'>('month')
   const [filters, setFilters] = useState<ReportFilters>({
     startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
@@ -112,41 +115,27 @@ export default function Reports() {
         : await projectService.getClients()
       setClients(clientsData)
       
+      // Load projects with company scoping
+      const companyProjectsData = currentUser?.companyId 
+        ? await projectService.getProjectsForCompany(currentUser.companyId)
+        : await projectService.getProjects()
+      setProjects(companyProjectsData)
+      
+      // Start with empty filtered projects (no projects shown until client is selected)
+      setFilteredProjects([])
+      
       // First get the time summary to match Time Tracker data
       const timeSummary = await timeEntryService.getTimeSummary(currentUser.uid)
       
-      // Convert TimeSummary to TimeAnalytics format based on selected period
-      let periodData
-      switch (selectedPeriod) {
-        case 'week':
-          periodData = timeSummary.thisWeek
-          break
-        case 'month':
-          periodData = timeSummary.thisMonth
-          break
-        case 'quarter':
-        case 'year':
-          periodData = timeSummary.thisMonth // For now, use monthly data
-          break
-        default:
-          periodData = timeSummary.thisMonth
-      }
-      
-      const analytics: TimeAnalytics = {
-        totalTime: periodData.total || 0,
-        billableTime: periodData.billable || 0,
-        nonBillableTime: Math.max(0, (periodData.total || 0) - (periodData.billable || 0)),
-        totalEntries: periodData.entries || 0,
-        averageSessionLength: (periodData.entries || 0) > 0 ? (periodData.total || 0) / (periodData.entries || 1) : 0,
-        mostProductiveDay: 'Monday', // Will be calculated properly later
-        mostProductiveHour: 9, // Will be calculated properly later
-        totalEarnings: ((periodData.billable || 0) / 3600) * 25
-      }
+      // Get time analytics from reports service for accurate productivity insights
+      const analytics = await reportsService.getTimeAnalytics(filters)
       
       const [projectStats, dailyStats, projectsData] = await Promise.all([
         reportsService.getProjectAnalytics(filters),
         reportsService.getDailyAnalytics(filters),
-        projectService.getProjects()
+        currentUser?.companyId 
+          ? projectService.getProjectsForCompany(currentUser.companyId)
+          : projectService.getProjects()
       ])
       
       setTimeAnalytics(analytics)
@@ -202,6 +191,17 @@ export default function Reports() {
       ...prev,
       clientIds: clientIds.length > 0 ? clientIds : undefined
     }))
+    
+    // Filter projects based on selected clients
+    if (clientIds.length > 0) {
+      const projectsForSelectedClients = projects.filter(project => 
+        project.clientId && clientIds.includes(project.clientId)
+      )
+      setFilteredProjects(projectsForSelectedClients)
+    } else {
+      // If no clients selected, show no projects
+      setFilteredProjects([])
+    }
   }
 
   const handleBillableFilter = (filterType: 'all' | 'billable' | 'non-billable') => {
@@ -256,7 +256,7 @@ export default function Reports() {
     setFilters(prev => ({
       ...prev,
       projectIds: tempFilters.projectIds.length > 0 ? tempFilters.projectIds : undefined,
-      clientIds: tempFilters.clientIds.length > 0 ? tempFilters.clientIds : undefined, // Add clientIds filter
+      clientIds: tempFilters.clientIds.length > 0 ? tempFilters.clientIds : undefined,
       billableOnly: tempFilters.billableFilter === 'billable',
       nonBillableOnly: tempFilters.billableFilter === 'non-billable',
       startDate: tempFilters.startDate,
@@ -270,11 +270,15 @@ export default function Reports() {
   const resetFilters = () => {
     setTempFilters({
       projectIds: [],
-      clientIds: [], // Add clientIds to reset
+      clientIds: [],
       billableFilter: 'all',
       startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
       endDate: new Date()
     })
+    // Reset filtered projects to empty (no projects shown until client is selected)
+    setFilteredProjects([])
+    // Reset client selection
+    setSelectedClientIds([])
   }
 
   if (loading) {
@@ -351,24 +355,25 @@ export default function Reports() {
                 Projects
               </label>
               <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 max-h-40 overflow-y-auto scrollbar-visible">
-                {projects.map(project => (
+                {filteredProjects.map(project => (
                   <div key={project.id} className="flex items-center mb-2">
                     <input
                       type="checkbox"
                       id={`project-${project.id}`}
                       checked={tempFilters.projectIds.includes(project.id)}
                       onChange={(e) => {
-                        if (e.target.checked) {
-                          setTempFilters(prev => ({
-                            ...prev,
-                            projectIds: [...prev.projectIds, project.id]
-                          }))
-                        } else {
-                          setTempFilters(prev => ({
-                            ...prev,
-                            projectIds: prev.projectIds.filter(id => id !== project.id)
-                          }))
-                        }
+                        const newProjectIds = e.target.checked
+                          ? [...tempFilters.projectIds, project.id]
+                          : tempFilters.projectIds.filter(id => id !== project.id)
+                        
+                        // Update temp filters
+                        setTempFilters(prev => ({
+                          ...prev,
+                          projectIds: newProjectIds
+                        }))
+                        
+                        // Update selected project IDs state
+                        setSelectedProjectIds(newProjectIds)
                       }}
                       className="h-4 w-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500"
                     />
@@ -383,7 +388,7 @@ export default function Reports() {
               </div>
               <div className="flex items-center justify-between mt-2">
                 <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {tempFilters.projectIds.length} of {projects.length} selected
+                  {tempFilters.projectIds.length} of {filteredProjects.length} selected
                 </span>
                 <div className="space-x-2">
                   <button
@@ -395,23 +400,23 @@ export default function Reports() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setTempFilters(prev => ({ ...prev, projectIds: projects.map(p => p.id) }))}
+                    onClick={() => setTempFilters(prev => ({ ...prev, projectIds: filteredProjects.map(p => p.id) }))}
                     className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                   >
                     Select All
                   </button>
                 </div>
               </div>
-              {projects.length > 0 && (
+              {filteredProjects.length > 0 && (
                 <>
-                  {tempFilters.projectIds.length === projects.length && (
+                  {tempFilters.projectIds.length === filteredProjects.length && (
                     <div className="mt-1 text-xs text-green-600 dark:text-green-400">
                       All projects selected
                     </div>
                   )}
                   {tempFilters.projectIds.length === 0 && (
                     <div className="mt-1 text-xs text-blue-600 dark:text-blue-400">
-                      No projects selected - showing all projects
+                      No projects selected
                     </div>
                   )}
                 </>
@@ -431,16 +436,25 @@ export default function Reports() {
                       id={`client-${client.id}`}
                       checked={tempFilters.clientIds.includes(client.id)}
                       onChange={(e) => {
-                        if (e.target.checked) {
-                          setTempFilters(prev => ({
-                            ...prev,
-                            clientIds: [...prev.clientIds, client.id]
-                          }))
+                        const newClientIds = e.target.checked
+                          ? [...tempFilters.clientIds, client.id]
+                          : tempFilters.clientIds.filter(id => id !== client.id)
+                        
+                        // Update temp filters
+                        setTempFilters(prev => ({
+                          ...prev,
+                          clientIds: newClientIds
+                        }))
+                        
+                        // Filter projects based on selected clients
+                        if (newClientIds.length > 0) {
+                          const projectsForSelectedClients = projects.filter(project => 
+                            project.clientId && newClientIds.includes(project.clientId)
+                          )
+                          setFilteredProjects(projectsForSelectedClients)
                         } else {
-                          setTempFilters(prev => ({
-                            ...prev,
-                            clientIds: prev.clientIds.filter(id => id !== client.id)
-                          }))
+                          // If no clients selected, show no projects
+                          setFilteredProjects([])
                         }
                       }}
                       className="h-4 w-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500"
@@ -461,14 +475,23 @@ export default function Reports() {
                 <div className="space-x-2">
                   <button
                     type="button"
-                    onClick={() => setTempFilters(prev => ({ ...prev, clientIds: [] }))}
+                    onClick={() => {
+                      setTempFilters(prev => ({ ...prev, clientIds: [] }))
+                      // Clear filtered projects when no clients selected
+                      setFilteredProjects([])
+                    }}
                     className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                   >
                     Clear All
                   </button>
                   <button
                     type="button"
-                    onClick={() => setTempFilters(prev => ({ ...prev, clientIds: clients.map(c => c.id) }))}
+                    onClick={() => {
+                      const allClientIds = clients.map(c => c.id)
+                      setTempFilters(prev => ({ ...prev, clientIds: allClientIds }))
+                      // Show all projects when all clients selected
+                      setFilteredProjects(projects)
+                    }}
                     className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                   >
                     Select All
@@ -688,24 +711,69 @@ export default function Reports() {
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Recent Activity</h3>
         <div className="space-y-3">
           {(dailyAnalytics || []).slice(-7).reverse().map((day) => (
-            <div key={day.date} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <div className="w-2 h-2 bg-primary-500 rounded-full" />
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-gray-100">
-                    {day.date ? new Date(day.date).toLocaleDateString('en-US', { 
-                      weekday: 'long', 
-                      month: 'short', 
-                      day: 'numeric' 
-                    }) : 'Unknown Date'}
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{day.entries || 0} entries</p>
+            <div key={day.date} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                  {day.date ? new Date(day.date).toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    month: 'short', 
+                    day: 'numeric' 
+                  }) : 'Unknown Date'}
+                </h4>
+                <div className="text-right">
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">{formatTimeFromSeconds(day.totalTime || 0)}</p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="font-semibold text-gray-900 dark:text-gray-100">{formatTimeFromSeconds(day.totalTime || 0)}</p>
-                <p className="text-sm text-green-600 dark:text-green-400">{formatTimeFromSeconds(day.billableTime || 0)} billable</p>
+              <div className="flex items-center justify-between text-sm">
+                <p className="text-gray-500 dark:text-gray-400">{day.entries || 0} entries</p>
+                <p className="text-green-600 dark:text-green-400">{formatTimeFromSeconds(day.billableTime || 0)} billable</p>
               </div>
+              {/* Project breakdown for the day */}
+              {Object.keys(day.projects).length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                  <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">PROJECT BREAKDOWN</h5>
+                  <div className="space-y-2">
+                    {Object.entries(day.projects).slice(0, 3).map(([projectId, time]) => {
+                      const project = projects.find(p => p.id === projectId) || { name: 'Unknown Project', color: '#6B7280', description: '' };
+                      return (
+                        <div 
+                          key={projectId} 
+                          className="flex items-start justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 p-2 rounded"
+                          onClick={() => {
+                            // Navigate to projects page with the specific project
+                            navigate(`/projects`);
+                          }}
+                        >
+                          <div className="flex items-start space-x-2">
+                            <div 
+                              className="w-2 h-2 rounded-full mt-2" 
+                              style={{ backgroundColor: project.color }}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate block">
+                                {project.name}
+                              </span>
+                              {project.description && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-1">
+                                  {project.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100 ml-2">
+                            {formatTimeFromSeconds(time)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {Object.keys(day.projects).length > 3 && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        +{Object.keys(day.projects).length - 3} more projects
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

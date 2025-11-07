@@ -269,6 +269,20 @@ export const generateClientReportPDF = async (
       addText('Chart could not be captured', margin, currentY, { color: '#EF4444' })
       currentY += 20
     }
+  } else if (includeTimeBreakdown && !chartElement) {
+    // Handle case where we want to show a message about charts
+    addText('Time Rendered by Client', margin, currentY, { fontSize: 18, color: '#1F2937', fontStyle: 'bold' })
+    currentY += 15
+    
+    addLine(margin, currentY, pageWidth - margin, currentY)
+    currentY += 15
+    
+    // Check if there are too many days to display properly
+    // This would require passing the daily time data to this function as well
+    addText('There are no available charts. Please check the following pages for more entry details.', margin, currentY, { fontSize: 12, color: '#6B7280' })
+    currentY += 10
+    addText('Note: Charts are only displayed for periods of 7 days or less.', margin, currentY, { fontSize: 10, color: '#6B7280' })
+    currentY += 20
   }
 
   // Client details table with improved styling
@@ -292,11 +306,6 @@ export const generateClientReportPDF = async (
 
     // Table rows
     data.chartData.forEach((client, index) => {
-      // Alternate row background for better readability
-      if (index % 2 === 1) {
-        pdf.setFillColor(249, 250, 251) // Very light gray
-        pdf.rect(margin, currentY - 7, contentWidth, 10, 'F')
-      }
       
       if (currentY > pageHeight - 30) {
         pdf.addPage()
@@ -326,23 +335,23 @@ export const generateClientReportPDF = async (
     // Only show column headers if the corresponding option is enabled
     let headerX = margin;
     if (includeTimeEntryDescription) {
-      addText('Description', headerX, currentY, { fontSize: 12, color: '#1F2937', fontStyle: 'bold' });
+      pdf.text('Description', headerX, currentY);
     }
     if (includeTimeEntryProject) {
-      headerX += 80;
-      addText('Project', headerX, currentY, { fontSize: 12, color: '#1F2937', fontStyle: 'bold' });
+      headerX += 70 + 5; // Updated to match column width (70) + 5pt padding
+      pdf.text('Project', headerX, currentY);
     }
     if (includeTimeEntryDuration) {
-      headerX += 40;
-      addText('Duration', headerX, currentY, { fontSize: 12, color: '#1F2937', fontStyle: 'bold' });
+      headerX += 40 + 5; // Updated spacing (40) + padding
+      pdf.text('Duration', headerX, currentY);
     }
     if (includeTimeEntryDate) {
-      headerX += 40;
-      addText('Date', headerX, currentY, { fontSize: 12, color: '#1F2937', fontStyle: 'bold' });
+      headerX += 40 + 5; // 40pt width + 5pt padding
+      pdf.text('Date', headerX, currentY);
     }
     if (includeTimeEntryBillableStatus) {
-      headerX += 40;
-      addText('Billable', headerX, currentY, { fontSize: 12, color: '#1F2937', fontStyle: 'bold' });
+      headerX += 40 + 5; // 40pt width + 5pt padding
+      pdf.text('Billable', headerX, currentY);
     }
     currentY += 10
 
@@ -351,11 +360,6 @@ export const generateClientReportPDF = async (
 
     // Time entries rows
     data.timeEntries.slice(0, 20).forEach((entry, index) => { // Limit to first 20 entries
-      // Alternate row background
-      if (index % 2 === 1) {
-        pdf.setFillColor(249, 250, 251)
-        pdf.rect(margin, currentY - 7, contentWidth, 10, 'F')
-      }
       
       if (currentY > pageHeight - 30) {
         pdf.addPage()
@@ -370,26 +374,76 @@ export const generateClientReportPDF = async (
 
       // Position text based on enabled options
       let currentX = margin;
+      const fontSize = 10;
+      
+      // Arrays to store text lines for each column
+      let descriptionLines: string[] = [];
+      let projectLines: string[] = [];
+      
+      // Calculate text lines for each column and determine row height
       if (includeTimeEntryDescription) {
-        addText(description.length > 25 ? description.substring(0, 25) + '...' : description, currentX, currentY, { fontSize: 10, color: '#1F2937' });
-        currentX += 80;
+        // FIX: Adjust column width for A4 portrait format with padding
+        descriptionLines = pdf.splitTextToSize(description, 65); // Reduced from 70 to 65 units
+        // DEBUG: Log the description and split lines
+        console.log('Description text:', description);
+        console.log('Description lines:', descriptionLines);
       }
       if (includeTimeEntryProject) {
-        addText(projectName.length > 15 ? projectName.substring(0, 15) + '...' : projectName, currentX, currentY, { fontSize: 10, color: '#1F2937' });
-        currentX += 40;
+        // FIX: Adjust column width for A4 portrait format with padding
+        projectLines = pdf.splitTextToSize(projectName, 35); // Reduced from 40 to 35 units
+        // DEBUG: Log the project name and split lines
+        console.log('Project name:', projectName);
+        console.log('Project lines:', projectLines);
+      }
+      
+      // Determine row height based on tallest text column (approx. 5pt per line for 10pt font)
+      const lineHeight = 5;
+      const descriptionHeight = descriptionLines.length * lineHeight;
+      const projectHeight = projectLines.length * lineHeight;
+      const otherColumnsHeight = lineHeight; // Duration, Date, and Billable are single line
+      // FIX: Ensure minimum row height to prevent text overlap
+      const rowHeight = Math.max(descriptionHeight, projectHeight, otherColumnsHeight, 12);
+      
+      // DEBUG: Log row height calculation
+      console.log('Row height calculation (first function):', { descriptionHeight, projectHeight, otherColumnsHeight, rowHeight });
+      
+      // Position text with proper vertical alignment for multi-line content
+      if (includeTimeEntryDescription) {
+        // Render each line of the description separately
+        for (let i = 0; i < descriptionLines.length; i++) {
+          const lineY = currentY + (i * lineHeight) + 3; // Added offset for better alignment
+          // DEBUG: Log each line being rendered
+          console.log('Rendering description line (first function):', i, descriptionLines[i], 'at position:', currentX, lineY);
+          pdf.text(descriptionLines[i], currentX, lineY);
+        }
+      }
+      if (includeTimeEntryProject) {
+        currentX += 65 + 5; // Updated column spacing (65) + 5pt padding
+        // Render each line of the project name separately
+        for (let i = 0; i < projectLines.length; i++) {
+          const lineY = currentY + (i * lineHeight) + 3; // Added offset for better alignment
+          // DEBUG: Log each line being rendered
+          console.log('Rendering project line (first function):', i, projectLines[i], 'at position:', currentX, lineY);
+          pdf.text(projectLines[i], currentX, lineY);
+        }
       }
       if (includeTimeEntryDuration) {
-        addText(duration, currentX, currentY, { fontSize: 10, color: '#1F2937' });
-        currentX += 40;
+        currentX += 35 + 5; // Updated spacing (35) + 5pt padding
+        // Align text to top of cell to match description and project columns
+        pdf.text(duration, currentX, currentY + 3); // Added offset for better alignment
       }
       if (includeTimeEntryDate) {
-        addText(date, currentX, currentY, { fontSize: 10, color: '#1F2937' });
-        currentX += 40;
+        currentX += 40 + 5; // 40pt width + 5pt padding
+        // Align text to top of cell to match description and project columns
+        pdf.text(date, currentX, currentY + 3); // Added offset for better alignment
       }
       if (includeTimeEntryBillableStatus) {
-        addText(billableStatus, currentX, currentY, { fontSize: 10, color: '#1F2937' });
+        currentX += 40 + 5; // 40pt width + 5pt padding
+        // Align text to top of cell to match description and project columns
+        pdf.text(billableStatus, currentX, currentY + 3); // Added offset for better alignment
       }
-      currentY += 10
+      // Move to next row based on calculated row height
+      currentY += rowHeight + 2;
     })
 
     if (data.timeEntries.length > 20) {
@@ -585,61 +639,73 @@ export const generateIndividualClientPDF = async (
 
     // Create bar chart directly in PDF using daily time data
     if (dailyTimeData && dailyTimeData.length > 0) {
-      // Create a simple bar chart in the PDF
-      const chartHeight = 50; // Reduced height to prevent overlapping
-      const chartWidth = contentWidth * 0.8; // Reduced width
-      const barWidth = Math.max(12, chartWidth / dailyTimeData.length - 8); // Adjusted bar width
-      const maxHours = Math.max(...dailyTimeData.map(d => d.hours), 0.1); // Ensure at least 0.1 to avoid division by zero
-      
-      // Draw chart title
-      pdf.setFontSize(10);
-      pdf.setTextColor('#6B7280');
-      pdf.text('Hours per day', margin + chartWidth / 2, currentY, { align: 'center' });
-      currentY += 10;
-      
-      // Draw Y-axis labels
-      for (let i = 0; i <= 4; i++) {
-        const yValue = (maxHours * i / 4).toFixed(1);
-        pdf.setFontSize(7);
-        pdf.setTextColor('#9CA3AF');
-        pdf.text(yValue, margin - 5, currentY + chartHeight - (i * chartHeight / 4), { align: 'right' });
-      }
-      
-      // Draw bars
-      const chartStartX = margin + 20;
-      const chartStartY = currentY + chartHeight;
-      
-      dailyTimeData.forEach((dayData, index) => {
-        const day = dayData.formattedDate || format(new Date(dayData.date), 'EEE');
-        const hours = dayData.hours;
+      // Check if there are too many days to display properly (more than 7 days)
+      if (dailyTimeData.length > 7) {
+        // Display a message instead of the chart when there are too many days
+        pdf.setFontSize(12)
+        pdf.setTextColor('#6B7280')
+        pdf.text('There are no available charts. Please check the following pages for more entry details.', margin, currentY)
+        currentY += 10
+        pdf.setFontSize(10)
+        pdf.text(`Note: Charts are only displayed for periods of 7 days or less.`, margin, currentY)
+        currentY += 20
+      } else {
+        // Create a simple bar chart in the PDF for 7 days or less
+        const chartHeight = 50; // Reduced height to prevent overlapping
+        const chartWidth = contentWidth * 0.8; // Reduced width
+        const barWidth = Math.max(12, chartWidth / dailyTimeData.length - 8); // Adjusted bar width
+        const maxHours = Math.max(...dailyTimeData.map(d => d.hours), 0.1); // Ensure at least 0.1 to avoid division by zero
         
-        const barHeight = maxHours > 0 ? (hours / maxHours) * chartHeight : 0;
-        const barX = chartStartX + index * (barWidth + 6); // Reduced spacing
-        const barY = chartStartY - barHeight;
-        
-        // Draw bar
-        pdf.setFillColor('#3B82F6');
-        pdf.rect(barX, barY, barWidth, barHeight, 'F');
-        
-        // Draw day label
-        pdf.setFontSize(7);
+        // Draw chart title
+        pdf.setFontSize(10);
         pdf.setTextColor('#6B7280');
-        pdf.text(day, barX + barWidth / 2, chartStartY + 10, { align: 'center' });
+        pdf.text('Hours per day', margin + chartWidth / 2, currentY, { align: 'center' });
+        currentY += 10;
         
-        // Draw hours value in HH:MM:SS format
-        pdf.setFontSize(7);
-        pdf.setTextColor('#1F2937');
-        // Convert decimal hours to HH:MM:SS format
-        const hoursInSeconds = hours * 3600;
-        const formattedHours = formatSecondsToHHMMSS(hoursInSeconds);
-        pdf.text(formattedHours, barX + barWidth / 2, barY - 3, { align: 'center' });
-      });
-      
-      // Draw X-axis line
-      pdf.setDrawColor(200, 200, 200);
-      pdf.line(chartStartX, chartStartY, chartStartX + chartWidth, chartStartY);
-      
-      currentY += chartHeight + 20; // Reduced spacing
+        // Draw Y-axis labels
+        for (let i = 0; i <= 4; i++) {
+          const yValue = (maxHours * i / 4).toFixed(1);
+          pdf.setFontSize(7);
+          pdf.setTextColor('#9CA3AF');
+          pdf.text(yValue, margin - 5, currentY + chartHeight - (i * chartHeight / 4), { align: 'right' });
+        }
+        
+        // Draw bars
+        const chartStartX = margin + 20;
+        const chartStartY = currentY + chartHeight;
+        
+        dailyTimeData.forEach((dayData, index) => {
+          const day = dayData.formattedDate || format(new Date(dayData.date), 'EEE');
+          const hours = dayData.hours;
+          
+          const barHeight = maxHours > 0 ? (hours / maxHours) * chartHeight : 0;
+          const barX = chartStartX + index * (barWidth + 6); // Reduced spacing
+          const barY = chartStartY - barHeight;
+          
+          // Draw bar
+          pdf.setFillColor('#3B82F6');
+          pdf.rect(barX, barY, barWidth, barHeight, 'F');
+          
+          // Draw day label
+          pdf.setFontSize(7);
+          pdf.setTextColor('#6B7280');
+          pdf.text(day, barX + barWidth / 2, chartStartY + 10, { align: 'center' });
+          
+          // Draw hours value in HH:MM:SS format
+          pdf.setFontSize(7);
+          pdf.setTextColor('#1F2937');
+          // Convert decimal hours to HH:MM:SS format
+          const hoursInSeconds = hours * 3600;
+          const formattedHours = formatSecondsToHHMMSS(hoursInSeconds);
+          pdf.text(formattedHours, barX + barWidth / 2, barY - 3, { align: 'center' });
+        });
+        
+        // Draw X-axis line
+        pdf.setDrawColor(200, 200, 200);
+        pdf.line(chartStartX, chartStartY, chartStartX + chartWidth, chartStartY);
+        
+        currentY += chartHeight + 20; // Reduced spacing
+      }
     } else {
       // Show a message when there's no data but time breakdown is requested
       pdf.setFontSize(12)
@@ -746,11 +812,15 @@ export const generateIndividualClientPDF = async (
           // Draw project name and value - more compact
           pdf.setFontSize(8);
           pdf.setTextColor('#1F2937');
-          pdf.text(projectName.length > 18 ? projectName.substring(0, 18) + '...' : projectName, chartX + barWidth + 10, barY + 8);
-        
+          // FIX: Remove manual truncation and use text wrapping instead
+          const projectNameLines = pdf.splitTextToSize(projectName, 80);
+          for (let i = 0; i < projectNameLines.length; i++) {
+            pdf.text(projectNameLines[i], chartX + barWidth + 10, barY + 8 + (i * 6));
+          }
+          
           pdf.setFontSize(7);
           pdf.setTextColor('#6B7280');
-          pdf.text(`${percentage.toFixed(1)}% (${formatSecondsToHHMMSS(project.seconds)})`, chartX + barWidth + 10, barY + 15);
+          pdf.text(`${percentage.toFixed(1)}% (${formatSecondsToHHMMSS(project.seconds)})`, chartX + barWidth + 10, barY + 15 + ((projectNameLines.length - 1) * 6));
         });
       
         currentY = chartY + projectNames.length * (barHeight + barSpacing) + 25;
@@ -778,20 +848,20 @@ export const generateIndividualClientPDF = async (
       pdf.text('Description', headerX, currentY);
     }
     if (includeTimeEntryProject) {
-      headerX += 60;
-      pdf.text('Project', headerX, currentY); // Reduced column width
+      headerX += 65 + 5; // Updated to match column width (65) + padding
+      pdf.text('Project', headerX, currentY);
     }
     if (includeTimeEntryDuration) {
-      headerX += 50;
-      pdf.text('Duration', headerX, currentY); // Reduced column width
+      headerX += 35 + 5; // Updated spacing (35) + padding
+      pdf.text('Duration', headerX, currentY);
     }
     if (includeTimeEntryDate) {
-      headerX += 40;
-      pdf.text('Date', headerX, currentY); // Reduced column width
+      headerX += 40 + 5; // 40pt width + 5pt padding
+      pdf.text('Date', headerX, currentY);
     }
     if (includeTimeEntryBillableStatus) {
-      headerX += 40;
-      pdf.text('Billable', headerX, currentY); // Reduced column width
+      headerX += 40 + 5; // 40pt width + 5pt padding
+      pdf.text('Billable', headerX, currentY);
     }
     pdf.setFont(undefined, 'normal')
     currentY += 10
@@ -820,37 +890,80 @@ export const generateIndividualClientPDF = async (
       const date = entry.startTime ? format(new Date(entry.startTime), 'MMM dd') : 'N/A'
       const billableStatus = entry.isBillable ? 'Yes' : 'No'
 
-      // Alternate row background
-      if (index % 2 === 1) {
-        pdf.setFillColor(249, 250, 251)
-        pdf.rect(margin, currentY - 4, contentWidth, 9, 'F') // Reduced row height
-      }
-
       pdf.setFontSize(8) // Reduced font size
       pdf.setTextColor('#1F2937')
       
       // Position text based on enabled options
       let currentX = margin;
+      const lineHeight = 4; // Height per line for 8pt font
+      
+      // Arrays to store text lines for each column
+      let descriptionLines: string[] = [];
+      let projectLines: string[] = [];
+      
+      // Calculate text lines for each column and determine row height
       if (includeTimeEntryDescription) {
-        pdf.text(description.length > 20 ? description.substring(0, 20) + '...' : description, currentX, currentY); // Reduced text length
+        // FIX: Adjust column width for A4 portrait format with padding
+        descriptionLines = pdf.splitTextToSize(description, 65); // Reduced from 70 to 65 units
+        // DEBUG: Log the description and split lines
+        console.log('Description text (first function):', description);
+        console.log('Description lines (first function):', descriptionLines);
       }
       if (includeTimeEntryProject) {
-        currentX += 60;
-        pdf.text(projectName.length > 12 ? projectName.substring(0, 12) + '...' : projectName, currentX, currentY); // Reduced column width
+        // FIX: Adjust column width for A4 portrait format with padding
+        projectLines = pdf.splitTextToSize(projectName, 35); // Reduced from 40 to 35 units
+        // DEBUG: Log the project name and split lines
+        console.log('Project name (first function):', projectName);
+        console.log('Project lines (first function):', projectLines);
+      }
+      
+      // Determine the height needed for this row based on the tallest column
+      const descriptionHeight = descriptionLines.length * lineHeight;
+      const projectHeight = projectLines.length * lineHeight;
+      const otherColumnsHeight = lineHeight; // Duration, Date, and Billable are single line
+      // FIX: Ensure minimum row height to prevent text overlap
+      const rowHeight = Math.max(descriptionHeight, projectHeight, otherColumnsHeight, 12);
+      
+      // DEBUG: Log row height calculation
+      console.log('Row height calculation:', { descriptionHeight, projectHeight, otherColumnsHeight, rowHeight });
+      
+      // Position text with proper vertical alignment for multi-line content
+      if (includeTimeEntryDescription) {
+        // Render each line of the description separately
+        for (let i = 0; i < descriptionLines.length; i++) {
+          const lineY = currentY + (i * lineHeight) + 3; // Added offset for better alignment
+          // DEBUG: Log each line being rendered
+          console.log('Rendering description line:', i, descriptionLines[i], 'at position:', currentX, lineY);
+          pdf.text(descriptionLines[i], currentX, lineY);
+        }
+      }
+      if (includeTimeEntryProject) {
+        currentX += 65 + 5; // Updated column spacing (65) + 5pt padding
+        // Render each line of the project name separately
+        for (let i = 0; i < projectLines.length; i++) {
+          const lineY = currentY + (i * lineHeight) + 3; // Added offset for better alignment
+          // DEBUG: Log each line being rendered
+          console.log('Rendering project line:', i, projectLines[i], 'at position:', currentX, lineY);
+          pdf.text(projectLines[i], currentX, lineY);
+        }
       }
       if (includeTimeEntryDuration) {
-        currentX += 50;
-        pdf.text(duration, currentX, currentY); // Reduced column width
+        currentX += 35 + 5; // Updated spacing (35) + 5pt padding
+        // Align text to top of cell to match description and project columns
+        pdf.text(duration, currentX, currentY + 3); // Added offset for better alignment
       }
       if (includeTimeEntryDate) {
-        currentX += 40;
-        pdf.text(date, currentX, currentY); // Reduced column width
+        currentX += 40 + 5; // 40pt width + 5pt padding
+        // Align text to top of cell to match description and project columns
+        pdf.text(date, currentX, currentY + 3); // Added offset for better alignment
       }
       if (includeTimeEntryBillableStatus) {
-        currentX += 40;
-        pdf.text(billableStatus, currentX, currentY); // Reduced column width
+        currentX += 40 + 5; // 40pt width + 5pt padding
+        // Align text to top of cell to match description and project columns
+        pdf.text(billableStatus, currentX, currentY + 3); // Added offset for better alignment
       }
-      currentY += 10 // Reduced row spacing
+      // Move to next row based on calculated row height
+      currentY += rowHeight + 2;
     })
   }
 

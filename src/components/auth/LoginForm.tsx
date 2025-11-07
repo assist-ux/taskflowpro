@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
-import { Eye, EyeOff, AlertCircle } from 'lucide-react'
+import React, { useState, useRef, useEffect } from 'react'
+import { Eye, EyeOff, AlertCircle, Mail, ArrowLeft } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { LoginCredentials } from '../../types'
+import { useNavigate } from 'react-router-dom'
 
 interface LoginFormProps {}
 
@@ -13,8 +14,29 @@ export default function LoginForm({}: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [resetEmail, setResetEmail] = useState('')
+  const [resetSuccess, setResetSuccess] = useState(false)
   
-  const { login } = useAuth()
+  const { login, resendVerificationEmail, resetPassword } = useAuth()
+  const navigate = useNavigate()
+  const forgotPasswordRef = useRef<HTMLDivElement>(null)
+
+  // Handle click outside to close forgot password form
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showForgotPassword && forgotPasswordRef.current && !forgotPasswordRef.current.contains(event.target as Node)) {
+        setShowForgotPassword(false)
+        setError('')
+        setResetSuccess(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showForgotPassword])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -24,7 +46,27 @@ export default function LoginForm({}: LoginFormProps) {
     try {
       await login(credentials)
     } catch (error: any) {
-      setError(error.message || 'Failed to login. Please try again.')
+      if (error.message.includes('verify your email')) {
+        setError(`${error.message} `)
+      } else {
+        setError(error.message || 'Failed to login. Please try again.')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setResetSuccess(false)
+    setLoading(true)
+
+    try {
+      await resetPassword?.(resetEmail)
+      setResetSuccess(true)
+    } catch (error: any) {
+      setError(error.message || 'Failed to send reset email. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -36,6 +78,15 @@ export default function LoginForm({}: LoginFormProps) {
       ...prev,
       [name]: value
     }))
+  }
+
+  const handleResendVerification = async () => {
+    try {
+      await resendVerificationEmail?.()
+      setError('Verification email resent successfully. Please check your inbox.')
+    } catch (error) {
+      setError('Failed to resend verification email. Please try again later.')
+    }
   }
 
   return (
@@ -100,7 +151,18 @@ export default function LoginForm({}: LoginFormProps) {
         {error && (
           <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/30 dark:border-red-800">
             <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 dark:text-red-400" />
-            <p className="text-sm text-red-700 dark:text-red-200">{error}</p>
+            <div className="text-sm text-red-700 dark:text-red-200">
+              <p>{error}</p>
+              {error.includes('verify your email') && (
+                <button
+                  type="button"
+                  onClick={handleResendVerification}
+                  className="underline font-medium mt-1 block"
+                >
+                  Resend verification email
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -119,6 +181,7 @@ export default function LoginForm({}: LoginFormProps) {
             type="button"
             className="text-sm text-primary-600 hover:text-primary-700 font-medium dark:text-primary-400 dark:hover:text-primary-300"
             disabled={loading}
+            onClick={() => setShowForgotPassword(true)}
           >
             Forgot your password?
           </button>
@@ -134,9 +197,91 @@ export default function LoginForm({}: LoginFormProps) {
           </span>
         </p>
         <p className="text-sm text-gray-500 mt-2 dark:text-gray-500">
-          Account creation is managed by HR and Super Admin users
+          Employee account creation is managed by HR and Super Admin users
         </p>
       </div>
+
+      {/* Forgot Password Form */}
+      {showForgotPassword && (
+        <div className="mt-8" ref={forgotPasswordRef}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Forgot Password</h2>
+            <button
+              type="button"
+              className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+              onClick={() => {
+                setShowForgotPassword(false);
+                setError('');
+                setResetSuccess(false);
+              }}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          </div>
+          <form onSubmit={handleForgotPassword} className="space-y-4">
+            <div>
+              <label htmlFor="reset-email" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+                Email Address
+              </label>
+              <input
+                id="reset-email"
+                name="reset-email"
+                type="email"
+                required
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+                placeholder="Enter your email"
+                disabled={loading}
+              />
+            </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/30 dark:border-red-800">
+                <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 dark:text-red-400" />
+                <div className="text-sm text-red-700 dark:text-red-200">
+                  <p>{error}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Success Message */}
+            {resetSuccess && (
+              <div className="flex items-center space-x-2 p-3 bg-green-50 border border-green-200 rounded-lg dark:bg-green-900/30 dark:border-green-800">
+                <Mail className="h-5 w-5 text-green-500 flex-shrink-0 dark:text-green-400" />
+                <div className="text-sm text-green-700 dark:text-green-200">
+                  <p>Password reset email sent successfully. Please check your inbox.</p>
+                </div>
+              </div>
+            )}
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full btn-primary py-3 text-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Sending...' : 'Send Reset Email'}
+            </button>
+
+            {/* Back to Login Link */}
+            <div className="text-center mt-4">
+              <button
+                type="button"
+                className="text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+                onClick={() => {
+                  setShowForgotPassword(false);
+                  setError('');
+                  setResetSuccess(false);
+                }}
+              >
+                Back to Login
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   )
 }

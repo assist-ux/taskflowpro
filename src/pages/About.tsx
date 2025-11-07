@@ -1,4 +1,7 @@
-import React from 'react'
+import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
+import { useTheme } from '../contexts/ThemeContext'
 import { 
   Clock, 
   Users, 
@@ -27,10 +30,22 @@ import {
   Search,
   Bell,
   Sun,
-  Moon
+  Moon,
+  ArrowRight,
+  Menu,
+  X
 } from 'lucide-react'
 
 const About = () => {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const navigate = useNavigate()
+  const { currentUser, loading } = useAuth()
+  const { isDarkMode, toggleDarkMode } = useTheme()
+
+  const handleLogin = () => {
+    navigate('/auth')
+  }
+
   const howItWorks = [
     {
       step: "01",
@@ -231,25 +246,74 @@ const About = () => {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      {/* Header */}
+      <header className={`bg-white/80 dark:bg-gray-800/80 shadow-sm backdrop-blur-sm sticky top-0 z-30 ${isDarkMode ? 'dark' : ''}`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <img 
+                  src="https://storage.googleapis.com/msgsndr/nb61f4OQ7o9Wsxx0zOsY/media/68df3ae78db305b0e463f363.svg" 
+                  alt="NexiFlow Logo" 
+                  className="h-10 w-auto"
+                />
+              </div>
+              <div className="ml-3">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">NexiFlow</h1>
+                <p className="text-xs text-gray-600 dark:text-gray-400">Powered by Nexistry Digital Solutions</p>
+              </div>
+            </div>
+            <div className="hidden lg:flex items-center space-x-8">
+              <a href="/" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors">Home</a>
+              <a href="#features" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors">Features</a>
+              <a href="#pricing" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors">Pricing</a>
+              <a href="#testimonials" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors">Reviews</a>
+              <a href="/about" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors">About</a>
+            </div>
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <button 
+                onClick={toggleDarkMode}
+                className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-all duration-200"
+                title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              </button>
+              <button 
+                onClick={handleLogin}
+                className="hidden sm:block text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors"
+              >
+                Sign In
+              </button>
+              <button 
+                onClick={handleLogin}
+                className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 text-sm sm:text-base cursor-pointer transition-all duration-200 transform hover:scale-105"
+              >
+                <span className="hidden sm:inline">Access NexiFlow</span>
+                <span className="sm:hidden">Sign In</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-blue-50 to-indigo-100 py-20">
+      <section className={`bg-gradient-to-br from-blue-50 to-indigo-100 ${isDarkMode ? 'dark:bg-gray-800 dark:from-gray-800 dark:to-gray-900' : ''} py-20`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h1 className="text-5xl font-bold text-gray-900 mb-6">
-              Welcome to Clockistry
+            <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-6">
+              Welcome to NexiFlow
             </h1>
-            <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+            <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
               Your comprehensive time tracking and project management solution. 
               Track time, manage projects, collaborate with teams, and grow your business 
               with our intuitive and powerful platform.
             </p>
-            <div className="flex items-center justify-center space-x-2 text-lg text-gray-600">
+            <div className="flex items-center justify-center space-x-2 text-lg text-gray-600 dark:text-gray-400">
               <span>Powered by</span>
-              <Heart className="h-5 w-5 text-red-500" />
               <span className="font-semibold text-blue-600">Nexistry Digital Solutions</span>
             </div>
-            <p className="text-sm text-gray-500 mt-2">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
               Developed by Prince Christiane Tolentino
             </p>
           </div>
@@ -257,12 +321,12 @@ const About = () => {
       </section>
 
       {/* How It Works Section */}
-      <section className="py-20 bg-white">
+      <section className={`py-20 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">How Clockistry Works</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Get started with Clockistry in just a few simple steps. Our platform is designed 
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-6">How NexiFlow Works</h2>
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+              Get started with NexiFlow in just a few simple steps. Our platform is designed 
               to be intuitive and powerful, helping you track time and manage projects effortlessly.
             </p>
           </div>
@@ -277,15 +341,15 @@ const About = () => {
                     </div>
                     <div className="flex items-center space-x-3">
                       {step.icon}
-                      <h3 className="text-2xl font-bold text-gray-900">{step.title}</h3>
+                      <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{step.title}</h3>
                     </div>
                   </div>
-                  <p className="text-lg text-gray-600 mb-6 leading-relaxed">
+                  <p className="text-lg text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
                     {step.description}
                   </p>
                   <ul className="space-y-2">
                     {step.details.map((detail, detailIndex) => (
-                      <li key={detailIndex} className="flex items-center space-x-3 text-gray-700">
+                      <li key={detailIndex} className="flex items-center space-x-3 text-gray-700 dark:text-gray-300">
                         <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
                         <span>{detail}</span>
                       </li>
@@ -293,10 +357,10 @@ const About = () => {
                   </ul>
                 </div>
                 <div className="flex-1">
-                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-8 h-80 flex items-center justify-center">
+                  <div className={`bg-gradient-to-br ${isDarkMode ? 'from-gray-700 to-gray-800' : 'from-gray-50 to-gray-100'} rounded-2xl p-8 h-80 flex items-center justify-center`}>
                     <div className="text-center">
                       {step.icon}
-                      <p className="text-gray-500 mt-4">Visual representation of {step.title.toLowerCase()}</p>
+                      <p className={`text-gray-500 dark:text-gray-400 mt-4`}>Visual representation of {step.title.toLowerCase()}</p>
                     </div>
                   </div>
                 </div>
@@ -307,24 +371,24 @@ const About = () => {
       </section>
 
       {/* Key Features Section */}
-      <section className="py-20 bg-gray-50">
+      <section className={`py-20 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">Key Features</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Discover the powerful features that make Clockistry the perfect solution 
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-6">Key Features</h2>
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+              Discover the powerful features that make NexiFlow the perfect solution 
               for time tracking and project management.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {keyFeatures.map((feature, index) => (
-              <div key={index} className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
+              <div key={index} className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow`}>
                 <div className="mb-4">
                   {feature.icon}
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">{feature.title}</h3>
-                <p className="text-gray-600 text-sm leading-relaxed">{feature.description}</p>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">{feature.title}</h3>
+                <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">{feature.description}</p>
               </div>
             ))}
           </div>
@@ -332,25 +396,25 @@ const About = () => {
       </section>
 
       {/* Getting Started Section */}
-      <section className="py-20 bg-white">
+      <section className={`py-20 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">Getting Started</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Ready to start using Clockistry? Follow these simple steps to get up and running quickly.
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-6">Getting Started</h2>
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+              Ready to start using NexiFlow? Follow these simple steps to get up and running quickly.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {gettingStarted.map((step, index) => (
-              <div key={index} className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6">
+              <div key={index} className={`bg-gradient-to-br ${isDarkMode ? 'from-blue-900/30 to-indigo-900/30' : 'from-blue-50 to-indigo-50'} rounded-lg p-6`}>
                 <div className="flex items-center mb-4">
                   <div className="bg-blue-600 text-white text-lg font-bold w-8 h-8 rounded-full flex items-center justify-center mr-4">
                     {step.step}
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900">{step.title}</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{step.title}</h3>
                 </div>
-                <p className="text-gray-600 leading-relaxed">{step.description}</p>
+                <p className="text-gray-600 dark:text-gray-300 leading-relaxed">{step.description}</p>
               </div>
             ))}
           </div>
@@ -358,26 +422,26 @@ const About = () => {
       </section>
 
       {/* User Roles Section */}
-      <section className="py-20 bg-gray-50">
+      <section className={`py-20 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">User Roles & Permissions</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Clockistry offers different user roles to match your organization's needs. 
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-6">User Roles & Permissions</h2>
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+              NexiFlow offers different user roles to match your organization's needs. 
               Each role has specific permissions and access levels.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {userRoles.map((role, index) => (
-              <div key={index} className="bg-white rounded-lg shadow-lg p-6">
+              <div key={index} className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg p-6`}>
                 <div className="flex items-center mb-4">
                   {role.icon}
-                  <h3 className="text-lg font-semibold text-gray-900 ml-3">{role.role}</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white ml-3">{role.role}</h3>
                 </div>
                 <ul className="space-y-2">
                   {role.permissions.map((permission, permIndex) => (
-                    <li key={permIndex} className="flex items-start space-x-2 text-sm text-gray-600">
+                    <li key={permIndex} className="flex items-start space-x-2 text-sm text-gray-600 dark:text-gray-300">
                       <div className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0 mt-2"></div>
                       <span>{permission}</span>
                     </li>
@@ -390,18 +454,18 @@ const About = () => {
       </section>
 
       {/* Creator Section */}
-      <section className="py-20 bg-white">
+      <section className={`py-20 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">Meet the Development Team</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Clockistry was designed and developed by a passionate team at Nexistry Digital Solutions, 
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-6">Meet the Development Team</h2>
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+              NexiFlow was designed and developed by a passionate team at Nexistry Digital Solutions, 
               led by Prince Christiane Tolentino.
             </p>
           </div>
 
           <div className="max-w-4xl mx-auto">
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-12">
+            <div className={`bg-gradient-to-r ${isDarkMode ? 'from-blue-900/30 to-indigo-900/30' : 'from-blue-50 to-indigo-50'} rounded-2xl p-12`}>
               <div className="flex flex-col md:flex-row items-center space-y-8 md:space-y-0 md:space-x-12">
                 <div className="flex-shrink-0">
                   <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
@@ -409,24 +473,24 @@ const About = () => {
                   </div>
                 </div>
                 <div className="flex-1 text-center md:text-left">
-                  <h3 className="text-3xl font-bold text-gray-900 mb-2">Prince Christiane Tolentino</h3>
-                  <p className="text-xl text-blue-600 mb-2">Lead Developer & System Architect</p>
-                  <p className="text-sm text-gray-500 mb-6">Nexistry Digital Solutions</p>
-                  <p className="text-lg text-gray-700 leading-relaxed mb-6">
+                  <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Prince Christiane Tolentino</h3>
+                  <p className="text-xl text-blue-600 dark:text-blue-400 mb-2">Lead Developer & System Architect</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Nexistry Digital Solutions</p>
+                  <p className="text-lg text-gray-700 dark:text-gray-300 leading-relaxed mb-6">
                     Prince is a passionate full-stack developer with expertise in modern web technologies. 
-                    He designed Clockistry to solve real-world problems in time tracking and project management, 
+                    He designed NexiFlow to solve real-world problems in time tracking and project management, 
                     ensuring every feature enhances productivity and user experience.
                   </p>
                   <div className="flex flex-wrap justify-center md:justify-start gap-4">
-                    <div className="flex items-center space-x-2 text-gray-600">
+                    <div className="flex items-center space-x-2 text-gray-600 dark:text-gray-400">
                       <Code className="h-5 w-5" />
                       <span>Full-Stack Development</span>
                     </div>
-                    <div className="flex items-center space-x-2 text-gray-600">
+                    <div className="flex items-center space-x-2 text-gray-600 dark:text-gray-400">
                       <Lightbulb className="h-5 w-5" />
                       <span>UX/UI Design</span>
                     </div>
-                    <div className="flex items-center space-x-2 text-gray-600">
+                    <div className="flex items-center space-x-2 text-gray-600 dark:text-gray-400">
                       <Globe className="h-5 w-5" />
                       <span>System Architecture</span>
                     </div>
@@ -439,11 +503,11 @@ const About = () => {
       </section>
 
       {/* Company Section */}
-      <section className="py-20 bg-gray-50">
+      <section className={`py-20 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">About Nexistry Digital Solutions</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-6">About Nexistry Digital Solutions</h2>
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
               Nexistry Digital Solutions is a technology company dedicated to creating innovative 
               software solutions that solve real-world problems and enhance productivity.
             </p>
@@ -451,29 +515,29 @@ const About = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center">
-              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className={`${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-100'} w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4`}>
                 <Target className="h-8 w-8 text-blue-600" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">Our Mission</h3>
-              <p className="text-gray-600">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">Our Mission</h3>
+              <p className={`text-gray-600 dark:text-gray-300`}>
                 To empower businesses with cutting-edge technology solutions that drive growth and efficiency.
               </p>
             </div>
             <div className="text-center">
-              <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className={`${isDarkMode ? 'bg-green-900/30' : 'bg-green-100'} w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4`}>
                 <Heart className="h-8 w-8 text-green-600" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">Our Values</h3>
-              <p className="text-gray-600">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">Our Values</h3>
+              <p className={`text-gray-600 dark:text-gray-300`}>
                 We believe in creating user-centric solutions that are both powerful and intuitive to use.
               </p>
             </div>
             <div className="text-center">
-              <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className={`${isDarkMode ? 'bg-purple-900/30' : 'bg-purple-100'} w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4`}>
                 <Award className="h-8 w-8 text-purple-600" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">Our Commitment</h3>
-              <p className="text-gray-600">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">Our Commitment</h3>
+              <p className={`text-gray-600 dark:text-gray-300`}>
                 Delivering excellence in every project with continuous innovation and customer satisfaction.
               </p>
             </div>
@@ -482,13 +546,13 @@ const About = () => {
       </section>
 
       {/* Call to Action */}
-      <section className="py-20 bg-gradient-to-r from-blue-600 to-indigo-700">
+      <section className={`py-20 bg-gradient-to-r from-blue-600 to-indigo-700`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-4xl font-bold text-white mb-6">
             Ready to Get Started?
           </h2>
           <p className="text-xl text-blue-100 mb-8 max-w-3xl mx-auto">
-            Join teams worldwide who trust Clockistry for their time tracking and project management needs. 
+            Join teams worldwide who trust NexiFlow for their time tracking and project management needs. 
             Start your free trial today and experience the difference.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -503,12 +567,12 @@ const About = () => {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
+      <footer className={`bg-gray-900 text-white py-12 ${isDarkMode ? 'dark' : ''}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <div className="flex items-center justify-center space-x-2 mb-4">
               <Clock className="h-8 w-8 text-blue-400" />
-              <span className="text-2xl font-bold">Clockistry</span>
+              <span className="text-2xl font-bold">NexiFlow</span>
             </div>
             <p className="text-gray-400 mb-2">
               Powered by <span className="font-semibold text-blue-400">Nexistry Digital Solutions</span>
@@ -517,7 +581,7 @@ const About = () => {
               Developed by Prince Christiane Tolentino
             </p>
             <p className="text-sm text-gray-500">
-              © 2024 Clockistry. All rights reserved.
+              © 2024 NexiFlow. All rights reserved.
             </p>
           </div>
         </div>

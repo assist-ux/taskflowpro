@@ -29,7 +29,7 @@ import ExportModal from '../components/projects/ExportModal'
 import SimpleChart from '../components/charts/SimpleChart'
 import { canViewHourlyRates } from '../utils/permissions'
 import { canAccessFeature } from '../utils/permissions'
-import { generateIndividualClientPDF, generateClientReportPDF } from '../utils/pdfExport'
+import { generateClientReportPDF, generateIndividualClientPDF } from '../utils/pdfExport'
 import { formatSecondsToHHMMSS } from '../utils'
 
 // Add helper functions for date formatting and parsing
@@ -81,6 +81,9 @@ export default function Clients() {
   const [showClientModal, setShowClientModal] = useState(false)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [showExportModal, setShowExportModal] = useState(false)
+  // const [showPDFPreviewModal, setShowPDFPreviewModal] = useState(false)
+  // const [pdfPreviewData, setPdfPreviewData] = useState<any>(null)
+  // const [isIndividualClientExport, setIsIndividualClientExport] = useState(false)
   const [exportClient, setExportClient] = useState<Client | null>(null)
   const [viewingClientTimeEntries, setViewingClientTimeEntries] = useState<Client | null>(null) // For viewing time entries
   const [error, setError] = useState('')
@@ -427,42 +430,47 @@ export default function Clients() {
         const { startDate, endDate } = getDateRangeForExport()
         
         // Load time data for the selected period
-        const timeEntriesForPeriod = await timeEntryService.getAllTimeEntriesByDateRange(startDate, endDate)
+        const clientTimeEntries = await timeEntryService.getAllTimeEntriesByDateRange(startDate, endDate)
         
-        // Filter time entries for this client's projects
+        // Get projects for this client
         const clientProjects = projects.filter(project => project.clientId === exportClient.id)
         const clientProjectIds = clientProjects.map(project => project.id)
         
-        const clientTimeEntries = timeEntriesForPeriod.filter(entry => 
+        // Filter time entries for this client's projects
+        const filteredClientTimeEntries = clientTimeEntries.filter(entry => 
           entry.projectId && clientProjectIds.includes(entry.projectId)
         )
-
-        const totalSeconds = clientTimeEntries.reduce((sum, entry) => sum + entry.duration, 0)
-        const totalHours = totalSeconds / 3600
-        const billableAmount = totalHours * (exportClient.hourlyRate || 0)
         
-        const timeData = {
-          totalHours,
-          totalSeconds,
-          billableAmount,
-          timeEntries: clientTimeEntries.length,
-          formattedTime: formatSecondsToHHMMSS(totalSeconds)
+        // Get daily time data for the selected period
+        const dailyTimeData = getClientDailyTimeData(exportClient, filteredClientTimeEntries, startDate, endDate)
+        
+        // Get client time data for the period using the filtered time entries
+        const clientTimeData = (() => {
+          const totalSeconds = filteredClientTimeEntries.reduce((sum, entry) => sum + entry.duration, 0)
+          const totalHours = totalSeconds / 3600
+          const billableAmount = totalHours * (exportClient.hourlyRate || 0)
+          
+          return {
+            totalHours,
+            totalSeconds,
+            billableAmount,
+            timeEntries: filteredClientTimeEntries.length,
+            formattedTime: formatSecondsToHHMMSS(totalSeconds)
+          }
+        })()
+        
+        // Get final time data (with custom values if provided)
+        const finalTimeData = exportData.customTimeData || {
+          totalHours: clientTimeData.totalHours,
+          billableAmount: clientTimeData.billableAmount,
+          formattedTime: clientTimeData.formattedTime
         }
         
-        // Use custom time data if provided, otherwise use actual data
-        const finalTimeData = exportData.customTimeData ? {
-          ...exportData.customTimeData,
-          formattedTime: formatSecondsToHHMMSS(exportData.customTimeData.totalHours * 3600)
-        } : timeData
-        
-        // Get daily time data for the client
-        const dailyTimeData = getClientDailyTimeData(exportClient, timeEntriesForPeriod, startDate, endDate)
-        
         // Debug: Log the daily time data
-        console.log('Daily time data for client:', exportClient.name, dailyTimeData);
+        console.log('Daily time data for client:', exportClient.name, dailyTimeData)
 
         // Prepare time entries data for PDF
-        const timeEntriesForPDF = clientTimeEntries.map(entry => ({
+        const timeEntriesForPDF = filteredClientTimeEntries.map((entry: TimeEntry) => ({
           id: entry.id,
           description: entry.description || '',
           projectName: entry.projectName || 'No project',
@@ -551,7 +559,7 @@ export default function Clients() {
         const billingStatsForPeriod = getBillingStatsForPeriod(timeEntriesForPeriod)
         
         // Prepare time entries data for PDF
-        const timeEntriesForPDF = timeEntriesForPeriod.map(entry => ({
+        const timeEntriesForPDF = timeEntriesForPeriod.map((entry: TimeEntry) => ({
           id: entry.id,
           description: entry.description || '',
           projectName: entry.projectName || 'No project',
@@ -1455,17 +1463,94 @@ export default function Clients() {
         onConfirm={handleConfirmExport}
         client={exportClient}
         timeData={exportClient ? getClientTimeData(exportClient) : {
-          totalHours: billingStats.totalHours,
-          billableAmount: billingStats.totalBillableAmount,
-          timeEntries: timeEntries.length,
-          formattedTime: billingStats.formattedTotalTime
+          totalHours: 0,
+          totalSeconds: 0,
+          billableAmount: 0,
+          timeEntries: 0,
+          formattedTime: '00:00:00'
         }}
-        timeFilter={timeFilter === 'this-week' ? 'week' : timeFilter === 'last-week' ? 'week' : timeFilter === 'this-month' ? 'month' : timeFilter}
+        timeFilter={timeFilter === 'this-week' || timeFilter === 'last-week' ? 'week' : 
+                   timeFilter === 'this-month' ? 'month' : 
+                   timeFilter === 'custom' ? 'custom' : 'all'}
         customStartDate={customStartDate}
         customEndDate={customEndDate}
         isExporting={isExportingPDF}
-        projects={projects} // Pass projects data
+        projects={projects}
       />
+
+      {/* PDF Preview Modal */}
+      {/* <PDFPreviewModal
+        isOpen={showPDFPreviewModal}
+        onClose={() => setShowPDFPreviewModal(false)}
+        onExport={async (exportData) => {
+          // Close the preview modal
+          setShowPDFPreviewModal(false)
+          
+          // Generate the actual PDF
+          try {
+            setIsExportingPDF(true)
+            if (isIndividualClientExport) {
+              // For individual client export
+              await generateIndividualClientPDF(
+                exportData.name,
+                {
+                  name: exportData.name,
+                  hours: exportData.hours,
+                  amount: exportData.amount,
+                  formattedTime: exportData.formattedTime
+                },
+                exportData.timeFilter,
+                exportData.customStartDate,
+                exportData.customEndDate,
+                pdfSettings,
+                currentUser?.companyId || undefined,
+                exportData.timeEntries,
+                [], // dailyTimeData - we're not passing it for now
+                true, // includeTimeBreakdown
+                true, // includeBillingDetails
+                exportData.includeProjectDetails,
+                true, // includeComments
+                exportData.includeTimeEntryDate,
+                exportData.includeTimeEntryDuration,
+                exportData.includeTimeEntryProject,
+                exportData.includeTimeEntryDescription,
+                exportData.includeTimeEntryBillableStatus
+              )
+            } else {
+              // For all clients export
+              await generateClientReportPDF(chartRef.current, {
+                chartData: exportData.chartData,
+                billingStats: exportData.billingStats,
+                timeFilter: exportData.timeFilter,
+                customStartDate: exportData.customStartDate,
+                customEndDate: exportData.customEndDate,
+                companyName: exportData.companyName,
+                companyEmail: exportData.companyEmail,
+                companyPhone: exportData.companyPhone,
+                pdfSettings: exportData.pdfSettings,
+                companyId: exportData.companyId,
+                timeEntries: exportData.timeEntries,
+                includeTimeBreakdown: exportData.includeTimeBreakdown,
+                includeBillingDetails: exportData.includeBillingDetails,
+                includeProjectDetails: exportData.includeProjectDetails,
+                includeComments: exportData.includeComments,
+                includeTimeEntryDate: exportData.includeTimeEntryDate,
+                includeTimeEntryDuration: exportData.includeTimeEntryDuration,
+                includeTimeEntryProject: exportData.includeTimeEntryProject,
+                includeTimeEntryDescription: exportData.includeTimeEntryDescription,
+                includeTimeEntryBillableStatus: exportData.includeTimeEntryBillableStatus
+              })
+            }
+          } catch (error) {
+            console.error('Error generating PDF:', error)
+            setError(`Failed to generate PDF. Please try again.`)
+          } finally {
+            setIsExportingPDF(false)
+          }
+        }}
+        exportData={pdfPreviewData}
+        isIndividualClient={isIndividualClientExport}
+      /> */}
 
       {/* Error Message */}
       {error && (

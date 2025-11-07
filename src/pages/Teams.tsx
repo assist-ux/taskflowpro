@@ -282,10 +282,23 @@ export default function Teams() {
       return timeData.totalHours > 0
     }).length
 
+    // Find the most active team (team with the most hours)
+    let mostActiveTeam: Team | null = null
+    let maxHours = 0
+    teams.forEach(team => {
+      const timeData = getTeamTimeData(team)
+      if (timeData.totalHours > maxHours) {
+        maxHours = timeData.totalHours
+        mostActiveTeam = team
+      }
+    })
+
     return {
       totalHours,
       totalTimeEntries,
-      activeTeams
+      activeTeams,
+      mostActiveTeam,
+      mostActiveTeamHours: maxHours
     }
   }
 
@@ -457,11 +470,18 @@ export default function Teams() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <div className="flex items-center">
             <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
-              <Clock className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+              <TrendingUp className="h-6 w-6 text-purple-600 dark:text-purple-400" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Time</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatSecondsToHHMMSS(overallStats.totalHours * 3600)}</p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Most Active Team</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                {overallStats.mostActiveTeam ? (overallStats.mostActiveTeam as Team).name : 'N/A'}
+              </p>
+              {overallStats.mostActiveTeam && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {formatSecondsToHHMMSS(overallStats.mostActiveTeamHours * 3600)}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -770,7 +790,7 @@ export default function Teams() {
             </button>
           )}
         </div>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredTeams.map((team) => {
             const members = teamMembers[team.id] || []
@@ -979,6 +999,82 @@ export default function Teams() {
               </div>
             )
           })}
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-700">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Team</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Description</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Members</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Time</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              {filteredTeams.map((team) => {
+                const members = teamMembers[team.id] || []
+                const stats = teamStats[team.id]
+                const isLeader = isUserTeamLeader(team.id)
+                const timeData = getTeamTimeData(team)
+                
+                return (
+                  <tr key={team.id} className="hover:bg-gray-50 dark:hover:bg-gray-750">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div 
+                          className="w-3 h-3 rounded-full mr-3"
+                          style={{ backgroundColor: team.color }}
+                        />
+                        <div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{team.name}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">Led by {team.leaderName}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900 dark:text-gray-100 max-w-xs truncate">
+                        {team.description || '-'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900 dark:text-gray-100">{members.length}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900 dark:text-gray-100">
+                        {formatSecondsToHHMMSS(timeData.totalHours * 3600)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        onClick={() => navigate(`/teams/${team.id}`)}
+                        className="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300 mr-3"
+                      >
+                        View
+                      </button>
+                      {isLeader && (
+                        <>
+                          <button
+                            onClick={() => handleEditTeam(team)}
+                            className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 mr-3"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTeam(team)}
+                            className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 

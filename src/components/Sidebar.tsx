@@ -53,7 +53,7 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
       { name: 'Feedbacks', href: '/feedbacks', icon: MessageSquare, requiredFeature: null },
       { name: 'Admin Dashboard', href: '/admin', icon: User, requiredFeature: 'admin-dashboard' },
       { name: 'Settings', href: '/settings', icon: Settings, requiredFeature: null },
-      { name: 'PDF Settings', href: '/pdf-settings', icon: FileText, requiredFeature: 'system-settings' },
+      // Removed PDF Settings from sidebar - will be accessible through Settings page
     ]
 
     // Filter navigation based on user permissions
@@ -68,7 +68,7 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
     <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
       open ? 'translate-x-0' : '-translate-x-full'
     }`}>
-      <div className="flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-700 py-3">
+      <div className="flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-700 py-5">
         <div className="flex items-center">
           <div className="flex-shrink-0">
             <img 

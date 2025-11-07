@@ -1,5 +1,6 @@
 export type UserRole = 'employee' | 'hr' | 'admin' | 'super_admin' | 'root'
 export type TeamRole = 'member' | 'leader'
+export type PricingLevel = 'solo' | 'office' | 'enterprise'
 
 export interface User {
   id: string
@@ -26,6 +27,7 @@ export interface AuthUser {
   teamId?: string | null
   teamRole?: TeamRole | null
   avatar?: string | null
+  emailVerified?: boolean
 }
 
 export interface LoginCredentials {
@@ -39,6 +41,32 @@ export interface SignupCredentials {
   password: string
   confirmPassword: string
   role: UserRole
+}
+
+export interface Company {
+  id: string
+  name: string
+  isActive: boolean
+  pricingLevel: PricingLevel
+  maxMembers: number
+  createdAt: string
+  updatedAt: string
+  pdfSettings?: PDFSettings
+}
+
+// Add the new PDFSettings interface
+export interface PDFSettings {
+  companyName: string
+  logoUrl: string
+  primaryColor: string
+  secondaryColor: string
+  showPoweredBy: boolean
+  customFooterText: string
+}
+
+// Update the Company interface to include PDF settings
+export interface CompanyWithPDFSettings extends Company {
+  pdfSettings?: PDFSettings
 }
 
 // Project Management Types
@@ -803,27 +831,4 @@ export interface CalendarFilters {
   tags?: string[]
   showTasks?: boolean
   showTimeEntries?: boolean
-}
-
-export interface Company {
-  id: string
-  name: string
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
-}
-
-// Add the new PDFSettings interface
-export interface PDFSettings {
-  companyName: string
-  logoUrl: string
-  primaryColor: string
-  secondaryColor: string
-  showPoweredBy: boolean
-  customFooterText: string
-}
-
-// Update the Company interface to include PDF settings
-export interface CompanyWithPDFSettings extends Company {
-  pdfSettings?: PDFSettings
 }

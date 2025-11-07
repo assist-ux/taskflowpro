@@ -1,19 +1,16 @@
-import { ArrowLeft, Home, Info, Moon, Sun, UserPlus } from 'lucide-react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useTheme } from '../contexts/ThemeContext'
-import LoginForm from '../components/auth/LoginForm'
-import SuperAdminSignupForm from '../components/auth/SuperAdminSignupForm'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useTheme } from '../contexts/ThemeContext'
+import SuperAdminSignupForm from '../components/auth/SuperAdminSignupForm'
+import { Moon, Sun, Home } from 'lucide-react'
 
-export default function Auth() {
-  const [searchParams] = useSearchParams()
+export default function SuperAdminSignup() {
   const navigate = useNavigate()
   const { isDarkMode, toggleDarkMode } = useTheme()
-  const isDemo = searchParams.get('demo') === 'true'
-  const [showSignup, setShowSignup] = useState(searchParams.get('signup') === 'super_admin')
+  const [showLogin, setShowLogin] = useState(false)
 
-  const toggleForm = () => {
-    setShowSignup(!showSignup)
+  const handleSwitchToLogin = () => {
+    navigate('/auth')
   }
 
   return (
@@ -78,9 +75,9 @@ export default function Auth() {
         </div>
       </div>
 
-      {/* Right Side - Authentication Forms */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
-        <div className="w-full max-w-md">
+      {/* Right Side - Signup Form */}
+      <div className="w-full lg:w-1/2 flex items-start justify-center p-8 overflow-y-auto">
+        <div className="w-full max-w-md py-8">
           {/* Mobile Branding */}
           <div className="lg:hidden text-center mb-8">
             <div className="flex items-center justify-between mb-4">
@@ -112,45 +109,9 @@ export default function Auth() {
             <p className="text-gray-600 dark:text-gray-400">Time tracking made simple</p>
           </div>
 
-          {/* Demo Notice */}
-          {isDemo && (
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-900/30 dark:border-blue-800">
-              <div className="flex items-center space-x-2">
-                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                <p className="text-sm text-blue-800 dark:text-blue-200">
-                  <strong>Demo Mode:</strong> Contact your administrator to create an account and explore all features of NexiFlow.
-                </p>
-              </div>
-            </div>
-          )}
-
           {/* Form Container */}
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 dark:bg-gray-800 dark:border-gray-700">
-            {showSignup ? (
-              <SuperAdminSignupForm onSwitchToLogin={toggleForm} />
-            ) : (
-              <LoginForm />
-            )}
-          </div>
-
-          {/* Toggle Form Link */}
-          <div className="mt-6 text-center">
-            {showSignup ? (
-              <button
-                onClick={toggleForm}
-                className="inline-flex items-center space-x-2 text-sm text-gray-500 hover:text-gray-700 transition-colors dark:text-gray-400 dark:hover:text-gray-300"
-              >
-                <span>Already have an account? Sign in</span>
-              </button>
-            ) : (
-              <button
-                onClick={toggleForm}
-                className="inline-flex items-center space-x-2 text-sm text-gray-500 hover:text-gray-700 transition-colors dark:text-gray-400 dark:hover:text-gray-300"
-              >
-                <UserPlus className="h-4 w-4" />
-                <span>Create Your Account</span>
-              </button>
-            )}
+            <SuperAdminSignupForm onSwitchToLogin={handleSwitchToLogin} />
           </div>
 
           {/* Back to App Link */}

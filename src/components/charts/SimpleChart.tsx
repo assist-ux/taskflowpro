@@ -92,13 +92,13 @@ export default function SimpleChart({ data, type, title, height = 300 }: SimpleC
                   <div key={index} className="flex flex-col items-center flex-1 min-w-0 h-full">
                     {/* Value above bar */}
                     <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 text-center whitespace-nowrap">
-                      {isValidValue && hasValidData ? (() => {
+                      {isValidValue && hasValidData && hours > 0 ? (() => {
                         const totalSeconds = Math.round(hours * 3600)
                         const h = Math.floor(totalSeconds / 3600)
                         const m = Math.floor((totalSeconds % 3600) / 60)
                         const s = totalSeconds % 60
                         return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-                      })() : '00:00:00'}
+                      })() : ''}
                     </div>
                     
                     {/* Bar container - positioned at bottom */}

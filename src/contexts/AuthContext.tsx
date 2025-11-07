@@ -4,19 +4,23 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  sendEmailVerification,
+  sendPasswordResetEmail
 } from 'firebase/auth'
-import { ref, set, get } from 'firebase/database'
+import { ref, set, get, push, update } from 'firebase/database'
 import { auth, database } from '../config/firebase'
-import { AuthUser, LoginCredentials, SignupCredentials } from '../types'
+import { AuthUser, LoginCredentials, SignupCredentials, PDFSettings } from '../types'
 import { loggingService } from '../services/loggingService'
 
 interface AuthContextType {
   currentUser: AuthUser | null
   loading: boolean
   login: (credentials: LoginCredentials) => Promise<void>
-  signup: (credentials: SignupCredentials) => Promise<void>
+  signup: (credentials: SignupCredentials, companyName?: string) => Promise<void>
   logout: () => Promise<void>
+  resendVerificationEmail?: () => Promise<void>
+  resetPassword?: (email: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -37,7 +41,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
-  async function signup(credentials: SignupCredentials) {
+  const resendVerificationEmail = async () => {
+    if (auth.currentUser) {
+      await sendEmailVerification(auth.currentUser)
+    }
+  }
+
+  const resetPassword = async (email: string) => {
+    try {
+      await sendPasswordResetEmail(auth, email)
+      // Log password reset request
+      await loggingService.logAuthEvent('password_reset', email, 'Unknown', true)
+    } catch (error) {
+      console.error('Error during password reset:', error)
+      // Log failed password reset attempt
+      await loggingService.logAuthEvent('password_reset', email, 'Unknown', false, { error: (error as Error).message })
+      throw error
+    }
+  }
+
+  async function signup(credentials: SignupCredentials, companyName?: string) {
     try {
       // Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(
@@ -48,35 +71,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const user = userCredential.user
 
-      // Create user profile in Realtime Database
-      const userProfile = {
-        uid: user.uid,
+      // Store temporary signup data in localStorage for post-verification processing
+      const signupData = {
         name: credentials.name,
         email: credentials.email,
         role: credentials.role,
-        companyId: credentials.role === 'root' ? null : undefined, // Root doesn't belong to any company
-        teamId: null,
-        teamRole: null,
-        timezone: 'GMT+0 (Greenwich Mean Time)',
-        hourlyRate: credentials.role === 'admin' || credentials.role === 'root' ? 0 : 25, // Default rates
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }
+        companyName: companyName || null,
+        timestamp: new Date().toISOString()
+      };
+      
+      localStorage.setItem(`signup_${user.uid}`, JSON.stringify(signupData));
 
-      await set(ref(database, `users/${user.uid}`), userProfile)
+      // Send email verification
+      await sendEmailVerification(user)
 
-      // Set current user
-      setCurrentUser({
-        uid: user.uid,
-        email: credentials.email,
-        role: credentials.role,
-        name: credentials.name,
-        companyId: credentials.role === 'root' ? null : undefined,
-        teamId: null,
-        teamRole: null,
-        avatar: null
-      })
+      // Note: We don't set the current user here because they need to verify their email first
+      // The user will be set in the onAuthStateChanged listener after verification
       
       // Log successful signup
       await loggingService.logAuthEvent('signup', user.uid, credentials.name, true)
@@ -98,9 +108,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const user = userCredential.user
 
-      // Get user profile from database
+      // Get user profile from database to check if user exists
       const userRef = ref(database, `users/${user.uid}`)
       const snapshot = await get(userRef)
+
+      // If user profile exists but email is not verified, show error
+      if (snapshot.exists() && !user.emailVerified) {
+        throw new Error('Please verify your email address before signing in. Check your inbox for the verification email.')
+      }
 
       if (snapshot.exists()) {
         const userData = snapshot.val()
@@ -112,7 +127,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
           companyId: userData.companyId || null,
           teamId: userData.teamId || null,
           teamRole: userData.teamRole || null,
-          avatar: userData.avatar || null
+          avatar: userData.avatar || null,
+          emailVerified: user.emailVerified
         })
         
         // Log successful login
@@ -150,11 +166,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const unsubscribe = onAuthStateChanged(auth, async (user: FirebaseUser | null) => {
       if (user) {
         try {
-          // Get user profile from database
+          // Reload user to get latest email verification status
+          await user.reload();
+          
+          // Check if user profile exists in database
           const userRef = ref(database, `users/${user.uid}`)
           const snapshot = await get(userRef)
 
           if (snapshot.exists()) {
+            // For existing users, we allow access even if email is not verified
+            // (This is for backward compatibility with existing users)
             const userData = snapshot.val()
             setCurrentUser({
               uid: user.uid,
@@ -164,11 +185,105 @@ export function AuthProvider({ children }: AuthProviderProps) {
               companyId: userData.companyId || null,
               teamId: userData.teamId || null,
               teamRole: userData.teamRole || null,
-              avatar: userData.avatar || null
+              avatar: userData.avatar || null,
+              emailVerified: user.emailVerified
             })
+          } else {
+            // For new users, enforce email verification
+            if (!user.emailVerified) {
+              await signOut(auth);
+              setCurrentUser(null);
+              setLoading(false);
+              return;
+            }
+            
+            // Check for temporary signup data
+            const signupDataStr = localStorage.getItem(`signup_${user.uid}`);
+            if (signupDataStr) {
+              const signupData = JSON.parse(signupDataStr);
+              
+              // Process signup data to create company and user profile
+              let companyId = null;
+              
+              // If this is a super admin signup, create a company
+              if (signupData.role === 'super_admin' && signupData.companyName) {
+                // Create company in Realtime Database with solo pricing level by default
+                const companiesRef = ref(database, 'companies')
+                const newCompanyRef = push(companiesRef)
+                const now = new Date().toISOString()
+                
+                // Default PDF settings
+                const defaultPdfSettings: PDFSettings = {
+                  companyName: signupData.companyName,
+                  logoUrl: '',
+                  primaryColor: '#3B82F6',
+                  secondaryColor: '#1E40AF',
+                  showPoweredBy: true,
+                  customFooterText: ''
+                }
+                
+                const companyData = {
+                  id: newCompanyRef.key,
+                  name: signupData.companyName,
+                  isActive: true,
+                  pricingLevel: 'solo', // Default to solo pricing level
+                  maxMembers: 1, // Solo plan allows only 1 member
+                  createdAt: now,
+                  updatedAt: now,
+                  pdfSettings: defaultPdfSettings
+                }
+                
+                await set(newCompanyRef, companyData)
+                companyId = newCompanyRef.key
+              }
+
+              // Create user profile in Realtime Database
+              const userProfile = {
+                uid: user.uid,
+                name: signupData.name,
+                email: signupData.email,
+                role: signupData.role,
+                companyId: companyId || (signupData.role === 'root' ? null : undefined), // Root doesn't belong to any company
+                teamId: null,
+                teamRole: null,
+                timezone: 'GMT+0 (Greenwich Mean Time)',
+                hourlyRate: signupData.role === 'admin' || signupData.role === 'root' || signupData.role === 'super_admin' ? 0 : 25, // Default rates
+                isActive: true,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              }
+
+              await set(ref(database, `users/${user.uid}`), userProfile)
+
+              // Set current user
+              setCurrentUser({
+                uid: user.uid,
+                email: signupData.email,
+                role: signupData.role,
+                name: signupData.name,
+                companyId: companyId || (signupData.role === 'root' ? null : undefined),
+                teamId: null,
+                teamRole: null,
+                avatar: null,
+                emailVerified: user.emailVerified
+              })
+              
+              // Clean up temporary signup data
+              localStorage.removeItem(`signup_${user.uid}`);
+              
+              // Log successful signup completion
+              await loggingService.logAuthEvent('signup', user.uid, signupData.name, true)
+            } else {
+              // No signup data found, sign out the user
+              await signOut(auth);
+              setCurrentUser(null);
+            }
           }
         } catch (error) {
-          console.error('Error fetching user profile:', error)
+          console.error('Error processing user:', error)
+          // If there's an error, sign out the user
+          await signOut(auth);
+          setCurrentUser(null);
         }
       } else {
         setCurrentUser(null)
@@ -184,7 +299,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     loading,
     login,
     signup,
-    logout
+    logout,
+    resendVerificationEmail,
+    resetPassword
   }
 
   return (

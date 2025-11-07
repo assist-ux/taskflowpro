@@ -1,15 +1,6 @@
 import { ref, get, set, push } from 'firebase/database'
 import { database } from '../config/firebase'
-import { PDFSettings } from '../types' // Add this import
-
-export interface Company {
-  id: string
-  name: string
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
-  pdfSettings?: PDFSettings // Add this property
-}
+import { PDFSettings, PricingLevel, Company } from '../types'
 
 export const companyService = {
   async getCompanies(): Promise<Company[]> {
@@ -21,22 +12,46 @@ export const companyService = {
       id: value.id || id,
       name: value.name,
       isActive: Boolean(value.isActive),
+      pricingLevel: value.pricingLevel || 'solo',
+      maxMembers: value.maxMembers || 1,
       createdAt: value.createdAt,
       updatedAt: value.updatedAt,
-      pdfSettings: value.pdfSettings // Include PDF settings
+      pdfSettings: value.pdfSettings
     }))
   },
 
-  async createCompany(name: string): Promise<Company> {
+  async createCompany(name: string, pricingLevel: PricingLevel = 'solo'): Promise<Company> {
     const companiesRef = ref(database, 'companies')
     const newRef = push(companiesRef)
     const now = new Date().toISOString()
+    
+    // Set max members based on pricing level
+    let maxMembers = 1
+    if (pricingLevel === 'office') {
+      maxMembers = 10
+    } else if (pricingLevel === 'enterprise') {
+      maxMembers = 100
+    }
+    
+    // Default PDF settings
+    const defaultPdfSettings: PDFSettings = {
+      companyName: name,
+      logoUrl: '',
+      primaryColor: '#3B82F6',
+      secondaryColor: '#1E40AF',
+      showPoweredBy: true,
+      customFooterText: ''
+    }
+    
     const company: Company = {
       id: newRef.key as string,
       name,
       isActive: true,
+      pricingLevel,
+      maxMembers,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      pdfSettings: defaultPdfSettings
     }
     await set(newRef, company)
     return company

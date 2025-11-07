@@ -3,7 +3,7 @@
     "companies": {
       "$companyId": {
         ".read": "auth != null",
-        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'root' || root.child('users').child(auth.uid).child('role').val() === 'super_admin' || !root.child('users').child(auth.uid).exists())"
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'root' || (root.child('users').child(auth.uid).child('role').val() === 'super_admin' && (root.child('users').child(auth.uid).child('companyId').val() === $companyId || !data.exists())))"
       },
       ".read": "auth != null",
       ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'root' || root.child('users').child(auth.uid).child('role').val() === 'super_admin')",

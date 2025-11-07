@@ -11,7 +11,8 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "test": "jest",
     "setup-env": "node setup-env.js",
-    "create-root": "node create-root-user.js"
+    "create-root": "node create-root-user.js",
+    "deploy-rules": "node deploy-rules.js"
   },
   "dependencies": {
     "clsx": "^2.0.0",

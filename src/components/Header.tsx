@@ -176,7 +176,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   return (
     <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
       <div className="px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-24">
           {/* Left side - Menu button and search */}
           <div className="flex items-center">
             <button
@@ -485,7 +485,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                   </div>
                   <div className="py-1">
                     <Link
-                      to="/profile"
+                      to="/settings"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                     >
                       <User className="inline h-4 w-4 mr-2" />
