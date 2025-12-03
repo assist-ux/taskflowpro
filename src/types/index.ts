@@ -104,19 +104,11 @@ export interface Client {
   phone?: string
   company?: string
   address?: string
+  currency?: string // Add currency field
   isArchived: boolean
   createdBy: string
   createdAt: Date
   updatedAt: Date
-}
-
-export interface CreateProjectData {
-  name: string
-  description?: string
-  color: string
-  status: 'active' | 'on-hold' | 'completed' | 'cancelled'
-  priority: 'low' | 'medium' | 'high' | 'urgent'
-  clientId?: string
 }
 
 export interface CreateClientData {
@@ -132,6 +124,16 @@ export interface CreateClientData {
   phone?: string
   company?: string
   address?: string
+  currency?: string // Add currency field
+}
+
+export interface CreateProjectData {
+  name: string
+  description?: string
+  color: string
+  status: 'active' | 'on-hold' | 'completed' | 'cancelled'
+  priority: 'low' | 'medium' | 'high' | 'urgent'
+  clientId?: string
 }
 
 // Time Tracking Types

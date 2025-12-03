@@ -30,7 +30,7 @@ import SimpleChart from '../components/charts/SimpleChart'
 import { canViewHourlyRates } from '../utils/permissions'
 import { canAccessFeature } from '../utils/permissions'
 import { generateClientReportPDF, generateIndividualClientPDF } from '../utils/pdfExport'
-import { formatSecondsToHHMMSS } from '../utils'
+import { formatSecondsToHHMMSS, formatCurrency } from '../utils'
 
 // Add helper functions for date formatting and parsing
 const formatDateForInput = (date: Date): string => {
@@ -321,7 +321,7 @@ export default function Clients() {
           borderColor: 'rgba(59, 130, 246, 1)',
         },
         {
-          label: 'Billable Amount ($)',
+          label: 'Billable Amount',
           data: chartData.map(item => item.amount),
           backgroundColor: 'rgba(34, 197, 94, 0.5)',
           borderColor: 'rgba(34, 197, 94, 1)',
@@ -488,7 +488,8 @@ export default function Clients() {
             name: exportClient.name,
             hours: finalTimeData.totalHours,
             amount: finalTimeData.billableAmount,
-            formattedTime: finalTimeData.formattedTime
+            formattedTime: finalTimeData.formattedTime,
+            currency: exportClient.currency // Add currency information
           },
           selectedExportPeriod,
           startDate,
@@ -572,12 +573,17 @@ export default function Clients() {
         }))
 
         await generateClientReportPDF(chartRef.current, {
-          chartData: chartDataForPeriod.labels.map((label, index) => ({
-            name: label,
-            hours: Number(chartDataForPeriod.datasets[0].data[index]),
-            amount: Number(chartDataForPeriod.datasets[1].data[index]),
-            formattedTime: chartDataForPeriod.formattedTimes?.[index] || formatSecondsToHHMMSS(Number(chartDataForPeriod.datasets[0].data[index]) * 3600)
-          })),
+          chartData: chartDataForPeriod.labels.map((label, index) => {
+            // Find the client to get their currency
+            const client = clients.find(c => c.name === label);
+            return {
+              name: label,
+              hours: Number(chartDataForPeriod.datasets[0].data[index]),
+              amount: Number(chartDataForPeriod.datasets[1].data[index]),
+              formattedTime: chartDataForPeriod.formattedTimes?.[index] || formatSecondsToHHMMSS(Number(chartDataForPeriod.datasets[0].data[index]) * 3600),
+              currency: client?.currency // Add currency information
+            };
+          }),
           billingStats: billingStatsForPeriod,
           timeFilter: selectedExportPeriod,
           customStartDate: startDate,
@@ -660,7 +666,7 @@ export default function Clients() {
           borderColor: 'rgba(59, 130, 246, 1)',
         },
         {
-          label: 'Billable Amount ($)',
+          label: 'Billable Amount',
           data: chartData.map(item => item.amount),
           backgroundColor: 'rgba(34, 197, 94, 0.5)',
           borderColor: 'rgba(34, 197, 94, 1)',
@@ -799,21 +805,21 @@ export default function Clients() {
 
   if (!currentUser?.role || !canAccessFeature(currentUser.role, 'clients')) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="text-center p-8 bg-white rounded-lg shadow-md">
-          <h1 className="text-3xl font-bold text-red-600 mb-4">Access Denied</h1>
-          <p className="text-gray-700">You do not have permission to view this page.</p>
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
+        <div className="text-center p-6 sm:p-8 bg-white dark:bg-gray-800 rounded-lg shadow-md max-w-md w-full">
+          <h1 className="text-2xl sm:text-3xl font-bold text-red-600 mb-4">Access Denied</h1>
+          <p className="text-gray-700 dark:text-gray-300">You do not have permission to view this page.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="p-6 space-y-6 scrollbar-visible">
+    <div className="p-4 sm:p-6 space-y-6 scrollbar-visible">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Clients</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Clients</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your client relationships and billing rates</p>
         </div>
         {currentUser?.role && canAccessFeature(currentUser.role, 'clients') && (
@@ -821,164 +827,168 @@ export default function Clients() {
             onClick={handleCreateClient}
             className="btn-primary flex items-center space-x-2"
           >
-            <Plus className="h-5 w-5" />
-            <span>Add Client</span>
+            <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="hidden xs:inline">Add Client</span>
           </button>
         )}
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
           <div className="flex items-center">
             <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-              <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              <Users className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 dark:text-blue-400" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Clients</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.totalClients}</p>
+            <div className="ml-3 sm:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Total Clients</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.totalClients}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
           <div className="flex items-center">
             <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-              <Building2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+              <Building2 className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 dark:text-green-400" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Clients</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.activeClients}</p>
+            <div className="ml-3 sm:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Active Clients</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.activeClients}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
           <div className="flex items-center">
             <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
-              <DollarSign className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+              <DollarSign className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600 dark:text-purple-400" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Billable Amount</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">${billingStats.totalBillableAmount.toFixed(2)}</p>
+            <div className="ml-3 sm:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Billable Amount</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">${billingStats.totalBillableAmount.toFixed(2)}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
           <div className="flex items-center">
             <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
-              <Clock className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+              <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-orange-600 dark:text-orange-400" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Time</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{billingStats.formattedTotalTime}</p>
+            <div className="ml-3 sm:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Total Time</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{billingStats.formattedTotalTime}</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Time Filter and Chart Toggle */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-          <div className="flex flex-col lg:flex-row gap-4 flex-1">
-            {/* Time Period Filter */}
-            <div className="flex items-center space-x-2">
-              <Clock className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-              <select
-                value={timeFilter}
-                onChange={(e) => setTimeFilter(e.target.value as any)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+            <div className="flex flex-wrap gap-3 flex-1">
+              {/* Time Period Filter */}
+              <div className="flex items-center space-x-2">
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500 dark:text-gray-400" />
+                <select
+                  value={timeFilter}
+                  onChange={(e) => setTimeFilter(e.target.value as any)}
+                  className="px-2 py-1 sm:px-3 sm:py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="this-week">This Week</option>
+                  <option value="last-week">Last Week</option>
+                  <option value="this-month">This Month</option>
+                  <option value="custom">Custom Range</option>
+                </select>
+              </div>
+
+              {/* Custom Date Range */}
+              {timeFilter === 'custom' && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="date"
+                    value={formatDateForInput(customStartDate)}
+                    onChange={(e) => {
+                      const date = parseDateFromInput(e.target.value);
+                      setCustomStartDate(date);
+                    }}
+                    className="px-2 py-1 sm:px-3 sm:py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  />
+                  <span className="text-gray-500 dark:text-gray-400 text-sm">to</span>
+                  <input
+                    type="date"
+                    value={formatDateForInput(customEndDate)}
+                    onChange={(e) => {
+                      const date = parseDateFromInput(e.target.value);
+                      setCustomEndDate(date);
+                    }}
+                    className="px-2 py-1 sm:px-3 sm:py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+              )}
+
+              {/* Chart Toggle */}
+              <button
+                onClick={() => setShowTimeChart(!showTimeChart)}
+                className={`flex items-center space-x-1 sm:space-x-2 px-3 py-1 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg transition-colors ${
+                  showTimeChart 
+                    ? 'bg-primary-500 text-white' 
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
               >
-                <option value="this-week">This Week</option>
-                <option value="last-week">Last Week</option>
-                <option value="this-month">This Month</option>
-                <option value="custom">Custom Range</option>
-              </select>
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden xs:inline">{showTimeChart ? 'Hide Chart' : 'Show Time Chart'}</span>
+                <span className="xs:hidden">{showTimeChart ? 'Hide' : 'Show'}</span>
+              </button>
+
+              {/* PDF Export Button */}
+              {showTimeChart && chartData.labels.length > 0 && (
+                <button
+                  onClick={handleExportPDF}
+                  disabled={isExportingPDF}
+                  className="flex items-center space-x-1 sm:space-x-2 px-3 py-1 sm:px-4 sm:py-2 text-sm sm:text-base bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="Export PDF report for all clients"
+                >
+                  {isExportingPDF ? (
+                    <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
+                  ) : (
+                    <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
+                  )}
+                  <span className="hidden xs:inline">{isExportingPDF ? 'Generating PDF...' : 'Export All Clients PDF'}</span>
+                  <span className="xs:hidden">{isExportingPDF ? 'PDF...' : 'Export'}</span>
+                </button>
+              )}
             </div>
 
-            {/* Custom Date Range */}
-            {timeFilter === 'custom' && (
-              <div className="flex items-center space-x-2">
-                <input
-                  type="date"
-                  value={formatDateForInput(customStartDate)}
-                  onChange={(e) => {
-                    const date = parseDateFromInput(e.target.value);
-                    setCustomStartDate(date);
-                  }}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                />
-                <span className="text-gray-500 dark:text-gray-400">to</span>
-                <input
-                  type="date"
-                  value={formatDateForInput(customEndDate)}
-                  onChange={(e) => {
-                    const date = parseDateFromInput(e.target.value);
-                    setCustomEndDate(date);
-                  }}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                />
-              </div>
-            )}
-
-            {/* Chart Toggle */}
-            <button
-              onClick={() => setShowTimeChart(!showTimeChart)}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                showTimeChart 
-                  ? 'bg-primary-500 text-white' 
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              <BarChart3 className="h-4 w-4" />
-              <span>{showTimeChart ? 'Hide Chart' : 'Show Time Chart'}</span>
-            </button>
-
-            {/* PDF Export Button */}
-            {showTimeChart && chartData.labels.length > 0 && (
-              <button
-                onClick={handleExportPDF}
-                disabled={isExportingPDF}
-                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Export PDF report for all clients"
-              >
-                {isExportingPDF ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                ) : (
-                  <TrendingUp className="h-4 w-4" />
-                )}
-                <span>{isExportingPDF ? 'Generating PDF...' : 'Export All Clients PDF'}</span>
-              </button>
-            )}
-          </div>
-
-          {/* Period Display */}
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            {timeFilter === 'custom' 
-              ? `${format(customStartDate, 'MMM dd')} - ${format(customEndDate, 'MMM dd, yyyy')}`
-              : timeFilter === 'this-week' 
-                ? 'This Week'
-                : timeFilter === 'last-week'
-                  ? 'Last Week'
-                  : 'This Month'
-            }
+            {/* Period Display */}
+            <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+              {timeFilter === 'custom' 
+                ? `${format(customStartDate, 'MMM dd')} - ${format(customEndDate, 'MMM dd, yyyy')}`
+                : timeFilter === 'this-week' 
+                  ? 'This Week'
+                  : timeFilter === 'last-week'
+                    ? 'Last Week'
+                    : 'This Month'
+              }
+            </div>
           </div>
         </div>
       </div>
 
       {/* Time Chart */}
       {showTimeChart && (
-        <div className="bg-white rounded-lg shadow p-6" ref={chartRef}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Time Rendered by Client</h3>
-            <div className="flex items-center space-x-4 text-sm text-gray-500">
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6" ref={chartRef}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900">Time Rendered by Client</h3>
+            <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm text-gray-500">
               <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                <div className="w-2 h-2 sm:w-3 sm:h-3 bg-blue-500 rounded"></div>
                 <span>Hours</span>
               </div>
               <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 bg-green-500 rounded"></div>
+                <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-500 rounded"></div>
                 <span>Billable Amount</span>
               </div>
             </div>
@@ -986,16 +996,16 @@ export default function Clients() {
           <SimpleChart
             data={chartData}
             type="bar"
-            height={300}
+            height={200}
           />
         </div>
       )}
 
       {/* Filters and Search */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <div className="flex flex-col lg:flex-row gap-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
+        <div className="flex flex-col gap-4">
           {/* Search */}
-          <div className="flex-1">
+          <div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
               <input
@@ -1003,40 +1013,42 @@ export default function Clients() {
                 placeholder="Search clients by name, email, or company..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                className="w-full pl-10 pr-4 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
               />
             </div>
           </div>
 
-          {/* Type Filter */}
-          <div className="lg:w-48">
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-            >
-              <option value="all">All Types</option>
-              <option value="full-time">Full-time</option>
-              <option value="part-time">Part-time</option>
-              <option value="custom">Custom</option>
-              <option value="gig">Gig</option>
-            </select>
-          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Type Filter */}
+            <div className="sm:w-48">
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              >
+                <option value="all">All Types</option>
+                <option value="full-time">Full-time</option>
+                <option value="part-time">Part-time</option>
+                <option value="custom">Custom</option>
+                <option value="gig">Gig</option>
+              </select>
+            </div>
 
-          {/* View Mode Toggle */}
-          <div className="flex border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`px-3 py-2 ${viewMode === 'grid' ? 'bg-primary-500 text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'}`}
-            >
-              <Grid className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`px-3 py-2 ${viewMode === 'list' ? 'bg-primary-500 text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'}`}
-            >
-              <List className="h-4 w-4" />
-            </button>
+            {/* View Mode Toggle */}
+            <div className="flex border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`px-3 py-2 text-sm sm:text-base ${viewMode === 'grid' ? 'bg-primary-500 text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'}`}
+              >
+                <Grid className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-2 text-sm sm:text-base ${viewMode === 'list' ? 'bg-primary-500 text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'}`}
+              >
+                <List className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1044,86 +1056,86 @@ export default function Clients() {
       {/* Clients Display */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+          <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-primary-600"></div>
         </div>
       ) : filteredClients.length > 0 ? (
-        <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
+        <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6' : 'space-y-4'}>
           {filteredClients.map((client) => (
             <div key={client.id} className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow">
               {viewMode === 'grid' ? (
                 // Grid View
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-4">
+                <div className="p-4 sm:p-6">
+                  <div className="flex items-start justify-between mb-3 sm:mb-4">
                     <div className="flex items-center space-x-3">
                       <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                        <Building2 className="h-6 w-6 text-gray-600 dark:text-gray-300" />
+                        <Building2 className="h-5 w-5 sm:h-6 sm:w-6 text-gray-600 dark:text-gray-300" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-gray-100">{client.name}</h3>
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base">{client.name}</h3>
                         {client.company && (
-                          <p className="text-sm text-gray-500 dark:text-gray-400">{client.company}</p>
+                          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{client.company}</p>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-1 sm:space-x-2">
                       {(() => {
                         const timeData = getClientTimeData(client)
                         return timeData.totalHours > 0 ? (
                           <button
                             onClick={() => handleExportClientPDF(client)}
                             disabled={isExportingPDF}
-                            className="p-2 hover:bg-gray-100 rounded text-gray-500 hover:text-green-700 disabled:opacity-50"
+                            className="p-1 sm:p-2 hover:bg-gray-100 rounded text-gray-500 hover:text-green-700 disabled:opacity-50"
                             title={currentUser && canViewHourlyRates(currentUser.role) ? `Export PDF report for ${client.name} (${timeData.formattedTime}, $${timeData.billableAmount.toFixed(2)})` : `Export PDF report for ${client.name} (${timeData.formattedTime})`}
                           >
-                            <TrendingUp className="h-4 w-4" />
+                            <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
                           </button>
                         ) : (
                           <div 
-                            className="p-2 text-gray-300 cursor-not-allowed"
+                            className="p-1 sm:p-2 text-gray-300 cursor-not-allowed"
                             title={`No time data for ${client.name} in selected period`}
                           >
-                            <TrendingUp className="h-4 w-4" />
+                            <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
                           </div>
                         )
                       })()}
                       <button
                         onClick={() => handleEditClient(client)}
-                        className="p-2 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700"
+                        className="p-1 sm:p-2 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700"
                         title="Edit client"
                       >
-                        <Edit className="h-4 w-4" />
+                        <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteClient(client)}
-                        className="p-2 hover:bg-gray-100 rounded text-gray-500 hover:text-red-700"
+                        className="p-1 sm:p-2 hover:bg-gray-100 rounded text-gray-500 hover:text-red-700"
                         title="Delete client"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                       </button>
                       <button
                         onClick={() => navigate(`/clients/${client.id}`)}
-                        className="p-2 hover:bg-gray-100 rounded text-gray-500 hover:text-purple-700"
+                        className="p-1 sm:p-2 hover:bg-gray-100 rounded text-gray-500 hover:text-purple-700"
                         title="View client details"
                       >
-                        <Building2 className="h-4 w-4" />
+                        <Building2 className="h-3 w-3 sm:h-4 sm:w-4" />
                       </button>
                     </div>
                   </div>
 
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500 dark:text-gray-400">Type</span>
+                      <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Type</span>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getClientTypeColor(client.clientType || 'full-time')}`}>
                         {getClientTypeIcon(client.clientType || 'full-time')} {(client.clientType || 'full-time').replace('-', ' ')}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500 dark:text-gray-400">Hourly Rate</span>
+                      <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Hourly Rate</span>
                       {currentUser && canViewHourlyRates(currentUser.role) ? (
-                        <span className="font-semibold text-gray-900 dark:text-gray-100">${client.hourlyRate || 0}/hr</span>
+                        <span className="font-semibold text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{formatCurrency(client.hourlyRate || 0, client.currency)}</span>
                       ) : (
-                        <span className="font-semibold text-gray-900 dark:text-gray-100">--</span>
+                        <span className="font-semibold text-gray-900 dark:text-gray-100 text-xs sm:text-sm">--</span>
                       )}
                     </div>
 
@@ -1133,72 +1145,72 @@ export default function Clients() {
                       return timeData.totalHours > 0 ? (
                         <>
                           <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-500 dark:text-gray-400">Time Rendered</span>
-                            <span className="font-semibold text-gray-900 dark:text-gray-100">{timeData.formattedTime}</span>
+                            <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Time Rendered</span>
+                            <span className="font-semibold text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{timeData.formattedTime}</span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-500 dark:text-gray-400">Billable Amount</span>
+                            <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Billable Amount</span>
                             {currentUser && canViewHourlyRates(currentUser.role) ? (
-                              <span className="font-semibold text-green-600 dark:text-green-400">${timeData.billableAmount.toFixed(2)}</span>
+                              <span className="font-semibold text-green-600 dark:text-green-400 text-xs sm:text-sm">{formatCurrency(timeData.billableAmount, client.currency)}</span>
                             ) : (
-                              <span className="font-semibold text-green-600 dark:text-green-400">--</span>
+                              <span className="font-semibold text-green-600 dark:text-green-400 text-xs sm:text-sm">--</span>
                             )}
                           </div>
                         </>
                       ) : (
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-500 dark:text-gray-400">Time Rendered</span>
-                          <span className="text-sm text-gray-400 dark:text-gray-500">No time tracked</span>
+                          <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Time Rendered</span>
+                          <span className="text-xs sm:text-sm text-gray-400 dark:text-gray-500">No time tracked</span>
                         </div>
                       )
                     })()}
 
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500 dark:text-gray-400">Country</span>
+                      <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Country</span>
                       <div className="flex items-center space-x-1">
-                        <Globe className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                        <span className="text-sm text-gray-900 dark:text-gray-100">{client.country || 'Not specified'}</span>
+                        <Globe className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 dark:text-gray-500" />
+                        <span className="text-xs sm:text-sm text-gray-900 dark:text-gray-100">{client.country || 'Not specified'}</span>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500 dark:text-gray-400">Timezone</span>
+                      <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Timezone</span>
                       <div className="flex items-center space-x-1">
-                        <Clock className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                        <span className="text-sm text-gray-900 dark:text-gray-100">{client.timezone || 'Not specified'}</span>
+                        <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 dark:text-gray-500" />
+                        <span className="text-xs sm:text-sm text-gray-900 dark:text-gray-100">{client.timezone || 'Not specified'}</span>
                       </div>
                     </div>
 
                     {(client.clientType || 'full-time') === 'custom' && client.hoursPerWeek && (
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">Hours/Week</span>
-                        <span className="text-sm text-gray-900 dark:text-gray-100">{client.hoursPerWeek}h</span>
+                        <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Hours/Week</span>
+                        <span className="text-xs sm:text-sm text-gray-900 dark:text-gray-100">{client.hoursPerWeek}h</span>
                       </div>
                     )}
 
                     {(client.clientType || 'full-time') === 'gig' && client.startDate && client.endDate && (
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500">Duration</span>
+                        <span className="text-xs sm:text-sm text-gray-500">Duration</span>
                         <div className="flex items-center space-x-1">
-                          <Calendar className="h-4 w-4 text-gray-400" />
-                          <span className="text-sm text-gray-900">
+                          <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
+                          <span className="text-xs sm:text-sm text-gray-900">
                             {format(client.startDate, 'MMM dd')} - {format(client.endDate, 'MMM dd, yyyy')}
                           </span>
                         </div>
                       </div>
                     )}
 
-                    <div className="pt-3 border-t border-gray-200">
+                    <div className="pt-2 sm:pt-3 border-t border-gray-200">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">Email</span>
-                        <span className="text-sm text-gray-900 dark:text-gray-100 truncate ml-2">{client.email}</span>
+                        <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Email</span>
+                        <span className="text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate ml-2">{client.email}</span>
                       </div>
                     </div>
                   </div>
                 </div>
               ) : (
                 // List View
-                <div className="p-6">
+                <div className="p-4 sm:p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4 flex-1">
                       <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
@@ -1291,9 +1303,9 @@ export default function Clients() {
         </div>
       ) : (
         <div className="text-center py-12">
-          <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No clients found</h3>
-          <p className="text-gray-500 mb-6">
+          <Building2 className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">No clients found</h3>
+          <p className="text-gray-500 mb-6 px-4">
             {searchTerm || typeFilter !== 'all' 
               ? 'Try adjusting your search or filter criteria.'
               : 'Get started by adding your first client.'
@@ -1304,8 +1316,8 @@ export default function Clients() {
               onClick={handleCreateClient}
               className="btn-primary flex items-center space-x-2 mx-auto"
             >
-              <Plus className="h-5 w-5" />
-              <span>Add Client</span>
+              <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden xs:inline">Add Client</span>
             </button>
           )}
         </div>

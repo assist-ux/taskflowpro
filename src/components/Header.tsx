@@ -13,7 +13,8 @@ import {
   Menu,
   Bot,
   Gift,
-  Shield
+  Shield,
+  MoreVertical
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useSearch } from '../contexts/SearchContext'
@@ -30,9 +31,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [showUpdates, setShowUpdates] = useState(false)
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
   const notificationRef = useRef<HTMLDivElement>(null)
   const updatesRef = useRef<HTMLDivElement>(null)
+  const mobileMenuRef = useRef<HTMLDivElement>(null)
   
   const { currentUser, logout } = useAuth()
   const { searchQuery, setSearchQuery, searchResults, isSearching, performSearch, clearSearch } = useSearch()
@@ -124,6 +127,9 @@ export default function Header({ onMenuClick }: HeaderProps) {
       }
       if (updatesRef.current && !updatesRef.current.contains(event.target as Node)) {
         setShowUpdates(false);
+      }
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+        setShowMobileMenu(false);
       }
       if (!event.target || !(event.target as Element).closest('.user-menu, .user-menu-button')) {
         setShowUserMenu(false);
@@ -241,179 +247,276 @@ export default function Header({ onMenuClick }: HeaderProps) {
           </div>
 
           {/* Right side - Theme toggle, Notifications and user menu */}
-          <div className="flex items-center space-x-3">
-            {/* Theme Toggle */}
-            <button
-              onClick={toggleDarkMode}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              {isDarkMode ? (
-                <Sun className="h-5 w-5 text-yellow-500" />
-              ) : (
-                <Moon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-              )}
-            </button>
-
-            {/* Messaging */}
-            <button
-              onClick={() => navigate('/messaging')}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              title="Team Messages"
-            >
-              <MessageSquare className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-            </button>
-
-            {/* Notifications */}
-            <div className="relative" ref={notificationRef}>
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            {/* Desktop icons - hidden on mobile */}
+            <div className="hidden sm:flex items-center space-x-3">
+              {/* Theme Toggle */}
               <button
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative"
-                title="Notifications"
+                onClick={toggleDarkMode}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
               >
-                <Bell className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 text-xs text-white items-center justify-center">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  </span>
+                {isDarkMode ? (
+                  <Sun className="h-5 w-5 text-yellow-500" />
+                ) : (
+                  <Moon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
                 )}
               </button>
 
-              {showNotifications && (
-                <div className="origin-top-right absolute right-0 mt-2 w-80 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
-                  <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">Notifications</h3>
-                    {unreadNotifications.length > 0 && (
-                      <button 
-                        onClick={markAllAsRead}
-                        className="text-sm text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300"
-                      >
-                        Mark all as read
-                      </button>
-                    )}
-                  </div>
-                  <div className="max-h-96 overflow-y-auto">
-                    {unreadNotifications.length > 0 ? (
-                      <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                        {unreadNotifications.map((notification) => (
-                          <li 
-                            key={notification.id} 
-                            className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                            onClick={() => {
-                              markAsRead(notification.id);
-                              setShowNotifications(false);
-                              if (notification.actionUrl) {
-                                navigate(notification.actionUrl);
-                              }
-                            }}
-                          >
-                            <div className="flex">
-                              <div className="ml-3 flex-1">
-                                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                  {notification.title}
-                                </p>
-                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                  {notification.message}
-                                </p>
-                                <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                                  {notification.timestamp.toLocaleString()}
-                                </p>
+              {/* Messaging */}
+              <button
+                onClick={() => navigate('/messaging')}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title="Team Messages"
+              >
+                <MessageSquare className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+              </button>
+
+              {/* Notifications */}
+              <div className="relative" ref={notificationRef}>
+                <button
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative"
+                  title="Notifications"
+                >
+                  <Bell className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 text-xs text-white items-center justify-center">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    </span>
+                  )}
+                </button>
+
+                {showNotifications && (
+                  <div className="origin-top-right absolute right-0 mt-2 w-80 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white">Notifications</h3>
+                      {unreadNotifications.length > 0 && (
+                        <button 
+                          onClick={markAllAsRead}
+                          className="text-sm text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300"
+                        >
+                          Mark all as read
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-96 overflow-y-auto">
+                      {unreadNotifications.length > 0 ? (
+                        <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                          {unreadNotifications.map((notification) => (
+                            <li 
+                              key={notification.id} 
+                              className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                              onClick={() => {
+                                markAsRead(notification.id);
+                                setShowNotifications(false);
+                                if (notification.actionUrl) {
+                                  navigate(notification.actionUrl);
+                                }
+                              }}
+                            >
+                              <div className="flex">
+                                <div className="ml-3 flex-1">
+                                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                    {notification.title}
+                                  </p>
+                                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                    {notification.message}
+                                  </p>
+                                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                                    {notification.timestamp.toLocaleString()}
+                                  </p>
+                                </div>
                               </div>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <div className="p-4 text-center">
+                          <Bell className="mx-auto h-12 w-12 text-gray-400" />
+                          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                            No new notifications
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Updates/Changelog */}
+              <div className="relative" ref={updatesRef}>
+                <button
+                  onClick={handleOpenUpdates}
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative"
+                  title="What's New"
+                >
+                  <Gift className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                  {hasUnseenUpdates && (
+                    <span className="absolute top-0 right-0 flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                    </span>
+                  )}
+                </button>
+
+                {showUpdates && (
+                  <div className="origin-top-right absolute right-0 mt-2 w-80 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white">What's New</h3>
+                      <button 
+                        onClick={() => setShowUpdates(false)}
+                        className="text-gray-400 hover:text-gray-500 dark:text-gray-400 dark:hover:text-gray-300"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+                    <div className="max-h-96 overflow-y-auto">
+                      <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {updates.map((update) => (
+                          <li key={update.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <div className="flex justify-between">
+                              <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+                                {update.title}
+                              </h4>
+                              <span className={`text-xs px-2 py-1 rounded-full ${
+                                update.category === 'feature' 
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100' 
+                                  : update.category === 'security' 
+                                  ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100' 
+                                  : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100'
+                              }`}>
+                                {update.category}
+                              </span>
                             </div>
+                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                              {update.description}
+                            </p>
+                            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                              {new Date(update.date).toLocaleDateString()}
+                            </p>
                           </li>
                         ))}
                       </ul>
-                    ) : (
-                      <div className="p-4 text-center">
-                        <Bell className="mx-auto h-12 w-12 text-gray-400" />
-                        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                          No new notifications
-                        </p>
-                      </div>
-                    )}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
 
-            {/* Updates/Changelog */}
-            <div className="relative" ref={updatesRef}>
+              {/* AI Chat Widget Toggle */}
               <button
-                onClick={handleOpenUpdates}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative"
-                title="What's New"
+                onClick={toggleAIWidgetVisibility}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title={isAIWidgetHidden ? "Show AI Assistant" : "Hide AI Assistant"}
               >
-                <Gift className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-                {hasUnseenUpdates && (
-                  <span className="absolute top-0 right-0 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                <Bot className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                {isAIWidgetHidden && (
+                  <span className="absolute top-1 right-1 flex h-3 w-3">
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-gray-400"></span>
                   </span>
                 )}
               </button>
+            </div>
 
-              {showUpdates && (
-                <div className="origin-top-right absolute right-0 mt-2 w-80 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
-                  <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">What's New</h3>
-                    <button 
-                      onClick={() => setShowUpdates(false)}
-                      className="text-gray-400 hover:text-gray-500 dark:text-gray-400 dark:hover:text-gray-300"
+            {/* Mobile menu button - visible only on mobile */}
+            <div className="sm:hidden relative" ref={mobileMenuRef}>
+              <button
+                onClick={() => setShowMobileMenu(!showMobileMenu)}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title="More options"
+              >
+                <MoreVertical className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+              </button>
+
+              {/* Mobile dropdown menu */}
+              {showMobileMenu && (
+                <div className="origin-top-right absolute right-0 mt-2 w-64 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+                  <div className="py-1">
+                    {/* Theme Toggle */}
+                    <button
+                      onClick={() => {
+                        toggleDarkMode();
+                        setShowMobileMenu(false);
+                      }}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                     >
-                      <X className="h-5 w-5" />
+                      {isDarkMode ? (
+                        <Sun className="h-5 w-5 text-yellow-500 mr-3" />
+                      ) : (
+                        <Moon className="h-5 w-5 text-gray-600 dark:text-gray-300 mr-3" />
+                      )}
+                      {isDarkMode ? 'Light Mode' : 'Dark Mode'}
                     </button>
-                  </div>
-                  <div className="max-h-96 overflow-y-auto">
-                    <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                      {updates.map((update) => (
-                        <li key={update.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
-                          <div className="flex justify-between">
-                            <h4 className="text-sm font-medium text-gray-900 dark:text-white">
-                              {update.title}
-                            </h4>
-                            <span className={`text-xs px-2 py-1 rounded-full ${
-                              update.category === 'feature' 
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100' 
-                                : update.category === 'security' 
-                                ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100' 
-                                : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100'
-                            }`}>
-                              {update.category}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            {update.description}
-                          </p>
-                          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                            {new Date(update.date).toLocaleDateString()}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
+
+                    {/* Messaging */}
+                    <button
+                      onClick={() => {
+                        navigate('/messaging');
+                        setShowMobileMenu(false);
+                      }}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                      <MessageSquare className="h-5 w-5 text-gray-600 dark:text-gray-300 mr-3" />
+                      Team Messages
+                    </button>
+
+                    {/* Notifications */}
+                    <button
+                      onClick={() => {
+                        setShowNotifications(!showNotifications);
+                        setShowMobileMenu(false);
+                      }}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 relative"
+                    >
+                      <Bell className="h-5 w-5 text-gray-600 dark:text-gray-300 mr-3" />
+                      Notifications
+                      {unreadCount > 0 && (
+                        <span className="absolute right-4 flex h-5 w-5">
+                          <span className="relative inline-flex rounded-full h-5 w-5 bg-red-500 text-xs text-white items-center justify-center">
+                            {unreadCount > 9 ? '9+' : unreadCount}
+                          </span>
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Updates/Changelog */}
+                    <button
+                      onClick={() => {
+                        handleOpenUpdates();
+                        setShowMobileMenu(false);
+                      }}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 relative"
+                    >
+                      <Gift className="h-5 w-5 text-gray-600 dark:text-gray-300 mr-3" />
+                      What's New
+                      {hasUnseenUpdates && (
+                        <span className="absolute right-4 flex h-3 w-3">
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                        </span>
+                      )}
+                    </button>
+
+                    {/* AI Chat Widget Toggle */}
+                    <button
+                      onClick={() => {
+                        toggleAIWidgetVisibility();
+                        setShowMobileMenu(false);
+                      }}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                      <Bot className="h-5 w-5 text-gray-600 dark:text-gray-300 mr-3" />
+                      {isAIWidgetHidden ? "Show AI Assistant" : "Hide AI Assistant"}
+                    </button>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* AI Chat Widget Toggle */}
-            <button
-              onClick={toggleAIWidgetVisibility}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              title={isAIWidgetHidden ? "Show AI Assistant" : "Hide AI Assistant"}
-            >
-              <Bot className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-              {isAIWidgetHidden && (
-                <span className="absolute top-1 right-1 flex h-3 w-3">
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-gray-400"></span>
-                </span>
-              )}
-            </button>
-
             {/* User menu */}
-            <div className="relative">
+            <div className="relative flex-shrink-0">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors user-menu-button"
@@ -437,7 +540,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                     </div>
                   )}
                 </div>
-                <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400 hidden sm:block" />
               </button>
 
               {showUserMenu && (

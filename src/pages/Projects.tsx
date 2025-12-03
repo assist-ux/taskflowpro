@@ -142,10 +142,10 @@ export default function Projects() {
   // Permission check
   if (!currentUser?.role || !canAccessFeature(currentUser.role, 'projects')) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="text-center p-8 bg-white rounded-lg shadow-md">
-          <h1 className="text-3xl font-bold text-red-600 mb-4">Access Denied</h1>
-          <p className="text-gray-700">You do not have permission to view this page.</p>
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
+        <div className="text-center p-6 sm:p-8 bg-white dark:bg-gray-800 rounded-lg shadow-md max-w-md w-full">
+          <h1 className="text-2xl sm:text-3xl font-bold text-red-600 mb-4">Access Denied</h1>
+          <p className="text-gray-700 dark:text-gray-300">You do not have permission to view this page.</p>
         </div>
       </div>
     )
@@ -155,17 +155,17 @@ export default function Projects() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading projects...</p>
+          <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">Loading projects...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="p-6 space-y-6 scrollbar-visible">
+    <div className="p-4 sm:p-6 space-y-6 scrollbar-visible">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Projects</h1>
           <p className="text-gray-600 dark:text-gray-400">Manage your projects</p>
@@ -178,7 +178,7 @@ export default function Projects() {
               className="btn-primary flex items-center space-x-2"
             >
               <Plus className="h-4 w-4" />
-              <span>New Project</span>
+              <span className="hidden xs:inline">New Project</span>
             </button>
           )}
         </div>
@@ -202,12 +202,12 @@ export default function Projects() {
               placeholder="Search projects..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="input pl-10"
+              className="input pl-10 w-full"
             />
           </div>
         </div>
         
-        <div className="flex space-x-3">
+        <div className="flex flex-wrap gap-2">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -237,13 +237,18 @@ export default function Projects() {
           
           <button
             onClick={() => setShowArchived(!showArchived)}
-            className={`px-3 rounded-lg border ${
+            className={`px-3 py-2 rounded-lg border text-sm ${
               showArchived 
                 ? 'bg-primary-100 dark:bg-primary-900 border-primary-300 dark:border-primary-700 text-primary-700 dark:text-primary-300' 
                 : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'
             }`}
           >
-            {showArchived ? 'Showing Archived' : 'Show Archived'}
+            <span className="hidden xs:inline">
+              {showArchived ? 'Showing Archived' : 'Show Archived'}
+            </span>
+            <span className="xs:hidden">
+              {showArchived ? 'Archived' : 'Archive'}
+            </span>
           </button>
         </div>
       </div>
@@ -257,7 +262,7 @@ export default function Projects() {
           <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
             {showArchived ? 'No archived projects found' : 'No projects found'}
           </h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-4">
+          <p className="text-gray-500 dark:text-gray-400 mb-4 px-4">
             {searchTerm || statusFilter !== 'all' 
               ? 'Try adjusting your search or filters'
               : showArchived 
@@ -268,7 +273,7 @@ export default function Projects() {
           {!searchTerm && statusFilter === 'all' && !showArchived && (
             <button
               onClick={handleCreateProject}
-              className="btn-primary"
+              className="btn-primary mx-4"
             >
               Create Project
             </button>
@@ -276,7 +281,7 @@ export default function Projects() {
         </div>
       ) : (
         <div className={viewMode === 'grid' 
-          ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' 
+          ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6' 
           : 'space-y-4'
         }>
           {filteredProjects.map((project) => (
@@ -289,15 +294,15 @@ export default function Projects() {
               {viewMode === 'grid' ? (
                 <>
                   {/* Grid View */}
-                  <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start justify-between mb-3 sm:mb-4">
                     <div className="flex items-center space-x-3">
                       <div 
-                        className="w-4 h-4 rounded-full"
+                        className="w-3 h-3 sm:w-4 sm:h-4 rounded-full"
                         style={{ backgroundColor: project.color }}
                       />
                       <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-gray-100">{project.name}</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{getClientName(project.clientId)}</p>
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base">{project.name}</h3>
+                        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{getClientName(project.clientId)}</p>
                       </div>
                     </div>
                     <div className="relative">
@@ -354,13 +359,13 @@ export default function Projects() {
                   </div>
 
                   {project.description && (
-                    <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 line-clamp-2">
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mb-3 sm:mb-4 line-clamp-2">
                       {project.description}
                     </p>
                   )}
 
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
+                  <div className="space-y-2 sm:space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[project.status]}`}>
                         {project.status.replace('-', ' ')}
                       </span>
@@ -369,7 +374,7 @@ export default function Projects() {
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                       {project.startDate && (
                         <div className="flex items-center space-x-1">
                           <Calendar className="h-3 w-3" />
@@ -388,14 +393,16 @@ export default function Projects() {
               ) : (
                 <>
                   {/* List View */}
-                  <div className="flex items-center space-x-4">
-                    <div 
-                      className="w-4 h-4 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: project.color }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">{project.name}</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{getClientName(project.clientId)}</p>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:space-x-4">
+                    <div className="flex items-center space-x-3">
+                      <div 
+                        className="w-3 h-3 sm:w-4 sm:h-4 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: project.color }}
+                      />
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base truncate">{project.name}</h3>
+                        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{getClientName(project.clientId)}</p>
+                      </div>
                     </div>
                     <div className="flex items-center space-x-2">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[project.status]}`}>
@@ -408,7 +415,7 @@ export default function Projects() {
                   </div>
                   
                   {/* Action Menu for List View */}
-                  <div className="relative">
+                  <div className="relative mt-2 sm:mt-0">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

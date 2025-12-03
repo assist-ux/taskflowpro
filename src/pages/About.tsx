@@ -58,7 +58,8 @@ const About = () => {
         "Mark as billable if applicable",
         "Add tags for better organization",
         "Click play to start the timer"
-      ]
+      ],
+      imageUrl: "https://storage.googleapis.com/msgsndr/nb61f4OQ7o9Wsxx0zOsY/media/692962056c98c803f72c9ea6.png" // Replace with your actual image URL
     },
     {
       step: "02",
@@ -71,7 +72,8 @@ const About = () => {
         "Set project priorities and deadlines",
         "Track project status and progress",
         "Organize with color coding"
-      ]
+      ],
+      imageUrl: "https://storage.googleapis.com/msgsndr/nb61f4OQ7o9Wsxx0zOsY/media/692e6d5cfd073afb90c2989c.png" // Replace with your actual image URL
     },
     {
       step: "03",
@@ -84,7 +86,8 @@ const About = () => {
         "Click on any day to view detailed entries",
         "Filter by projects or billable status",
         "Track daily and weekly totals"
-      ]
+      ],
+      imageUrl: "https://example.com/step3-image.jpg" // Replace with your actual image URL
     },
     {
       step: "04",
@@ -97,7 +100,8 @@ const About = () => {
         "Assign tasks to team members",
         "Add comments and file attachments",
         "Use @mentions to notify team members"
-      ]
+      ],
+      imageUrl: "https://example.com/step4-image.jpg" // Replace with your actual image URL
     },
     {
       step: "05",
@@ -110,7 +114,8 @@ const About = () => {
         "Chat with team members in real-time",
         "Share files and documents",
         "Get notified of important updates"
-      ]
+      ],
+      imageUrl: "https://storage.googleapis.com/msgsndr/nb61f4OQ7o9Wsxx0zOsY/media/69296205bc52feedbaf3cccd.png" // Replace with your actual image URL
     },
     {
       step: "06",
@@ -123,7 +128,8 @@ const About = () => {
         "Export data to PDF or CSV",
         "Track earnings and billable hours",
         "Analyze team performance"
-      ]
+      ],
+      imageUrl: "https://storage.googleapis.com/msgsndr/nb61f4OQ7o9Wsxx0zOsY/media/69296205974316c65856f1e1.png" // Replace with your actual image URL
     }
   ]
 
@@ -248,7 +254,7 @@ const About = () => {
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       {/* Header */}
-      <header className={`bg-white/80 dark:bg-gray-800/80 shadow-sm backdrop-blur-sm sticky top-0 z-30 ${isDarkMode ? 'dark' : ''}`}>
+      <header className="bg-gray-100 dark:bg-gray-700 shadow-sm backdrop-blur-sm sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
@@ -297,34 +303,13 @@ const About = () => {
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className={`bg-gradient-to-br from-blue-50 to-indigo-100 ${isDarkMode ? 'dark:bg-gray-800 dark:from-gray-800 dark:to-gray-900' : ''} py-20`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-6">
-              Welcome to NexiFlow
-            </h1>
-            <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
-              Your comprehensive time tracking and project management solution. 
-              Track time, manage projects, collaborate with teams, and grow your business 
-              with our intuitive and powerful platform.
-            </p>
-            <div className="flex items-center justify-center space-x-2 text-lg text-gray-600 dark:text-gray-400">
-              <span>Powered by</span>
-              <span className="font-semibold text-blue-600">Nexistry Digital Solutions</span>
-            </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-              Developed by Prince Christiane Tolentino
-            </p>
-          </div>
-        </div>
-      </section>
+      {/* How NexiFlow Works Section - Main section */}
 
       {/* How It Works Section */}
       <section className={`py-20 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-6">How NexiFlow Works</h2>
+            <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-6">How NexiFlow Works</h1>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
               Get started with NexiFlow in just a few simple steps. Our platform is designed 
               to be intuitive and powerful, helping you track time and manage projects effortlessly.
@@ -333,7 +318,7 @@ const About = () => {
 
           <div className="space-y-16">
             {howItWorks.map((step, index) => (
-              <div key={index} className={`flex flex-col lg:flex-row items-center gap-12 ${index % 2 === 1 ? 'lg:flex-row-reverse' : ''}`}>
+              <div key={index} className={`flex flex-col lg:flex-row items-center gap-8 ${index % 2 === 1 ? 'lg:flex-row-reverse' : ''}`}>
                 <div className="flex-1">
                   <div className="flex items-center mb-6">
                     <div className="bg-blue-100 text-blue-600 text-lg font-bold px-4 py-2 rounded-full mr-4">
@@ -357,11 +342,12 @@ const About = () => {
                   </ul>
                 </div>
                 <div className="flex-1">
-                  <div className={`bg-gradient-to-br ${isDarkMode ? 'from-gray-700 to-gray-800' : 'from-gray-50 to-gray-100'} rounded-2xl p-8 h-80 flex items-center justify-center`}>
-                    <div className="text-center">
-                      {step.icon}
-                      <p className={`text-gray-500 dark:text-gray-400 mt-4`}>Visual representation of {step.title.toLowerCase()}</p>
-                    </div>
+                  <div className={`bg-gradient-to-br ${isDarkMode ? 'from-gray-700 to-gray-800' : 'from-gray-50 to-gray-100'} rounded-2xl h-80 flex items-center justify-center`}>
+                    <img 
+                      src={step.imageUrl} 
+                      alt={`${step.title} illustration`} 
+                      className="max-w-full max-h-full object-contain rounded-lg shadow-md"
+                    />
                   </div>
                 </div>
               </div>

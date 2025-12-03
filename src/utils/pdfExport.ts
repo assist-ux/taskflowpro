@@ -9,6 +9,7 @@ interface ClientTimeData {
   hours: number
   amount: number
   formattedTime: string // Add formatted time
+  currency?: string // Add currency field
 }
 
 interface BillingStats {
@@ -218,9 +219,17 @@ export const generateClientReportPDF = async (
     currentY += 15
 
     // Stats in a grid with better styling
+    // Calculate total billable amount with currency formatting
+    const totalBillableAmountFormatted = data.chartData && data.chartData.length > 0 && data.chartData[0].currency
+      ? new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: data.chartData[0].currency || 'USD'
+        }).format(data.billingStats.totalBillableAmount)
+      : `$${data.billingStats.totalBillableAmount.toFixed(2)}`;
+
     const stats = [
       { label: 'Total Time', value: `${data.billingStats.formattedTotalTime}`, color: '#3B82F6' },
-      { label: 'Total Billable Amount', value: `$${data.billingStats.totalBillableAmount.toFixed(2)}`, color: '#10B981' },
+      { label: 'Total Billable Amount', value: totalBillableAmountFormatted, color: '#10B981' },
       { label: 'Active Clients', value: `${data.billingStats.activeClientsWithTime}`, color: '#8B5CF6' }
     ]
 
@@ -314,7 +323,14 @@ export const generateClientReportPDF = async (
 
       addText(client.name, margin, currentY, { fontSize: 11, color: '#1F2937' })
       addText(`${client.formattedTime}`, margin + 80, currentY, { fontSize: 11, color: '#1F2937' })
-      addText(`$${client.amount.toFixed(2)}`, margin + 120, currentY, { fontSize: 11, color: '#059669', fontStyle: 'bold' })
+      // Use dynamic currency formatting
+      const amountFormatted = client.currency
+        ? new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: client.currency
+          }).format(client.amount)
+        : `$${client.amount.toFixed(2)}`;
+      addText(amountFormatted, margin + 120, currentY, { fontSize: 11, color: '#059669', fontStyle: 'bold' })
       currentY += 10
     })
 
@@ -502,6 +518,7 @@ interface IndividualClientPDFData {
   hours: number
   amount: number
   formattedTime: string
+  currency?: string // Add currency field
 }
 
 interface DailyTimeData {
@@ -621,7 +638,14 @@ export const generateIndividualClientPDF = async (
     pdf.setTextColor('#059669')
     pdf.setFont(undefined, 'bold')
     pdf.text(clientData.formattedTime, margin + 10, currentY + 22)
-    pdf.text(`$${clientData.amount.toFixed(2)}`, margin + (contentWidth / 2) + 10, currentY + 22)
+    // Use dynamic currency formatting
+    const amountFormatted = clientData.currency
+      ? new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: clientData.currency
+        }).format(clientData.amount)
+      : `$${clientData.amount.toFixed(2)}`;
+    pdf.text(amountFormatted, margin + (contentWidth / 2) + 10, currentY + 22)
     pdf.setFont(undefined, 'normal')
     currentY += 45
 

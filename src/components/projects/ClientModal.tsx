@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useTheme } from '../../contexts/ThemeContext'
 import { canAccessFeature, canEditHourlyRates } from '../../utils/permissions'
 import { countries, timezones } from '../../data/countriesAndTimezones'
+import CurrencySelector from './CurrencySelector'
 
 interface ClientModalProps {
   isOpen: boolean
@@ -42,7 +43,8 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Clie
     hoursPerWeek: 40,
     phone: '',
     company: '',
-    address: ''
+    address: '',
+    currency: 'USD' // Add default currency
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -65,7 +67,8 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Clie
           endDate: client.endDate,
           phone: client.phone || '',
           company: client.company || '',
-          address: client.address || ''
+          address: client.address || '',
+          currency: client.currency || 'USD' // Add currency
         })
       } else {
         setFormData({
@@ -78,7 +81,8 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Clie
           hoursPerWeek: 40,
           phone: '',
           company: '',
-          address: ''
+          address: '',
+          currency: 'USD' // Add default currency
         })
       }
       setError('')
@@ -356,21 +360,28 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Clie
           {/* Hourly Rate */}
           <div>
             <label htmlFor="hourlyRate" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-              Hourly Rate ($) *
+              Hourly Rate *
             </label>
-            <input
-              type="number"
-              id="hourlyRate"
-              name="hourlyRate"
-              value={formData.hourlyRate || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, hourlyRate: parseFloat(e.target.value) || 0 }))}
-              className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${!canEditRates ? (isDarkMode ? 'bg-gray-700 cursor-not-allowed' : 'bg-gray-100 cursor-not-allowed') : isDarkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'}`}
-              placeholder="25.00"
-              step="0.01"
-              min="0"
-              required
-              disabled={loading || !canEditRates}
-            />
+            <div className="flex space-x-2">
+              <input
+                type="number"
+                id="hourlyRate"
+                name="hourlyRate"
+                value={formData.hourlyRate || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, hourlyRate: parseFloat(e.target.value) || 0 }))}
+                className={`flex-1 px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${!canEditRates ? (isDarkMode ? 'bg-gray-700 cursor-not-allowed' : 'bg-gray-100 cursor-not-allowed') : isDarkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'}`}
+                placeholder="25.00"
+                step="0.01"
+                min="0"
+                required
+                disabled={loading || !canEditRates}
+              />
+              <CurrencySelector
+                value={formData.currency || 'USD'}
+                onChange={(value) => setFormData(prev => ({ ...prev, currency: value }))}
+                disabled={loading}
+              />
+            </div>
             <p className={`text-sm mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
               Rate per hour for this client
               {!canEditRates && (

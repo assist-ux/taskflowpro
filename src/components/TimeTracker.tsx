@@ -353,7 +353,7 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
       {/* Timer Display */}
       <div className="card text-center">
         <div className="mb-6">
-          <div className="text-6xl font-mono font-bold text-primary-600 dark:text-primary-400 mb-2">
+          <div className="text-4xl sm:text-6xl font-mono font-bold text-primary-600 dark:text-primary-400 mb-2">
             {formatElapsedTime(elapsedTime)}
           </div>
           <p className="text-gray-600 dark:text-gray-400">
@@ -367,21 +367,23 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
             <button
               onClick={startTimer}
               disabled={loading || isRunning}
-              className="btn-primary flex items-center space-x-2 px-8 py-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary flex items-center space-x-2 px-6 py-3 sm:px-8 sm:py-3 text-base sm:text-lg disabled:opacity-50 disabled:cursor-not-allowed"
               title={isRunning ? "Timer is already running" : "Start tracking time"}
             >
               <Play className="h-5 w-5" />
-              <span>Start Timer</span>
+              <span className="hidden xs:inline">Start Timer</span>
+              <span className="xs:hidden">Start</span>
             </button>
           ) : (
             <button
               onClick={stopTimer}
               disabled={loading || !selectedClientId || !formData.projectId || !formData.description || !formData.description.trim()}
-              className="btn-danger flex items-center space-x-2 px-8 py-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-danger flex items-center space-x-2 px-6 py-3 sm:px-8 sm:py-3 text-base sm:text-lg disabled:opacity-50 disabled:cursor-not-allowed"
               title={!selectedClientId || !formData.projectId || !formData.description || !formData.description.trim() ? "Please fill in all required fields" : "Stop tracking time"}
             >
               <Square className="h-5 w-5" />
-              <span>Stop Timer</span>
+              <span className="hidden xs:inline">Stop Timer</span>
+              <span className="xs:hidden">Stop</span>
             </button>
           )}
         </div>
@@ -481,7 +483,7 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
                     setFormData(prev => ({ ...prev, projectId: '' }))
                   }
                 }}
-                className="input"
+                className="input w-full"
                 required
               >
                 <option value="">Select a client</option>
@@ -501,7 +503,7 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
               <select
                 value={formData.projectId || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, projectId: e.target.value || undefined }))}
-                className="input"
+                className="input w-full"
                 required
                 disabled={!selectedClientId} // Disable project selection until client is selected
               >
@@ -528,7 +530,7 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
                 type="text"
                 value={formData.description || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value || undefined }))}
-                className="input"
+                className="input w-full"
                 placeholder="What are you working on? (required to stop)"
                 required
               />
@@ -539,7 +541,7 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Tags (Optional)
               </label>
-              <div className="flex space-x-2 mb-2">
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 mb-2">
                 <input
                   type="text"
                   value={newTag}
@@ -551,7 +553,7 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
                 <button
                   type="button"
                   onClick={addTag}
-                  className="btn-secondary"
+                  className="btn-secondary w-full sm:w-auto"
                 >
                   Add
                 </button>

@@ -14,7 +14,7 @@ import { Client, TimeEntry } from '../../types'
 import { useAuth } from '../../contexts/AuthContext'
 import { canViewHourlyRates } from '../../utils/permissions'
 import { timeEntryService } from '../../services/timeEntryService'
-import { formatSecondsToHHMMSS } from '../../utils'
+import { formatSecondsToHHMMSS, formatCurrency } from '../../utils'
 
 interface ExportModalProps {
   isOpen: boolean
@@ -341,11 +341,11 @@ export default function ExportModal({
                   <>
                     <div>
                       <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Rate:</span>
-                      <span className={`ml-2 font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>${client.hourlyRate || 0}/hr</span>
+                      <span className={`ml-2 font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{client ? formatCurrency(client.hourlyRate || 0, client.currency) : '$0.00'}</span>
                     </div>
                     <div>
                       <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Billable Amount:</span>
-                      <span className={`ml-2 font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>${(dynamicTimeData.totalHours * (client.hourlyRate || 0)).toFixed(2)}</span>
+                      <span className={`ml-2 font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{client ? formatCurrency((dynamicTimeData.totalHours * (client.hourlyRate || 0)), client.currency) : '$0.00'}</span>
                     </div>
                   </>
                 ) : (
@@ -521,7 +521,9 @@ export default function ExportModal({
                 </div>
                 {currentUser && canViewHourlyRates(currentUser.role) ? (
                   <div>
-                    <label className={`block text-xs mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Billable Amount ($)</label>
+                    <label className={`block text-xs mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      Billable Amount {client ? `(${client.currency || '$'})` : '($)'}
+                    </label>
                     <input
                       type="number"
                       step="0.01"
@@ -537,7 +539,9 @@ export default function ExportModal({
                   </div>
                 ) : (
                   <div>
-                    <label className={`block text-xs mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Billable Amount ($)</label>
+                    <label className={`block text-xs mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      Billable Amount {client ? `(${client.currency || '$'})` : '($)'}
+                    </label>
                     <input
                       type="text"
                       value="--"
@@ -567,7 +571,7 @@ export default function ExportModal({
                 </div>
                 {currentUser && canViewHourlyRates(currentUser.role) ? (
                   <div>
-                    <div className={`text-2xl font-bold ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>${dynamicTimeData.billableAmount.toFixed(2)}</div>
+                    <div className={`text-2xl font-bold ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>{client ? formatCurrency(dynamicTimeData.billableAmount, client.currency) : '$0.00'}</div>
                     <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Billable Amount</div>
                   </div>
                 ) : (

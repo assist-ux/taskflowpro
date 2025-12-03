@@ -135,7 +135,7 @@ export default function Calendar() {
       <div className="grid grid-cols-7 gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
         {/* Header */}
         {getWeekDays().map(day => (
-          <div key={day} className="bg-gray-100 dark:bg-gray-800 p-3 text-center text-sm font-medium text-gray-700 dark:text-gray-300">
+          <div key={day} className="bg-gray-100 dark:bg-gray-800 p-2 text-center text-xs font-medium text-gray-700 dark:text-gray-300">
             {day}
           </div>
         ))}
@@ -146,15 +146,15 @@ export default function Calendar() {
             key={index}
             onClick={() => handleDateClick(day)}
             className={`
-              bg-white dark:bg-gray-900 p-2 min-h-[120px] cursor-pointer transition-colors
+              bg-white dark:bg-gray-900 p-1 min-h-[80px] cursor-pointer transition-colors
               ${!day.isCurrentMonth ? 'text-gray-400 dark:text-gray-600' : ''}
               ${day.isToday ? 'ring-2 ring-primary-500 bg-primary-50 dark:bg-primary-900' : ''}
               ${day.isSelected ? 'bg-blue-100 dark:bg-blue-900' : ''}
               hover:bg-gray-50 dark:hover:bg-gray-800
             `}
           >
-            <div className="flex items-center justify-between mb-2">
-              <span className={`text-sm font-medium text-gray-900 dark:text-gray-100 ${day.isToday ? 'text-primary-600 dark:text-primary-400' : ''}`}>
+            <div className="flex items-center justify-between mb-1">
+              <span className={`text-xs font-medium text-gray-900 dark:text-gray-100 ${day.isToday ? 'text-primary-600 dark:text-primary-400' : ''}`}>
                 {day.date.getDate()}
               </span>
               {day.totalDuration > 0 && (
@@ -166,7 +166,7 @@ export default function Calendar() {
             
             {/* Events */}
             <div className="space-y-1">
-              {day.events.slice(0, 3).map((event, eventIndex) => (
+              {day.events.slice(0, 2).map((event, eventIndex) => (
                 <div
                   key={eventIndex}
                   onClick={(e) => {
@@ -182,9 +182,9 @@ export default function Calendar() {
                   {event.title}
                 </div>
               ))}
-              {day.events.length > 3 && (
+              {day.events.length > 2 && (
                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                  +{day.events.length - 3} more
+                  +{day.events.length - 2} more
                 </div>
               )}
             </div>
@@ -205,16 +205,16 @@ export default function Calendar() {
     })
 
     return (
-      <div className="grid grid-cols-7 gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
+      <div className="grid grid-cols-1 sm:grid-cols-7 gap-4">
         {getWeekDays().map((dayName, index) => {
           const day = weekDays[index]
           if (!day) return null
           
           return (
-            <div key={index} className="bg-white dark:bg-gray-900 p-4 min-h-[200px]">
-              <div className="flex items-center justify-between mb-3">
+            <div key={index} className="bg-white dark:bg-gray-900 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
                 <div>
-                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{dayName}</div>
+                  <div className="text-xs font-medium text-gray-700 dark:text-gray-300">{dayName}</div>
                   <div className={`text-lg font-semibold text-gray-900 dark:text-gray-100 ${day.isToday ? 'text-primary-600 dark:text-primary-400' : ''}`}>
                     {day.date.getDate()}
                   </div>
@@ -260,8 +260,8 @@ export default function Calendar() {
 
     return (
       <div className="space-y-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               {formatDate(day.date)}
             </h3>
@@ -276,7 +276,7 @@ export default function Calendar() {
                 <div
                   key={index}
                   onClick={() => handleEventClick(event)}
-                  className="p-4 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-md transition-shadow"
+                  className="p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-md transition-shadow"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -299,7 +299,7 @@ export default function Calendar() {
                         </p>
                       )}
                       
-                      <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400">
+                      <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
                         <div className="flex items-center space-x-1">
                           <Clock className="h-3 w-3" />
                           <span>
@@ -361,8 +361,8 @@ export default function Calendar() {
     const navigate = viewType === 'month' ? navigateMonth : viewType === 'week' ? navigateWeek : navigateDay
     
     return (
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div className="flex items-center justify-between">
           <button
             onClick={() => navigate('prev')}
             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -370,7 +370,7 @@ export default function Calendar() {
             <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-300" />
           </button>
           
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mx-4">
             {viewType === 'month' ? getMonthName(currentDate) : 
              viewType === 'week' ? `Week of ${formatDate(currentDate)}` :
              formatDate(currentDate)}
@@ -384,7 +384,7 @@ export default function Calendar() {
           </button>
         </div>
         
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center justify-between">
           <button
             onClick={() => setCurrentDate(new Date())}
             className="px-3 py-1 text-sm bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 rounded-lg hover:bg-primary-200 dark:hover:bg-primary-800 transition-colors"
@@ -397,9 +397,9 @@ export default function Calendar() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 space-y-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Calendar</h1>
           <p className="text-gray-600 dark:text-gray-400">View your time entries in calendar format</p>
@@ -412,7 +412,7 @@ export default function Calendar() {
               <button
                 key={type}
                 onClick={() => setViewType(type)}
-                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                className={`px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                   viewType === type
                     ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
@@ -435,9 +435,9 @@ export default function Calendar() {
 
       {/* Filters Panel */}
       {showFilters && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Filters</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Projects
@@ -495,8 +495,8 @@ export default function Calendar() {
       {loading ? (
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 dark:border-primary-400 mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-400">Loading calendar...</p>
+            <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-primary-600 dark:border-primary-400 mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">Loading calendar...</p>
           </div>
         </div>
       ) : (
@@ -505,7 +505,7 @@ export default function Calendar() {
 
       {/* Selected Day Details */}
       {selectedDay && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               {formatDate(selectedDay.date)} Details
@@ -518,24 +518,24 @@ export default function Calendar() {
             </button>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
             <div className="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-              <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              <div className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {calendarService.formatDuration(selectedDay.totalDuration)}
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Total Time</div>
+              <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Total Time</div>
             </div>
             <div className="text-center p-3 bg-green-50 dark:bg-green-900 rounded-lg">
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+              <div className="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400">
                 {calendarService.formatDuration(selectedDay.billableDuration)}
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Billable Time</div>
+              <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Billable Time</div>
             </div>
             <div className="text-center p-3 bg-blue-50 dark:bg-blue-900 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              <div className="text-lg sm:text-2xl font-bold text-blue-600 dark:text-blue-400">
                 {selectedDay.events.length}
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Entries</div>
+              <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Entries</div>
             </div>
           </div>
           
@@ -544,7 +544,7 @@ export default function Calendar() {
               {selectedDay.events.map((event, index) => (
                 <div
                   key={index}
-                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg gap-2"
                 >
                   <div className="flex items-center space-x-3">
                     <div 

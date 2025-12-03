@@ -131,7 +131,7 @@ export default function TimeTrackerPage() {
       </div>
 
       {/* Time Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Daily Time */}
         <div 
           className={`card cursor-pointer transition-all duration-200 ${
@@ -204,7 +204,7 @@ export default function TimeTrackerPage() {
 
       {/* Active Tab Stats */}
       <div className="card">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {getTabLabel(activeTab)} Overview
           </h2>
@@ -215,13 +215,13 @@ export default function TimeTrackerPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Total Time */}
           <div className="text-center">
-            <div className="p-4 bg-primary-100 dark:bg-primary-900 rounded-lg w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-              <Clock className="h-8 w-8 text-primary-600 dark:text-primary-400" />
+            <div className="p-3 bg-primary-100 dark:bg-primary-900 rounded-lg w-14 h-14 mx-auto mb-2 flex items-center justify-center">
+              <Clock className="h-6 w-6 text-primary-600 dark:text-primary-400" />
             </div>
-            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
               {formatTimeFromSeconds(stats.total)}
             </p>
             <p className="text-sm text-gray-600 dark:text-gray-400">Total Time</p>
@@ -229,10 +229,10 @@ export default function TimeTrackerPage() {
 
           {/* Billable Time */}
           <div className="text-center">
-            <div className="p-4 bg-green-100 dark:bg-green-900 rounded-lg w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-              <DollarSign className="h-8 w-8 text-green-600 dark:text-green-400" />
+            <div className="p-3 bg-green-100 dark:bg-green-900 rounded-lg w-14 h-14 mx-auto mb-2 flex items-center justify-center">
+              <DollarSign className="h-6 w-6 text-green-600 dark:text-green-400" />
             </div>
-            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
               {formatTimeFromSeconds(stats.billable)}
             </p>
             <p className="text-sm text-gray-600 dark:text-gray-400">Billable Time</p>
@@ -243,10 +243,10 @@ export default function TimeTrackerPage() {
 
           {/* Entries Count */}
           <div className="text-center">
-            <div className="p-4 bg-purple-100 dark:bg-purple-900 rounded-lg w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-              <Target className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+            <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-lg w-14 h-14 mx-auto mb-2 flex items-center justify-center">
+              <Target className="h-6 w-6 text-purple-600 dark:text-purple-400" />
             </div>
-            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.entries}</p>
+            <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{stats.entries}</p>
             <p className="text-sm text-gray-600 dark:text-gray-400">Time Entries</p>
           </div>
         </div>
@@ -258,7 +258,7 @@ export default function TimeTrackerPage() {
       {/* Recent Entries with Pagination */}
       {allEntries.length > 0 && (
         <div className="card">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Recent Entries</h2>
             <span className="text-sm text-gray-500 dark:text-gray-400">
               Showing {Math.min((currentPage - 1) * entriesPerPage + 1, allEntries.length)}-
@@ -269,9 +269,9 @@ export default function TimeTrackerPage() {
             {recentEntries.map((entry) => (
               <div
                 key={entry.id}
-                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg gap-2"
               >
-                <div className="flex items-center space-x-3 flex-1 min-w-0">
+                <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 flex-1 min-w-0">
                   <div className="flex items-center space-x-2">
                     {entry.isRunning ? (
                       <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
@@ -282,30 +282,32 @@ export default function TimeTrackerPage() {
                       {entry.projectName || 'No project'}
                     </span>
                   </div>
-                  {entry.clientName && (
-                    <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full">
-                      {entry.clientName}
-                    </span>
-                  )}
-                  {entry.description && (
-                    <span className="text-sm text-gray-600 dark:text-gray-400 truncate max-w-xs">
-                      {entry.description}
-                    </span>
-                  )}
-                  {entry.tags && entry.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {entry.tags.map((tag, index) => (
-                        <span
-                          key={index}
-                          className="text-xs bg-primary-100 dark:bg-primary-800 text-primary-800 dark:text-primary-200 px-2 py-1 rounded-full"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {entry.clientName && (
+                      <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full">
+                        {entry.clientName}
+                      </span>
+                    )}
+                    {entry.description && (
+                      <span className="text-sm text-gray-600 dark:text-gray-400 truncate max-w-xs">
+                        {entry.description}
+                      </span>
+                    )}
+                    {entry.tags && entry.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {entry.tags.map((tag, index) => (
+                          <span
+                            key={index}
+                            className="text-xs bg-primary-100 dark:bg-primary-800 text-primary-800 dark:text-primary-200 px-2 py-1 rounded-full"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center space-x-4">
+                <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 pt-2 sm:pt-0">
                   <span className="text-sm font-mono text-gray-900 dark:text-gray-100">
                     {formatTimeFromSeconds(entry.duration)}
                   </span>
@@ -343,7 +345,7 @@ export default function TimeTrackerPage() {
                         }
                       }
                     }}
-                    className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 rounded"
+                    className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 rounded self-start sm:self-center"
                     title="Delete entry"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -354,11 +356,11 @@ export default function TimeTrackerPage() {
           </div>
           {/* Pagination */}
           {allEntries.length > entriesPerPage && (
-            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col sm:flex-row items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 gap-4">
               <div className="text-sm text-gray-700 dark:text-gray-300">
                 Page {currentPage} of {Math.ceil(allEntries.length / entriesPerPage)}
               </div>
-              <div className="flex space-x-2">
+              <div className="flex flex-wrap justify-center gap-1">
                 <button
                   onClick={() => paginate(currentPage - 1)}
                   disabled={currentPage === 1}

@@ -21,7 +21,7 @@ import { timeEntryService } from '../services/timeEntryService'
 import { userService } from '../services/userService'
 import { Client, Project, TimeEntry, User } from '../types'
 import { canViewHourlyRates } from '../utils/permissions'
-import { formatSecondsToHHMMSS } from '../utils'
+import { formatSecondsToHHMMSS, formatCurrency } from '../utils'
 
 // Add this helper function to format duration
 const formatDurationToHHMMSS = (seconds: number): string => {
@@ -334,7 +334,7 @@ export default function ClientDetails() {
                   <div className="flex justify-between">
                     <span className="text-gray-500 dark:text-gray-400">Hourly Rate</span>
                     {currentUser && canViewHourlyRates(currentUser.role) ? (
-                      <span className="font-semibold text-gray-900 dark:text-gray-100">${client.hourlyRate || 0}/hr</span>
+                      <span className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(client.hourlyRate || 0, client.currency)}</span>
                     ) : (
                       <span className="font-semibold text-gray-900 dark:text-gray-100">--</span>
                     )}
@@ -381,7 +381,7 @@ export default function ClientDetails() {
                     <div className="flex justify-between">
                       <span className="text-gray-500 dark:text-gray-400">Billable Amount</span>
                       {currentUser && canViewHourlyRates(currentUser.role) ? (
-                        <span className="font-semibold text-green-600 dark:text-green-400">${timeData.billableAmount.toFixed(2)}</span>
+                        <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(timeData.billableAmount, client.currency)}</span>
                       ) : (
                         <span className="font-semibold text-green-600 dark:text-green-400">--</span>
                       )}

@@ -216,6 +216,7 @@ export const projectService = {
       phone: newClient.phone,
       company: newClient.company,
       address: newClient.address,
+      currency: newClient.currency, // Add currency field
       // Persist if provided
       companyId: companyId ?? undefined,
       isArchived: newClient.isArchived,
