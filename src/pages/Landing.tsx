@@ -28,9 +28,7 @@ interface Testimonial {
 const Landing = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [visibleSections, setVisibleSections] = useState<Set<string>>(new Set())
-  const [glowPositions, setGlowPositions] = useState([{ x: 0, y: 0 }, { x: 0, y: 0 }])
   const [playingVideos, setPlayingVideos] = useState<Set<number>>(new Set())
-  const [testimonialGlowPositions, setTestimonialGlowPositions] = useState([{ x: 0, y: 0 }, { x: 0, y: 0 }])
   const testimonialSectionRef = useRef<HTMLDivElement>(null)
   const heroSectionRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
@@ -73,83 +71,9 @@ const Landing = () => {
     }
   }, [])
 
-  // Animate random glow movements
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout
-    let startTime: number | null = null
-    const duration = 10000 // 10 seconds for one cycle (moderate speed)
-    
-    const updateGlows = () => {
-      const timestamp = Date.now()
-      if (!startTime) startTime = timestamp
-      const elapsed = timestamp - startTime
-      const progress = (elapsed % duration) / duration
-      
-      if (heroSectionRef.current) {
-        const rect = heroSectionRef.current.getBoundingClientRect()
-        const width = rect.width
-        const height = rect.height
-        
-        // Calculate positions using sine/cosine waves for smooth, slow motion
-        const glow1X = (width / 2) + (width / 4) * Math.sin(progress * 2 * Math.PI)
-        const glow1Y = (height / 2) + (height / 6) * Math.cos(progress * 2 * Math.PI)
-        
-        const glow2X = (width / 2) + (width / 6) * Math.cos(progress * 1.5 * Math.PI)
-        const glow2Y = (height / 2) + (height / 4) * Math.sin(progress * 1.5 * Math.PI)
-        
-        setGlowPositions([
-          { x: glow1X, y: glow1Y },
-          { x: glow2X, y: glow2Y }
-        ])
-      }
-    }
-    
-    // Update at 30fps instead of 60fps to reduce load
-    intervalId = setInterval(updateGlows, 1000 / 30)
-    
-    return () => {
-      clearInterval(intervalId)
-    }
-  }, [])
 
-  // Animate random glow movements for testimonials section
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout
-    let startTime: number | null = null
-    const duration = 15000 // 15 seconds for one cycle (slower speed per preference)
-    
-    const updateTestimonialGlows = () => {
-      const timestamp = Date.now()
-      if (!startTime) startTime = timestamp
-      const elapsed = timestamp - startTime
-      const progress = (elapsed % duration) / duration
-      
-      if (testimonialSectionRef.current) {
-        const rect = testimonialSectionRef.current.getBoundingClientRect()
-        const width = rect.width
-        const height = rect.height
-        
-        // Calculate positions using sine/cosine waves for smooth, slow motion
-        const glow1X = (width / 2) + (width / 3) * Math.sin(progress * 2 * Math.PI)
-        const glow1Y = (height / 2) + (height / 4) * Math.cos(progress * 2 * Math.PI)
-        
-        const glow2X = (width / 2) + (width / 4) * Math.cos(progress * 1.5 * Math.PI)
-        const glow2Y = (height / 2) + (height / 3) * Math.sin(progress * 1.5 * Math.PI)
-        
-        setTestimonialGlowPositions([
-          { x: glow1X, y: glow1Y },
-          { x: glow2X, y: glow2Y }
-        ])
-      }
-    }
-    
-    // Update at 30fps instead of 60fps to reduce load
-    intervalId = setInterval(updateTestimonialGlows, 1000 / 30)
-    
-    return () => {
-      clearInterval(intervalId)
-    }
-  }, [])
+
+
 
   // Show loading while checking authentication
   if (loading) {
@@ -304,108 +228,123 @@ const Landing = () => {
   ]
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900">
+    <div className="relative min-h-screen overflow-hidden bg-white dark:bg-[#020617]">
+    {/* Shared background for HEADER + HERO */}
+    <div className="pointer-events-none absolute inset-0 -z-10">
+      {/* top-right glow */}
+      <div className="absolute -top-40 right-[-80px] w-[300px] h-[300px] bg-blue-500/20 dark:bg-blue-700/30 rounded-full blur-[110px] sm:-top-56 sm:right-[-120px] sm:w-[480px] sm:h-[480px] sm:blur-[150px]" />
+      {/* bottom-left glow */}
+      <div className="absolute bottom-[-160px] left-[-100px] w-[320px] h-[320px] bg-indigo-400/20 dark:bg-indigo-600/30 rounded-full blur-[120px] sm:bottom-[-220px] sm:left-[-160px] sm:w-[520px] sm:h-[520px] sm:blur-[170px]" />
+      {/* center glow */}
+      <div className="absolute top-1/3 left-1/4 w-[260px] h-[260px] bg-purple-400/15 dark:bg-purple-500/20 rounded-full blur-[120px] sm:w-[360px] sm:h-[360px] sm:blur-[180px]" />
+      {/* Additional glow with requested color */}
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-[#091845] blur-[120px] opacity-25"></div>
+    </div>
       {/* Header */}
-      <header className="bg-white dark:bg-[#020617] shadow-sm backdrop-blur-sm relative z-30">
+      <header className="bg-transparent relative z-30 pt-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <img
-                  src="https://storage.googleapis.com/msgsndr/nb61f4OQ7o9Wsxx0zOsY/media/68df3ae78db305b0e463f363.svg"
-                  alt="NexiFlow Logo"
-                  className="h-10 w-auto"
-                />
+          <div className="relative backdrop-blur-lg bg-white/35 dark:bg-gray-900/45 rounded-xl overflow-hidden">
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/40 to-blue-200/40 dark:from-gray-600/50 dark:to-blue-900/50 p-0.5"></div>
+            <div className="absolute inset-0 rounded-xl bg-white/20 dark:bg-gray-900/30 shadow-inner"></div>
+            <div className="relative z-10 flex justify-between items-center py-4 px-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <img
+                    src="https://storage.googleapis.com/msgsndr/nb61f4OQ7o9Wsxx0zOsY/media/68df3ae78db305b0e463f363.svg"
+                    alt="NexiFlow Logo"
+                    className="h-10 w-auto"
+                  />
+                </div>
+                <div className="ml-3">
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">NexiFlow</h1>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">Powered by Nexistry Digital Solutions</p>
+                </div>
               </div>
-              <div className="ml-3">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">NexiFlow</h1>
-                <p className="text-xs text-gray-600 dark:text-gray-400">Powered by Nexistry Digital Solutions</p>
+              <div className="hidden lg:flex items-center space-x-8">
+                <a 
+                  href="#features" 
+                  className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors relative group"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const element = document.getElementById('features');
+                    if (element) {
+                      element.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }}
+                >
+                  <span className="relative z-10">Features</span>
+                  <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
+                </a>
+                <a 
+                  href="#pricing" 
+                  className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors relative group"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const element = document.getElementById('pricing');
+                    if (element) {
+                      element.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }}
+                >
+                  <span className="relative z-10">Pricing</span>
+                  <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
+                </a>
+                <a 
+                  href="#testimonials" 
+                  className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors relative group"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const element = document.getElementById('testimonials');
+                    if (element) {
+                      element.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }}
+                >
+                  <span className="relative z-10">Reviews</span>
+                  <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
+                </a>
+                <a href="/about" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors relative group">
+                  <span className="relative z-10">About</span>
+                  <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
+                </a>
               </div>
-            </div>
-            <div className="hidden lg:flex items-center space-x-8">
-              <a 
-                href="#features" 
-                className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors relative group"
-                onClick={(e) => {
-                  e.preventDefault();
-                  const element = document.getElementById('features');
-                  if (element) {
-                    element.scrollIntoView({ behavior: 'smooth' });
-                  }
-                }}
-              >
-                <span className="relative z-10">Features</span>
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
-              </a>
-              <a 
-                href="#pricing" 
-                className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors relative group"
-                onClick={(e) => {
-                  e.preventDefault();
-                  const element = document.getElementById('pricing');
-                  if (element) {
-                    element.scrollIntoView({ behavior: 'smooth' });
-                  }
-                }}
-              >
-                <span className="relative z-10">Pricing</span>
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
-              </a>
-              <a 
-                href="#testimonials" 
-                className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors relative group"
-                onClick={(e) => {
-                  e.preventDefault();
-                  const element = document.getElementById('testimonials');
-                  if (element) {
-                    element.scrollIntoView({ behavior: 'smooth' });
-                  }
-                }}
-              >
-                <span className="relative z-10">Reviews</span>
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
-              </a>
-              <a href="/about" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors relative group">
-                <span className="relative z-10">About</span>
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
-              </a>
-            </div>
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <button
-                onClick={handleLogin}
-                className="hidden sm:block text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors relative group"
-              >
-                <span className="relative z-10">Log In</span>
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
-              </button>
-              <button
-                onClick={() => navigate('/super-admin-signup')}
-                className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 text-sm sm:text-base cursor-pointer transition-all duration-300 transform hover:scale-105 hover:shadow-lg hidden sm:flex overflow-hidden relative group"
-              >
-                <span className="relative z-10 flex items-center">
-                  <span className="hidden sm:inline">Access NexiFlow</span>
-                  <span className="sm:hidden">Sign In</span>
-                  <ArrowRight className="ml-2 transition-transform duration-300 group-hover:translate-x-1 w-4 h-4" />
-                </span>
-                <span className="absolute inset-0 bg-gradient-to-r from-blue-500 to-blue-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
-              </button>
-            </div>
-            <div className="-mr-2 flex items-center sm:hidden">
-              <button
-                type="button"
-                className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
-                onClick={() => setMobileMenuOpen(true)}
-              >
-                <span className="sr-only">Open main menu</span>
-                <Menu className="h-6 w-6" aria-hidden="true" />
-              </button>
+              <div className="flex items-center space-x-2 sm:space-x-4">
+                <button
+                  onClick={handleLogin}
+                  className="hidden sm:block text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors relative group"
+                >
+                  <span className="relative z-10">Log In</span>
+                  <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
+                </button>
+                <button
+                  onClick={() => navigate('/super-admin-signup')}
+                  className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 text-sm sm:text-base cursor-pointer transition-all duration-300 transform hover:scale-105 hover:shadow-lg hidden sm:flex overflow-hidden relative group"
+                >
+                  <span className="relative z-10 flex items-center">
+                    <span className="hidden sm:inline">Access NexiFlow</span>
+                    <span className="sm:hidden">Sign In</span>
+                    <ArrowRight className="ml-2 transition-transform duration-300 group-hover:translate-x-1 w-4 h-4" />
+                  </span>
+                  <span className="absolute inset-0 bg-gradient-to-r from-blue-500 to-blue-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+                </button>
+              </div>
+              <div className="-mr-2 flex items-center sm:hidden">
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+                  onClick={() => setMobileMenuOpen(true)}
+                >
+                  <span className="sr-only">Open main menu</span>
+                  <Menu className="h-6 w-6" aria-hidden="true" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Mobile menu */}
         {mobileMenuOpen && (
-          <div className="lg:hidden absolute top-0 inset-x-0 z-50 bg-white dark:bg-[#020617] shadow-lg">
+          <div className="lg:hidden absolute top-0 inset-x-0 z-50 bg-white dark:bg-gray-900 shadow-lg">
             <div className="pt-5 pb-6 px-5">
               <div className="flex items-center justify-between">
                 <div>
@@ -515,53 +454,44 @@ const Landing = () => {
 
       {/* Hero Section */}
       <section 
-        ref={heroSectionRef}
-        className="relative h-[73vh] flex items-center justify-center px-4 overflow-hidden bg-white dark:bg-[#020617]"
-      >
-        {/* Randomly moving glow effects */}
-        {glowPositions.map((position, index) => (
-          <div 
-            key={index}
-            className="absolute w-96 h-96 rounded-full bg-blue-500/10 dark:bg-blue-400/10 blur-3xl pointer-events-none transition-all duration-1000 ease-out"
-            style={{
-              left: `${position.x}px`,
-              top: `${position.y}px`,
-              transform: 'translate(-50%, -50%)'
-            }}
-          ></div>
-        ))}
+  ref={heroSectionRef}
+  className="relative z-20 min-h-[70vh] flex items-center justify-center px-4 py-16 sm:py-20 overflow-hidden sm:h-[73vh]"
+>
+  {/* Glow orbs effect */}
+  <div className="absolute inset-0 pointer-events-none">
+    {/* Central orb */}
+    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-[#091845] blur-[120px] opacity-40"></div>
+    {/* Secondary orbs */}
+    <div className="absolute top-1/4 left-1/4 w-[300px] h-[300px] rounded-full bg-blue-500 blur-[100px] opacity-30"></div>
+    <div className="absolute bottom-1/3 right-1/4 w-[250px] h-[250px] rounded-full bg-indigo-500 blur-[100px] opacity-25"></div>
+  </div>
   
-  {/* floating blurred shapes */}
-  <div className="absolute top-[-180px] right-[-120px] w-[500px] h-[500px] bg-blue-500/20 dark:bg-blue-700/30 rounded-full blur-[140px]"></div>
-  <div className="absolute bottom-[-200px] left-[-150px] w-[480px] h-[480px] bg-indigo-400/15 dark:bg-indigo-600/20 rounded-full blur-[150px]"></div>
-  <div className="absolute top-[45%] left-[25%] w-[300px] h-[300px] bg-purple-400/10 dark:bg-purple-500/10 rounded-full blur-[160px]"></div>
-
-  {/* subtle UI card outlines */}
-  <div className="absolute top-16 left-16 w-80 h-52 border border-gray-900/5 dark:border-white/5 rounded-2xl backdrop-blur-sm"></div>
-  <div className="absolute bottom-16 right-16 w-72 h-48 border border-gray-900/5 dark:border-white/5 rounded-2xl backdrop-blur-sm"></div>
+  {/* subtle UI card outlines - hidden on mobile for better performance */}
+  <div className="absolute top-16 left-16 w-40 h-28 border border-gray-900/5 dark:border-white/5 rounded-xl backdrop-blur-sm hidden sm:block sm:w-80 sm:h-52 sm:rounded-2xl"></div>
+  <div className="absolute bottom-16 right-16 w-36 h-24 border border-gray-900/5 dark:border-white/5 rounded-xl backdrop-blur-sm hidden sm:block sm:w-72 sm:h-48 sm:rounded-2xl"></div>
 
   {/* HERO CONTENT */}
-  <div className="relative z-10 text-center max-w-3xl flex flex-col items-center justify-center h-full">
-    <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
+  <div className="relative z-10 text-center max-w-3xl flex flex-col items-center justify-center w-full">
+    <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4 sm:text-5xl sm:mb-6 md:text-6xl">
       Work Smarter, Not Harder
     </h1>
-    <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-10">
+    <p className="text-base text-gray-600 dark:text-gray-300 mb-8 px-2 sm:text-lg sm:mb-10 md:text-xl">
       The all-in-one platform for time tracking, project management, and team collaboration.
     </p>
     <button 
       onClick={() => navigate('/super-admin-signup')}
-      className="relative backdrop-blur-lg bg-white/35 dark:bg-gray-900/45 text-white px-8 py-3 rounded-xl text-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:bg-white/45 dark:hover:bg-gray-900/55 flex items-center group overflow-hidden"
+      className="relative backdrop-blur-lg bg-white/35 dark:bg-gray-900/45 text-white px-6 py-3 rounded-xl text-base font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:bg-white/45 dark:hover:bg-gray-900/55 flex items-center group overflow-hidden sm:px-8 sm:py-3 sm:text-lg sm:rounded-xl"
     >
       <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/40 to-blue-200/40 dark:from-gray-600/50 dark:to-blue-900/50 p-0.5"></div>
       <div className="absolute inset-0 rounded-xl bg-white/20 dark:bg-gray-900/30 shadow-inner"></div>
       <span className="relative z-10 flex items-center">
         Start Free
-        <ArrowRight className="ml-2 transition-all duration-300 transform group-hover:translate-x-2 w-5 h-5" />
+        <ArrowRight className="ml-2 transition-all duration-300 transform group-hover:translate-x-2 w-4 h-4 sm:w-5 sm:h-5" />
       </span>
     </button>
   </div>
-
 </section>
+
 
       {/* Stats Section */}
       <section 
@@ -596,13 +526,17 @@ const Landing = () => {
       <section 
         id="enhanced-features" 
         data-animate="true"
-        className={`enhanced-features py-20 bg-gray-50 dark:bg-gray-800 transition-all duration-700 ease-out ${
+        className={`enhanced-features py-20 bg-gray-50 dark:bg-gray-800 transition-all duration-700 ease-out relative overflow-hidden ${
           visibleSections.has('enhanced-features') 
             ? 'opacity-100 translate-y-0' 
             : 'opacity-0 translate-y-10'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Subtle background elements */}
+        <div className="absolute top-[-100px] right-[-60px] w-[300px] h-[300px] bg-blue-500/10 dark:bg-blue-700/20 rounded-full blur-[100px]"></div>
+        <div className="absolute bottom-[-100px] left-[-60px] w-[280px] h-[280px] bg-indigo-400/10 dark:bg-indigo-600/15 rounded-full blur-[100px]"></div>
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4 text-center">
             Everything you need in one place
           </h2>
@@ -613,7 +547,7 @@ const Landing = () => {
           <div className="enhanced-features-grid space-y-12">
             {/* Feature 1 */}
             <div 
-              className={`enhanced-feature-card bg-white dark:bg-gray-700 rounded-xl shadow-sm p-8 hover:shadow-lg transition-all duration-200 hover:ring-2 hover:ring-yellow-400 hover:ring-opacity-50 hover:-translate-y-1 flex flex-col lg:flex-row gap-8 transition-all duration-500 ease-out ${
+              className={`enhanced-feature-card bg-white dark:bg-gray-700 rounded-xl shadow-sm p-8 hover:shadow-lg transition-all duration-200 hover:ring-2 hover:ring-blue-400 hover:ring-opacity-50 hover:-translate-y-1 flex flex-col lg:flex-row gap-8 transition-all duration-500 ease-out ${
                 visibleSections.has('enhanced-features') 
                   ? 'opacity-100 translate-y-0' 
                   : 'opacity-0 translate-y-10'
@@ -637,7 +571,7 @@ const Landing = () => {
             
             {/* Feature 2 */}
             <div 
-              className={`enhanced-feature-card bg-white dark:bg-gray-700 rounded-xl shadow-sm p-8 hover:shadow-lg transition-all duration-200 hover:ring-2 hover:ring-yellow-400 hover:ring-opacity-50 hover:-translate-y-1 flex flex-col lg:flex-row gap-8 transition-all duration-500 ease-out delay-100 ${
+              className={`enhanced-feature-card bg-white dark:bg-gray-700 rounded-xl shadow-sm p-8 hover:shadow-lg transition-all duration-200 hover:ring-2 hover:ring-blue-400 hover:ring-opacity-50 hover:-translate-y-1 flex flex-col lg:flex-row gap-8 transition-all duration-500 ease-out delay-100 ${
                 visibleSections.has('enhanced-features') 
                   ? 'opacity-100 translate-y-0' 
                   : 'opacity-0 translate-y-10'
@@ -661,7 +595,7 @@ const Landing = () => {
             
             {/* Feature 3 */}
             <div 
-              className={`enhanced-feature-card bg-white dark:bg-gray-700 rounded-xl shadow-sm p-8 hover:shadow-lg transition-all duration-200 hover:ring-2 hover:ring-yellow-400 hover:ring-opacity-50 hover:-translate-y-1 flex flex-col lg:flex-row gap-8 transition-all duration-500 ease-out delay-200 ${
+              className={`enhanced-feature-card bg-white dark:bg-gray-700 rounded-xl shadow-sm p-8 hover:shadow-lg transition-all duration-200 hover:ring-2 hover:ring-blue-400 hover:ring-opacity-50 hover:-translate-y-1 flex flex-col lg:flex-row gap-8 transition-all duration-500 ease-out delay-200 ${
                 visibleSections.has('enhanced-features') 
                   ? 'opacity-100 translate-y-0' 
                   : 'opacity-0 translate-y-10'
@@ -696,7 +630,8 @@ const Landing = () => {
             : 'opacity-0 translate-y-10'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
               Powerful features for every team
@@ -710,7 +645,7 @@ const Landing = () => {
             {features.map((feature, index) => (
               <div 
                 key={index} 
-                className={`text-center transition-all duration-700 ease-out ${
+                className={`text-center bg-white dark:bg-gray-800 rounded-xl p-6 transition-all duration-700 ease-out ${
                   visibleSections.has('features') 
                     ? 'opacity-100 translate-y-0' 
                     : 'opacity-0 translate-y-10'
@@ -739,13 +674,17 @@ const Landing = () => {
       <section 
         id="videos" 
         data-animate="true"
-        className={`py-20 bg-gray-50 dark:bg-gray-800 transition-all duration-700 ease-out ${
+        className={`py-20 bg-white dark:bg-[#020617] border-y border-gray-100 dark:border-gray-800 transition-all duration-700 ease-out relative overflow-hidden ${
           visibleSections.has('videos') 
             ? 'opacity-100 translate-y-0' 
             : 'opacity-0 translate-y-10'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Subtle background elements */}
+        <div className="absolute top-[-120px] right-[-80px] w-[350px] h-[350px] bg-blue-500/10 dark:bg-blue-700/20 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-[-120px] left-[-80px] w-[330px] h-[330px] bg-indigo-400/10 dark:bg-indigo-600/15 rounded-full blur-[120px]"></div>
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
               See NexiFlow in Action
@@ -757,7 +696,7 @@ const Landing = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {/* Video 1 */}
-            <div className={`bg-white dark:bg-gray-700 rounded-xl shadow-sm overflow-hidden transition-all duration-500 ease-out hover:shadow-lg hover:-translate-y-1 group ${
+            <div className={`bg-white dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm overflow-hidden transition-all duration-500 ease-out hover:shadow-lg hover:-translate-y-1 group ${
               visibleSections.has('videos') 
                 ? 'opacity-100 translate-y-0' 
                 : 'opacity-0 translate-y-5'
@@ -805,7 +744,7 @@ const Landing = () => {
             </div>
             
             {/* Video 2 */}
-            <div className={`bg-white dark:bg-gray-700 rounded-xl shadow-sm overflow-hidden transition-all duration-500 ease-out hover:shadow-lg hover:-translate-y-1 group delay-100 ${
+            <div className={`bg-white dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm overflow-hidden transition-all duration-500 ease-out hover:shadow-lg hover:-translate-y-1 group delay-100 ${
               visibleSections.has('videos') 
                 ? 'opacity-100 translate-y-0' 
                 : 'opacity-0 translate-y-5'
@@ -853,7 +792,7 @@ const Landing = () => {
             </div>
             
             {/* Video 3 */}
-            <div className={`bg-white dark:bg-gray-700 rounded-xl shadow-sm overflow-hidden transition-all duration-500 ease-out hover:shadow-lg hover:-translate-y-1 group delay-200 ${
+            <div className={`bg-white dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm overflow-hidden transition-all duration-500 ease-out hover:shadow-lg hover:-translate-y-1 group delay-200 ${
               visibleSections.has('videos') 
                 ? 'opacity-100 translate-y-0' 
                 : 'opacity-0 translate-y-5'
@@ -954,21 +893,9 @@ const Landing = () => {
             transform: rotateY(180deg);
           }
         `}</style>
-        {/* Animated glowing orbs in the background */}
-        {testimonialGlowPositions.map((position, index) => (
-          <div 
-            key={index}
-            className="absolute w-64 h-64 rounded-full opacity-20 pointer-events-none transition-all duration-1000 ease-out"
-            style={{
-              left: `${position.x}px`,
-              top: `${position.y}px`,
-              transform: 'translate(-50%, -50%)',
-              background: index % 2 === 0 
-                ? 'radial-gradient(circle, rgba(59, 130, 246, 0.8) 0%, rgba(59, 130, 246, 0) 70%)' 
-                : 'radial-gradient(circle, rgba(139, 92, 246, 0.8) 0%, rgba(139, 92, 246, 0) 70%)'
-            }}
-          ></div>
-        ))}
+        {/* Static glowing orbs in the background */}
+        <div className="absolute w-64 h-64 rounded-full opacity-20 pointer-events-none" style={{ left: '20%', top: '30%', background: 'radial-gradient(circle, rgba(59, 130, 246, 0.8) 0%, rgba(59, 130, 246, 0) 70%)' }}></div>
+        <div className="absolute w-64 h-64 rounded-full opacity-20 pointer-events-none" style={{ left: '80%', top: '70%', background: 'radial-gradient(circle, rgba(139, 92, 246, 0.8) 0%, rgba(139, 92, 246, 0) 70%)' }}></div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-16">

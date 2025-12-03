@@ -17,7 +17,8 @@ import {
   FolderOpen,
   Activity,
   X,
-  User as UserIcon
+  User as UserIcon,
+  StopCircle
 } from 'lucide-react'
 import { format, parseISO, isValid, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, eachDayOfInterval } from 'date-fns'
 import { useAuth } from '../contexts/AuthContext'
@@ -30,6 +31,7 @@ import UserDetailsModal from '../components/admin/UserDetailsModal'
 import TimeEntryEditModal from '../components/admin/TimeEntryEditModal'
 import UserCreateModal from '../components/admin/UserCreateModal'
 import UserEditModal from '../components/admin/UserEditModal'
+import StopTimerModal from '../components/admin/StopTimerModal'
 import SimpleChart from '../components/charts/SimpleChart'
 import { formatDurationToHHMMSS } from '../utils'
 import { canViewHourlyRates, getRoleDisplayName, canAccessFeature } from '../utils/permissions'
@@ -54,6 +56,7 @@ export default function AdminDashboard() {
   }, [currentUser, navigate])
   const [users, setUsers] = useState<User[]>([])
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([])
+  const [runningTimeEntries, setRunningTimeEntries] = useState<TimeEntry[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [teams, setTeams] = useState<Team[]>([])
@@ -74,6 +77,8 @@ export default function AdminDashboard() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [editingTimeEntry, setEditingTimeEntry] = useState<TimeEntry | null>(null)
   const [isTimeEntryEditModalOpen, setIsTimeEntryEditModalOpen] = useState(false)
+  const [stoppingTimeEntry, setStoppingTimeEntry] = useState<TimeEntry | null>(null)
+  const [isStopTimerModalOpen, setIsStopTimerModalOpen] = useState(false)
   const [error, setError] = useState('')
   // Add undo state
   const [undoActions, setUndoActions] = useState<UndoAction[]>([])
@@ -83,6 +88,22 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (currentUser?.role && ['admin', 'hr', 'super_admin', 'root'].includes(currentUser.role)) {
       loadData()
+    }
+  }, [currentUser])
+
+  // Periodically refresh running timers
+  useEffect(() => {
+    if (currentUser?.role && ['admin', 'hr', 'super_admin', 'root'].includes(currentUser.role)) {
+      const interval = setInterval(() => {
+        // Only refresh running timers periodically
+        timeEntryService.getAllRunningTimeEntries().then(runningEntries => {
+          setRunningTimeEntries(runningEntries)
+        }).catch(error => {
+          console.error('Error refreshing running timers:', error)
+        })
+      }, 30000) // Refresh every 30 seconds
+      
+      return () => clearInterval(interval)
     }
   }, [currentUser])
 
@@ -101,8 +122,9 @@ export default function AdminDashboard() {
         usersData = await userService.getUsersForCompany(currentUser?.companyId || null)
       }
       
-      const [timeEntriesData, projectsData, clientsData, teamsData] = await Promise.all([
+      const [timeEntriesData, runningTimeEntriesData, projectsData, clientsData, teamsData] = await Promise.all([
         timeEntryService.getAllTimeEntries(),
+        timeEntryService.getAllRunningTimeEntries(),
         projectService.getProjects(),
         currentUser?.role === 'root' && !currentUser?.companyId
           ? projectService.getClients() // Root can see all clients
@@ -112,12 +134,14 @@ export default function AdminDashboard() {
       
       // Company scoping for non-root roles: restrict to same company data
       let scopedTimeEntries = timeEntriesData
+      let scopedRunningTimeEntries = runningTimeEntriesData
       let scopedProjects = projectsData
       let scopedClients = clientsData
       let scopedTeams = teamsData
       if (currentUser?.role !== 'root' && currentUser?.companyId) {
         const allowedUsers = new Set(usersData.map(u => u.id))
         scopedTimeEntries = timeEntriesData.filter(te => te.userId && allowedUsers.has(te.userId))
+        scopedRunningTimeEntries = runningTimeEntriesData.filter(te => te.userId && allowedUsers.has(te.userId))
         // Prefer project.companyId if present; otherwise fall back to creator-based scoping
         scopedProjects = projectsData.filter(p => {
           // @ts-ignore allow optional fields
@@ -156,6 +180,7 @@ export default function AdminDashboard() {
       
       setUsers(usersData)
       setTimeEntries(validTimeEntries)
+      setRunningTimeEntries(scopedRunningTimeEntries)
       setProjects(scopedProjects)
       setClients(scopedClients)
       setTeams(scopedTeams)
@@ -648,6 +673,86 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleStopUserTimer = async (entryId: string, userId: string) => {
+    try {
+      // Check if current user has permission to stop other users' timers
+      if (!currentUser?.role || !canAccessFeature(currentUser.role, 'stop-other-timers')) {
+        setError('You do not have permission to stop other users\' timers')
+        return
+      }
+      
+      // Find the entry to stop
+      const entryToStop = runningTimeEntries.find(entry => entry.id === entryId)
+      if (!entryToStop) {
+        setError('Timer not found')
+        return
+      }
+      
+      // Check if required fields are already filled
+      if (entryToStop.projectId && entryToStop.description) {
+        // Required fields are already filled, stop the timer directly
+        await timeEntryService.stopOtherUserTimeEntry(entryId)
+        
+        // Update local state - remove from running timers
+        setRunningTimeEntries(prev => prev.filter(entry => entry.id !== entryId))
+        
+        // Also update the main time entries list
+        setTimeEntries(prev => {
+          // Update it to show it's no longer running
+          return [...prev, { ...entryToStop, isRunning: false }]
+        })
+        
+        console.log(`Stopped timer for user ${userId}`)
+      } else {
+        // Required fields are missing, show modal to fill them
+        setStoppingTimeEntry(entryToStop)
+        setIsStopTimerModalOpen(true)
+      }
+    } catch (error) {
+      setError('Failed to stop user timer')
+      console.error('Error stopping user timer:', error)
+    }
+  }
+
+  const handleStopTimerWithDetails = async (entryId: string, updates: { projectId: string; description: string; clientId?: string }) => {
+    try {
+      // Update the time entry with the provided details
+      await timeEntryService.updateTimeEntry(entryId, {
+        projectId: updates.projectId,
+        description: updates.description,
+        clientId: updates.clientId
+      })
+      
+      // Then stop the timer
+      await timeEntryService.stopOtherUserTimeEntry(entryId)
+      
+      // Update local state - remove from running timers
+      setRunningTimeEntries(prev => prev.filter(entry => entry.id !== entryId))
+      
+      // Also update the main time entries list
+      setTimeEntries(prev => {
+        // Find the stopped entry in the running timers
+        const stoppedEntry = runningTimeEntries.find(entry => entry.id === entryId)
+        if (stoppedEntry) {
+          // Update it with the new details and mark as not running
+          return [...prev, { 
+            ...stoppedEntry, 
+            ...updates,
+            isRunning: false,
+            projectName: projects.find(p => p.id === updates.projectId)?.name,
+            clientName: updates.clientId ? clients.find(c => c.id === updates.clientId)?.name : undefined
+          }]
+        }
+        return prev
+      })
+      
+      console.log(`Stopped timer with details for entry ${entryId}`)
+    } catch (error) {
+      setError('Failed to stop user timer with details')
+      console.error('Error stopping user timer with details:', error)
+    }
+  }
+
   // Add undo function
   const handleUndo = async () => {
     if (!currentUndoAction) return
@@ -791,34 +896,42 @@ export default function AdminDashboard() {
 
         {/* Navigation Tabs */}
         <div className="mb-8">
-          <nav className="flex space-x-8">
-            {([
-              { id: 'overview', name: 'Overview', icon: Building2, requiredFeature: null },
-              { id: 'users', name: 'Users', icon: Users, requiredFeature: 'users' },
-              { id: 'time-entries', name: 'Time Entries', icon: Clock, requiredFeature: 'time-entries' },
-              { id: 'projects', name: 'Projects', icon: FolderOpen, requiredFeature: 'projects' },
-            ] as const)
-              // If root, only show Overview and Users
-              .filter(tab => currentUser?.role === 'root' ? ['overview', 'users'].includes(tab.id) : true)
-              // Then apply permission feature filter for non-root
-              .filter(tab =>
-                !tab.requiredFeature || (currentUser?.role && canAccessFeature(currentUser.role, tab.requiredFeature))
-              )
-              .map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center space-x-2 px-3 py-2 border-b-2 font-medium text-sm ${
-                  activeTab === tab.id
-                    ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-                }`}
-              >
-                <tab.icon className="h-4 w-4" />
-                <span>{tab.name}</span>
-              </button>
-            ))}
-          </nav>
+          <div className="flex justify-between items-center">
+            <nav className="flex space-x-8">
+              {([
+                { id: 'overview', name: 'Overview', icon: Building2, requiredFeature: null },
+                { id: 'users', name: 'Users', icon: Users, requiredFeature: 'users' },
+                { id: 'time-entries', name: 'Time Entries', icon: Clock, requiredFeature: 'time-entries' },
+                { id: 'projects', name: 'Projects', icon: FolderOpen, requiredFeature: 'projects' },
+              ] as const)
+                // If root, only show Overview and Users
+                .filter(tab => currentUser?.role === 'root' ? ['overview', 'users'].includes(tab.id) : true)
+                // Then apply permission feature filter for non-root
+                .filter(tab =>
+                  !tab.requiredFeature || (currentUser?.role && canAccessFeature(currentUser.role, tab.requiredFeature))
+                )
+                .map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex items-center space-x-2 px-3 py-2 border-b-2 font-medium text-sm ${
+                    activeTab === tab.id
+                      ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                  }`}
+                >
+                  <tab.icon className="h-4 w-4" />
+                  <span>{tab.name}</span>
+                </button>
+              ))}
+            </nav>
+            <button 
+              onClick={loadData}
+              className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            >
+              Refresh Data
+            </button>
+          </div>
         </div>
 
         {/* Overview Tab */}
@@ -1200,6 +1313,116 @@ export default function AdminDashboard() {
               </div>
             )}
 
+            {/* Running Timers Section */}
+            {runningTimeEntries.length > 0 && currentUser?.role && canAccessFeature(currentUser.role, 'stop-other-timers') && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                      Running Timers ({runningTimeEntries.length})
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Active timers that can be stopped by administrators
+                    </p>
+                  </div>
+                  <button 
+                    onClick={async () => {
+                      const runningEntries = await timeEntryService.getAllRunningTimeEntries()
+                      setRunningTimeEntries(runningEntries)
+                    }}
+                    className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    Refresh
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-700">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          User
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Project
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Started
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Duration
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Description
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                      {runningTimeEntries.map((entry: TimeEntry) => {
+                        const user = users.find(u => u.id === entry.userId)
+                        const project = projects.find(p => p.id === entry.projectId)
+                        
+                        return (
+                          <tr key={entry.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                                  <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                                    {user?.name.charAt(0).toUpperCase() || '?'}
+                                  </span>
+                                </div>
+                                <div className="ml-3">
+                                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{user?.name || 'Unknown'}</div>
+                                  <div className="text-sm text-gray-500 dark:text-gray-400">{user?.email || ''}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900 dark:text-gray-100">{project?.name || 'Unknown Project'}</div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400">{project?.clientName || ''}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                              {(() => {
+                                const dateField = entry.startTime || entry.createdAt
+                                if (!dateField) return 'No Date'
+                                try {
+                                  const date = typeof dateField === 'string' ? parseISO(dateField) : new Date(dateField)
+                                  return isValid(date) ? format(date, 'MMM dd, yyyy HH:mm') : 'Invalid Date'
+                                } catch (error) {
+                                  return 'Invalid Date'
+                                }
+                              })()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                              {formatDurationToHHMMSS(entry.duration)}
+                              <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                Running
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+                              {entry.description || '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              <button
+                                onClick={() => handleStopUserTimer(entry.id, entry.userId)}
+                                className="flex items-center px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                                title="Stop timer"
+                              >
+                                <StopCircle className="h-4 w-4 mr-1" />
+                                Stop
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {/* Daily Time Chart */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
               <div className="mb-6">
@@ -1312,12 +1535,26 @@ export default function AdminDashboard() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                             {formatDurationToHHMMSS(entry.duration)}
+                            {entry.isRunning && (
+                              <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                Running
+                              </span>
+                            )}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
                             {entry.description || '-'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex items-center space-x-2">
+                              {entry.isRunning && currentUser?.role && canAccessFeature(currentUser.role, 'stop-other-timers') && (
+                                <button
+                                  onClick={() => handleStopUserTimer(entry.id, entry.userId)}
+                                  className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                                  title="Stop timer"
+                                >
+                                  <StopCircle className="h-4 w-4" />
+                                </button>
+                              )}
                               <button
                                 onClick={() => handleEditTimeEntry(entry)}
                                 className="text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300"
@@ -1485,6 +1722,19 @@ export default function AdminDashboard() {
           timeEntry={editingTimeEntry}
           onSave={handleTimeEntrySave}
           onDelete={handleTimeEntryDelete}
+        />
+
+        {/* Stop Timer Modal */}
+        <StopTimerModal
+          isOpen={isStopTimerModalOpen}
+          onClose={() => {
+            setIsStopTimerModalOpen(false)
+            setStoppingTimeEntry(null)
+          }}
+          timeEntry={stoppingTimeEntry}
+          projects={projects}
+          clients={clients}
+          onStopTimer={handleStopTimerWithDetails}
         />
 
         {/* Error Message */}

@@ -105,7 +105,7 @@ export default function SuperAdminSignupForm({ onSwitchToLogin }: SuperAdminSign
   return (
     <div className="w-full max-w-md mx-auto max-h-[calc(100vh-400px)] overflow-y-auto">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2 dark:text-white">Create Super Admin Account</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2 dark:text-white">Create Your Account</h1>
         <p className="text-gray-600 dark:text-gray-400">Sign up for a new company with solo pricing plan</p>
       </div>
 
@@ -348,7 +348,7 @@ export default function SuperAdminSignupForm({ onSwitchToLogin }: SuperAdminSign
             disabled={loading}
             className="w-full btn-primary py-3 text-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Creating Account...' : 'Create Super Admin Account'}
+            {loading ? 'Creating Account...' : 'Create Your Account'}
           </button>
         </form>
       )}

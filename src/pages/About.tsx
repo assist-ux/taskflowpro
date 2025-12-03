@@ -38,10 +38,7 @@ import {
 
 const About = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [glowPositions, setGlowPositions] = useState([
-    { x: 0, y: 0 },
-    { x: 0, y: 0 }
-  ])
+
   const [visibleSteps, setVisibleSteps] = useState<Set<number>>(new Set())
   const stepRefs = useRef<(HTMLDivElement | null)[]>([])
   const navigate = useNavigate()
@@ -52,38 +49,7 @@ const About = () => {
     navigate('/auth')
   }
 
-  // Animate random glow movements for how it works section
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout
-    let startTime: number | null = null
-    const duration = 15000 // 15 seconds for one cycle (slower speed per preference)
-    
-    const updateGlows = () => {
-      const timestamp = Date.now()
-      if (!startTime) startTime = timestamp
-      const elapsed = timestamp - startTime
-      const progress = (elapsed % duration) / duration
-      
-      // Calculate positions using sine/cosine waves for smooth, slow motion
-      const glow1X = (window.innerWidth / 2) + (window.innerWidth / 3) * Math.sin(progress * 2 * Math.PI)
-      const glow1Y = (window.innerHeight / 2) + (window.innerHeight / 4) * Math.cos(progress * 2 * Math.PI)
-      
-      const glow2X = (window.innerWidth / 2) + (window.innerWidth / 4) * Math.cos(progress * 1.5 * Math.PI)
-      const glow2Y = (window.innerHeight / 2) + (window.innerHeight / 3) * Math.sin(progress * 1.5 * Math.PI)
-      
-      setGlowPositions([
-        { x: glow1X, y: glow1Y },
-        { x: glow2X, y: glow2Y }
-      ])
-    }
-    
-    // Update at 30fps instead of 60fps to reduce load
-    intervalId = setInterval(updateGlows, 1000 / 30)
-    
-    return () => {
-      clearInterval(intervalId)
-    }
-  }, [])
+
 
   // Handle scroll animations for step containers
   useEffect(() => {
@@ -157,7 +123,7 @@ const About = () => {
         "Filter by projects or billable status",
         "Track daily and weekly totals"
       ],
-      imageUrl: "https://example.com/step3-image.jpg" // Replace with your actual image URL
+      imageUrl: "https://storage.googleapis.com/msgsndr/nb61f4OQ7o9Wsxx0zOsY/media/692fcf2004f2634739ce0b66.png" // Replace with your actual image URL
     },
     {
       step: "04",
@@ -171,7 +137,7 @@ const About = () => {
         "Add comments and file attachments",
         "Use @mentions to notify team members"
       ],
-      imageUrl: "https://example.com/step4-image.jpg" // Replace with your actual image URL
+      imageUrl: "https://storage.googleapis.com/msgsndr/nb61f4OQ7o9Wsxx0zOsY/media/692fcf2004f263fc0ece0b67.png" // Replace with your actual image URL
     },
     {
       step: "05",
@@ -350,20 +316,9 @@ const About = () => {
 
       {/* How It Works Section */}
       <section className={`py-20 ${isDarkMode ? 'bg-[#020617]' : 'bg-white'} relative overflow-hidden`}>
-        {/* Randomly moving glow effects */}
-        {glowPositions.map((position, index) => (
-          <div 
-            key={index}
-            className="absolute w-96 h-96 rounded-full bg-blue-500/10 dark:bg-blue-400/10 blur-3xl pointer-events-none transition-all duration-1000 ease-out"
-            style={
-              {
-                left: `${position.x}px`,
-                top: `${position.y}px`,
-                transform: 'translate(-50%, -50%)'
-              }
-            }
-          ></div>
-        ))}
+        {/* Static glow effects */}
+        <div className="absolute w-96 h-96 rounded-full bg-blue-500/10 dark:bg-blue-400/10 blur-3xl pointer-events-none" style={{ left: '30%', top: '40%' }}></div>
+        <div className="absolute w-96 h-96 rounded-full bg-indigo-400/15 dark:bg-indigo-600/20 blur-3xl pointer-events-none" style={{ left: '70%', top: '60%' }}></div>
   
   {/* floating blurred shapes */}
   <div className="absolute top-[-180px] right-[-120px] w-[500px] h-[500px] bg-blue-500/20 dark:bg-blue-700/30 rounded-full blur-[140px]"></div>
@@ -388,6 +343,21 @@ const About = () => {
               <ArrowRight className="mr-2 h-5 w-5 transform rotate-180" />
               Back to Home
             </button>
+          </div>
+
+          {/* Large Video Section */}
+          <div className="mt-12 mb-16 px-0 w-full">
+            <div className="w-full aspect-video bg-gray-800 rounded-3xl overflow-hidden shadow-2xl border-4 border-transparent">
+              <video 
+                src="https://storage.googleapis.com/msgsndr/nb61f4OQ7o9Wsxx0zOsY/media/692fd2911d466e7f315c9570.mp4" 
+                className="w-full h-full object-cover"
+                controls
+                poster="https://storage.googleapis.com/msgsndr/nb61f4OQ7o9Wsxx0zOsY/media/692962056c98c803f72c9ea6.png"
+                autoPlay
+                loop
+                muted
+              />
+            </div>
           </div>
 
           <div className="space-y-16">

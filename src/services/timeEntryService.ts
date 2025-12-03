@@ -183,6 +183,25 @@ export const timeEntryService = {
     }
   },
 
+  // Stop a running time entry for another user (admin feature)
+  async stopOtherUserTimeEntry(entryId: string): Promise<void> {
+    const entryRef = ref(database, `timeEntries/${entryId}`)
+    const snapshot = await get(entryRef)
+    
+    if (snapshot.exists()) {
+      const entry = snapshot.val()
+      const endTime = new Date()
+      const duration = Math.floor((endTime.getTime() - new Date(entry.startTime).getTime()) / 1000)
+      
+      await update(entryRef, {
+        endTime: endTime.toISOString(),
+        duration,
+        isRunning: false,
+        updatedAt: new Date().toISOString()
+      })
+    }
+  },
+
   // Update a time entry
   async updateTimeEntry(entryId: string, updates: Partial<CreateTimeEntryData & { projectName?: string, clientName?: string }>): Promise<void> {
     const entryRef = ref(database, `timeEntries/${entryId}`)
@@ -211,6 +230,28 @@ export const timeEntryService = {
   async deleteTimeEntry(entryId: string): Promise<void> {
     const entryRef = ref(database, `timeEntries/${entryId}`)
     await remove(entryRef)
+  },
+
+  // Get all running time entries (for admin use)
+  async getAllRunningTimeEntries(): Promise<TimeEntry[]> {
+    const entriesRef = ref(database, 'timeEntries')
+    const snapshot = await get(entriesRef)
+    
+    if (snapshot.exists()) {
+      const entries = snapshot.val()
+      return Object.values(entries)
+        .map((entry: any) => ({
+          ...entry,
+          startTime: new Date(entry.startTime),
+          endTime: entry.endTime ? new Date(entry.endTime) : undefined,
+          createdAt: new Date(entry.createdAt),
+          updatedAt: new Date(entry.updatedAt)
+        }))
+        .filter((entry: TimeEntry) => entry.isRunning)
+        .sort((a: TimeEntry, b: TimeEntry) => b.createdAt.getTime() - a.createdAt.getTime())
+    }
+    
+    return []
   },
 
   // Get time summary for dashboard

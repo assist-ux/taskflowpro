@@ -1,54 +1,14 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../contexts/ThemeContext'
 import SuperAdminSignupForm from '../components/auth/SuperAdminSignupForm'
-import { Moon, Sun, Home } from 'lucide-react'
+import { Home } from 'lucide-react'
 
 export default function SuperAdminSignup() {
   const navigate = useNavigate()
   const { isDarkMode, toggleDarkMode } = useTheme()
   const [showLogin, setShowLogin] = useState(false)
-  const [glowPositions, setGlowPositions] = useState([{ x: 0, y: 0 }, { x: 0, y: 0 }])
   const brandingRef = useRef<HTMLDivElement>(null)
-
-  // Animate random glow movements
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout
-    let startTime: number | null = null
-    const duration = 30000 // 30 seconds for one cycle (moderate speed)
-    
-    const updateGlows = () => {
-      const timestamp = Date.now()
-      if (!startTime) startTime = timestamp
-      const elapsed = timestamp - startTime
-      const progress = (elapsed % duration) / duration
-      
-      if (brandingRef.current) {
-        const rect = brandingRef.current.getBoundingClientRect()
-        const width = rect.width
-        const height = rect.height
-        
-        // Calculate positions using sine/cosine waves for smooth, slow motion
-        const glow1X = (width / 2) + (width / 4) * Math.sin(progress * 2 * Math.PI)
-        const glow1Y = (height / 2) + (height / 6) * Math.cos(progress * 2 * Math.PI)
-        
-        const glow2X = (width / 2) + (width / 6) * Math.cos(progress * 1.5 * Math.PI)
-        const glow2Y = (height / 2) + (height / 4) * Math.sin(progress * 1.5 * Math.PI)
-        
-        setGlowPositions([
-          { x: glow1X, y: glow1Y },
-          { x: glow2X, y: glow2Y }
-        ])
-      }
-    }
-    
-    // Update at 30fps instead of 60fps to reduce load
-    intervalId = setInterval(updateGlows, 1000 / 30)
-    
-    return () => {
-      clearInterval(intervalId)
-    }
-  }, [])
 
   const handleSwitchToLogin = () => {
     navigate('/auth')
@@ -61,25 +21,13 @@ export default function SuperAdminSignup() {
         ref={brandingRef}
         className="hidden lg:flex lg:w-1/2 bg-[#020617] text-white p-12 flex-col justify-center relative overflow-hidden"
       >
-        {/* Randomly moving glow effects */}
-        {glowPositions.map((position, index) => (
-          <div 
-            key={index}
-            className="absolute w-96 h-96 rounded-full bg-blue-500/10 dark:bg-blue-400/10 blur-3xl pointer-events-none transition-all duration-1000 ease-out"
-            style={
-              {
-                left: `${position.x}px`,
-                top: `${position.y}px`,
-                transform: 'translate(-50%, -50%)'
-              }
-            }
-          ></div>
-        ))}
-
-        {/* floating blurred shapes */}
-        <div className="absolute top-[-180px] right-[-120px] w-[500px] h-[500px] bg-blue-500/20 dark:bg-blue-700/30 rounded-full blur-[140px]"></div>
-        <div className="absolute bottom-[-200px] left-[-150px] w-[480px] h-[480px] bg-indigo-400/15 dark:bg-indigo-600/20 rounded-full blur-[150px]"></div>
-        <div className="absolute top-[45%] left-[25%] w-[300px] h-[300px] bg-purple-400/10 dark:bg-purple-500/10 rounded-full blur-[160px]"></div>
+        {/* Static glow effects with consistent color scheme */}
+        <div className="absolute top-[-180px] right-[-120px] w-[500px] h-[500px] bg-blue-500/20 dark:bg-blue-700/30 rounded-full blur-[140px] pointer-events-none"></div>
+        <div className="absolute bottom-[-200px] left-[-150px] w-[480px] h-[480px] bg-indigo-400/15 dark:bg-indigo-600/20 rounded-full blur-[150px] pointer-events-none"></div>
+        <div className="absolute top-[45%] left-[25%] w-[300px] h-[300px] bg-purple-400/10 dark:bg-purple-500/10 rounded-full blur-[160px] pointer-events-none"></div>
+        {/* Additional glow orbs for richer visual effect */}
+        <div className="absolute top-1/3 right-1/4 w-[250px] h-[250px] rounded-full bg-[#091845] blur-[120px] opacity-25 pointer-events-none"></div>
+        <div className="absolute bottom-1/4 left-1/3 w-[200px] h-[200px] rounded-full bg-blue-500 blur-[100px] opacity-20 pointer-events-none"></div>
 
         <div className="max-w-lg relative z-10">
           <div className="flex items-center justify-between mb-8">

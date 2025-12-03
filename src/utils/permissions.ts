@@ -12,6 +12,7 @@ export interface Permission {
   canManageSystemSettings: boolean
   canViewHourlyRates: boolean
   canEditHourlyRates: boolean  // New permission for editing hourly rates
+  canStopOtherUsersTimers: boolean  // New permission for stopping other users' timers
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
@@ -26,7 +27,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
     canViewUserDetails: false,
     canManageSystemSettings: false,
     canViewHourlyRates: false,
-    canEditHourlyRates: false  // Employees cannot edit hourly rates
+    canEditHourlyRates: false,  // Employees cannot edit hourly rates
+    canStopOtherUsersTimers: false  // Employees cannot stop other users' timers
   },
   hr: {
     canManageProjects: false,
@@ -39,7 +41,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
     canViewUserDetails: true,
     canManageSystemSettings: false,
     canViewHourlyRates: true,
-    canEditHourlyRates: true
+    canEditHourlyRates: true,
+    canStopOtherUsersTimers: true  // HR can stop other users' timers
   },
   admin: {
     canManageProjects: true,
@@ -52,7 +55,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
     canViewUserDetails: true,
     canManageSystemSettings: false,
     canViewHourlyRates: false,  // false ko to mamamaya
-    canEditHourlyRates: false   // pati ito
+    canEditHourlyRates: false,   // pati ito
+    canStopOtherUsersTimers: true  // Admins can stop other users' timers
   },
   super_admin: {
     canManageProjects: true,
@@ -65,7 +69,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
     canViewUserDetails: true,
     canManageSystemSettings: true,
     canViewHourlyRates: true,   // Super admin can view hourly rates
-    canEditHourlyRates: true    // Super admin can edit hourly rates
+    canEditHourlyRates: true,    // Super admin can edit hourly rates
+    canStopOtherUsersTimers: true  // Super admins can stop other users' timers
   },
   root: {
     canManageProjects: true,
@@ -78,7 +83,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
     canViewUserDetails: true,
     canManageSystemSettings: true,
     canViewHourlyRates: true,   // Root can view hourly rates
-    canEditHourlyRates: true    // Root can edit hourly rates
+    canEditHourlyRates: true,    // Root can edit hourly rates
+    canStopOtherUsersTimers: true  // Root can stop other users' timers
   }
 }
 
@@ -112,6 +118,8 @@ export function canAccessFeature(userRole: UserRole, feature: string): boolean {
       return hasPermission(userRole, 'canViewHourlyRates')
     case 'edit-hourly-rates':
       return hasPermission(userRole, 'canEditHourlyRates')  // New feature check
+    case 'stop-other-timers':
+      return hasPermission(userRole, 'canStopOtherUsersTimers')  // New feature check
     default:
       return false
   }
