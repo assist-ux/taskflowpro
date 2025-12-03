@@ -375,11 +375,11 @@ const Landing = () => {
                 onClick={handleLogin}
                 className="hidden sm:block text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors relative group"
               >
-                <span className="relative z-10">Sign In</span>
+                <span className="relative z-10">Log In</span>
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
               </button>
               <button
-                onClick={handleLogin}
+                onClick={() => navigate('/super-admin-signup')}
                 className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 text-sm sm:text-base cursor-pointer transition-all duration-300 transform hover:scale-105 hover:shadow-lg hidden sm:flex overflow-hidden relative group"
               >
                 <span className="relative z-10 flex items-center">
@@ -494,11 +494,11 @@ const Landing = () => {
                   onClick={handleLogin}
                   className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors relative group"
                 >
-                  <span className="relative z-10">Sign In</span>
+                  <span className="relative z-10">Log In</span>
                   <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
                 </button>
                 <button
-                  onClick={handleLogin}
+                  onClick={() => navigate('/super-admin-signup')}
                   className="ml-4 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm cursor-pointer transition-all duration-300 transform hover:scale-105 hover:shadow-lg overflow-hidden relative group"
                 >
                   <span className="relative z-10 flex items-center">
@@ -548,9 +548,16 @@ const Landing = () => {
     <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-10">
       The all-in-one platform for time tracking, project management, and team collaboration.
     </p>
-    <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg text-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-lg flex items-center group">
-      Start Free
-      <ArrowRight className="ml-2 transition-all duration-300 transform group-hover:translate-x-2 w-5 h-5" />
+    <button 
+      onClick={() => navigate('/super-admin-signup')}
+      className="relative backdrop-blur-lg bg-white/35 dark:bg-gray-900/45 text-white px-8 py-3 rounded-xl text-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:bg-white/45 dark:hover:bg-gray-900/55 flex items-center group overflow-hidden"
+    >
+      <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/40 to-blue-200/40 dark:from-gray-600/50 dark:to-blue-900/50 p-0.5"></div>
+      <div className="absolute inset-0 rounded-xl bg-white/20 dark:bg-gray-900/30 shadow-inner"></div>
+      <span className="relative z-10 flex items-center">
+        Start Free
+        <ArrowRight className="ml-2 transition-all duration-300 transform group-hover:translate-x-2 w-5 h-5" />
+      </span>
     </button>
   </div>
 
@@ -606,7 +613,7 @@ const Landing = () => {
           <div className="enhanced-features-grid space-y-12">
             {/* Feature 1 */}
             <div 
-              className={`enhanced-feature-card bg-white dark:bg-gray-700 rounded-xl shadow-sm p-8 hover:shadow-lg transition-all duration-300 hover:ring-2 hover:ring-yellow-400 hover:ring-opacity-50 hover:-translate-y-1 flex flex-col lg:flex-row gap-8 transition-all duration-700 ease-out ${
+              className={`enhanced-feature-card bg-white dark:bg-gray-700 rounded-xl shadow-sm p-8 hover:shadow-lg transition-all duration-200 hover:ring-2 hover:ring-yellow-400 hover:ring-opacity-50 hover:-translate-y-1 flex flex-col lg:flex-row gap-8 transition-all duration-500 ease-out ${
                 visibleSections.has('enhanced-features') 
                   ? 'opacity-100 translate-y-0' 
                   : 'opacity-0 translate-y-10'
@@ -616,9 +623,9 @@ const Landing = () => {
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Track work hours easily</h3>
                 <p className="text-gray-600 dark:text-gray-300 mb-4">Track work hours across projects with our intuitive timer and timesheet system. Start and stop timers with one click, or manually log hours. View detailed timesheets and export data for payroll and billing.</p>
                 <p className="text-gray-600 dark:text-gray-300 mb-6">The platform is very visual so you can see at a glance where your team stands with their work. Plus, it's super flexible and can suit any workflow.</p>
-                <a href="nexiflow-videos.html" className="feature-cta inline-flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
+                <a href="/about" className="feature-cta inline-flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-colors duration-200">
                   See Time Tracking
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="ml-2">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="ml-2 transition-transform duration-200 group-hover:translate-x-1">
                     <path d="M8 0L6.59 1.41L12.17 7H0V9H12.17L6.59 14.59L8 16L16 8L8 0Z" fill="currentColor"></path>
                   </svg>
                 </a>
@@ -630,7 +637,7 @@ const Landing = () => {
             
             {/* Feature 2 */}
             <div 
-              className={`enhanced-feature-card bg-white dark:bg-gray-700 rounded-xl shadow-sm p-8 hover:shadow-lg transition-all duration-300 hover:ring-2 hover:ring-yellow-400 hover:ring-opacity-50 hover:-translate-y-1 flex flex-col lg:flex-row gap-8 transition-all duration-700 ease-out delay-100 ${
+              className={`enhanced-feature-card bg-white dark:bg-gray-700 rounded-xl shadow-sm p-8 hover:shadow-lg transition-all duration-200 hover:ring-2 hover:ring-yellow-400 hover:ring-opacity-50 hover:-translate-y-1 flex flex-col lg:flex-row gap-8 transition-all duration-500 ease-out delay-100 ${
                 visibleSections.has('enhanced-features') 
                   ? 'opacity-100 translate-y-0' 
                   : 'opacity-0 translate-y-10'
@@ -640,9 +647,9 @@ const Landing = () => {
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Manage teams and projects</h3>
                 <p className="text-gray-600 dark:text-gray-300 mb-4">Manage teams, assign roles, and track team productivity with comprehensive analytics. Organize projects, track progress, and manage client relationships effectively.</p>
                 <p className="text-gray-600 dark:text-gray-300 mb-6">Get a complete view of your team's performance, project status, and client interactions all in one place.</p>
-                <a href="nexiflow-videos.html" className="feature-cta inline-flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
+                <a href="/about" className="feature-cta inline-flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-colors duration-200">
                   See Team Management
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="ml-2">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="ml-2 transition-transform duration-200 group-hover:translate-x-1">
                     <path d="M8 0L6.59 1.41L12.17 7H0V9H12.17L6.59 14.59L8 16L16 8L8 0Z" fill="currentColor"></path>
                   </svg>
                 </a>
@@ -654,7 +661,7 @@ const Landing = () => {
             
             {/* Feature 3 */}
             <div 
-              className={`enhanced-feature-card bg-white dark:bg-gray-700 rounded-xl shadow-sm p-8 hover:shadow-lg transition-all duration-300 hover:ring-2 hover:ring-yellow-400 hover:ring-opacity-50 hover:-translate-y-1 flex flex-col lg:flex-row gap-8 transition-all duration-700 ease-out delay-200 ${
+              className={`enhanced-feature-card bg-white dark:bg-gray-700 rounded-xl shadow-sm p-8 hover:shadow-lg transition-all duration-200 hover:ring-2 hover:ring-yellow-400 hover:ring-opacity-50 hover:-translate-y-1 flex flex-col lg:flex-row gap-8 transition-all duration-500 ease-out delay-200 ${
                 visibleSections.has('enhanced-features') 
                   ? 'opacity-100 translate-y-0' 
                   : 'opacity-0 translate-y-10'
@@ -664,9 +671,9 @@ const Landing = () => {
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Billing and analytics</h3>
                 <p className="text-gray-600 dark:text-gray-300 mb-4">Generate invoices, track revenue, and manage client billing with detailed reports. Get insights with detailed reports, charts, and analytics for better decision making.</p>
                 <p className="text-gray-600 dark:text-gray-300 mb-6">Turn tracked time into invoices automatically, track payments, and analyze your business performance with comprehensive reporting tools.</p>
-                <a href="nexiflow-videos.html" className="feature-cta inline-flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
+                <a href="/about" className="feature-cta inline-flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-colors duration-200">
                   See Billing &amp; Analytics
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="ml-2">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="ml-2 transition-transform duration-200 group-hover:translate-x-1">
                     <path d="M8 0L6.59 1.41L12.17 7H0V9H12.17L6.59 14.59L8 16L16 8L8 0Z" fill="currentColor"></path>
                   </svg>
                 </a>
@@ -703,19 +710,23 @@ const Landing = () => {
             {features.map((feature, index) => (
               <div 
                 key={index} 
-                className={`text-center transition-all duration-500 delay-${index * 100} ease-out ${
+                className={`text-center transition-all duration-700 ease-out ${
                   visibleSections.has('features') 
                     ? 'opacity-100 translate-y-0' 
-                    : 'opacity-0 translate-y-5'
+                    : 'opacity-0 translate-y-10'
                 }`}
+                style={{ transitionDelay: `${index * 200}ms` }}
               >
-                <div className="bg-blue-50 dark:bg-gray-800 w-12 h-12 rounded-lg flex items-center justify-center mb-4 mx-auto">
+                <div className={`bg-blue-50 dark:bg-gray-800 w-12 h-12 rounded-lg flex items-center justify-center mb-4 mx-auto transition-all duration-500 ${visibleSections.has('features') ? 'scale-100' : 'scale-0'}`} 
+                     style={{ transitionDelay: `${index * 200 + 100}ms` }}>
                   {feature.icon}
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                <h3 className={`text-lg font-semibold text-gray-900 dark:text-white mb-2 transition-all duration-500 ${visibleSections.has('features') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}`}
+                    style={{ transitionDelay: `${index * 200 + 200}ms` }}>
                   {feature.title}
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                <p className={`text-gray-600 dark:text-gray-400 text-sm transition-all duration-500 ${visibleSections.has('features') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}`}
+                   style={{ transitionDelay: `${index * 200 + 300}ms` }}>
                   {feature.description}
                 </p>
               </div>
@@ -783,7 +794,10 @@ const Landing = () => {
                 <div className="absolute inset-0 bg-blue-500 opacity-0 group-hover:opacity-10 rounded-xl transition-opacity duration-300 -z-10"></div>
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Client Navigation</h3>
                 <p className="text-gray-600 dark:text-gray-300 mb-4">Learn how to efficiently navigate and manage your clients within NexiFlow.</p>
-                <div className="flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium cursor-pointer">
+                <div 
+                  onClick={() => navigate('/about')}
+                  className="flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium cursor-pointer"
+                >
                   <span>Watch Video</span>
                   <ArrowRight className="ml-2 w-4 h-4" />
                 </div>
@@ -828,7 +842,10 @@ const Landing = () => {
                 <div className="absolute inset-0 bg-blue-500 opacity-0 group-hover:opacity-10 rounded-xl transition-opacity duration-300 -z-10"></div>
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Task Management</h3>
                 <p className="text-gray-600 dark:text-gray-300 mb-4">Master task creation, assignment, and tracking to boost team productivity.</p>
-                <div className="flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium cursor-pointer">
+                <div 
+                  onClick={() => navigate('/about')}
+                  className="flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium cursor-pointer"
+                >
                   <span>Watch Video</span>
                   <ArrowRight className="ml-2 w-4 h-4" />
                 </div>
@@ -873,7 +890,10 @@ const Landing = () => {
                 <div className="absolute inset-0 bg-blue-500 opacity-0 group-hover:opacity-10 rounded-xl transition-opacity duration-300 -z-10"></div>
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Teams Management</h3>
                 <p className="text-gray-600 dark:text-gray-300 mb-4">Learn how to organize teams, assign roles, and track performance.</p>
-                <div className="flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium cursor-pointer">
+                <div 
+                  onClick={() => navigate('/about')}
+                  className="flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium cursor-pointer"
+                >
                   <span>Watch Video</span>
                   <ArrowRight className="ml-2 w-4 h-4" />
                 </div>
@@ -883,7 +903,7 @@ const Landing = () => {
           
           <div className="text-center mt-12">
             <button 
-              onClick={() => navigate('/demo')}
+              onClick={() => navigate('/about')}
               className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
             >
               View All Videos
@@ -1090,13 +1110,18 @@ const Landing = () => {
       <section 
         id="cta" 
         data-animate="true"
-        className={`py-20 bg-blue-600 transition-all duration-700 ease-out ${
+        className={`py-20 bg-gradient-to-r from-gray-900 via-blue-900 to-gray-900 transition-all duration-700 ease-out relative overflow-hidden ${
           visibleSections.has('cta') 
             ? 'opacity-100 translate-y-0' 
             : 'opacity-0 translate-y-10'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        {/* Animated background elements */}
+        <div className="absolute top-0 left-0 w-full h-full opacity-10">
+          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-500 rounded-full mix-blend-overlay filter blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-1/3 right-1/3 w-48 h-48 bg-indigo-500 rounded-full mix-blend-overlay filter blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
             Ready to boost your productivity?
           </h2>
@@ -1105,16 +1130,11 @@ const Landing = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
-              onClick={handleLogin}
-              className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-3 rounded-lg text-base font-semibold transition-colors"
-            >
-              Start Free Trial
-            </button>
-            <button
               onClick={() => navigate('/super-admin-signup')}
-              className="border border-white text-white hover:bg-blue-700 px-8 py-3 rounded-lg text-base font-semibold transition-colors"
+              className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-3 rounded-lg text-base font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-lg flex items-center group"
             >
-              Create New Company
+              Start Free
+              <ArrowRight className="ml-2 transition-all duration-300 transform group-hover:translate-x-1 w-5 h-5" />
             </button>
           </div>
         </div>

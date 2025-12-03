@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
@@ -38,6 +38,12 @@ import {
 
 const About = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [glowPositions, setGlowPositions] = useState([
+    { x: 0, y: 0 },
+    { x: 0, y: 0 }
+  ])
+  const [visibleSteps, setVisibleSteps] = useState<Set<number>>(new Set())
+  const stepRefs = useRef<(HTMLDivElement | null)[]>([])
   const navigate = useNavigate()
   const { currentUser, loading } = useAuth()
   const { isDarkMode, toggleDarkMode } = useTheme()
@@ -45,6 +51,70 @@ const About = () => {
   const handleLogin = () => {
     navigate('/auth')
   }
+
+  // Animate random glow movements for how it works section
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout
+    let startTime: number | null = null
+    const duration = 15000 // 15 seconds for one cycle (slower speed per preference)
+    
+    const updateGlows = () => {
+      const timestamp = Date.now()
+      if (!startTime) startTime = timestamp
+      const elapsed = timestamp - startTime
+      const progress = (elapsed % duration) / duration
+      
+      // Calculate positions using sine/cosine waves for smooth, slow motion
+      const glow1X = (window.innerWidth / 2) + (window.innerWidth / 3) * Math.sin(progress * 2 * Math.PI)
+      const glow1Y = (window.innerHeight / 2) + (window.innerHeight / 4) * Math.cos(progress * 2 * Math.PI)
+      
+      const glow2X = (window.innerWidth / 2) + (window.innerWidth / 4) * Math.cos(progress * 1.5 * Math.PI)
+      const glow2Y = (window.innerHeight / 2) + (window.innerHeight / 3) * Math.sin(progress * 1.5 * Math.PI)
+      
+      setGlowPositions([
+        { x: glow1X, y: glow1Y },
+        { x: glow2X, y: glow2Y }
+      ])
+    }
+    
+    // Update at 30fps instead of 60fps to reduce load
+    intervalId = setInterval(updateGlows, 1000 / 30)
+    
+    return () => {
+      clearInterval(intervalId)
+    }
+  }, [])
+
+  // Handle scroll animations for step containers
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const index = Number(entry.target.getAttribute('data-step-index'))
+          if (entry.isIntersecting) {
+            setVisibleSteps(prev => new Set(prev).add(index))
+          } else {
+            setVisibleSteps(prev => {
+              const newSet = new Set(prev)
+              newSet.delete(index)
+              return newSet
+            })
+          }
+        })
+      },
+      { threshold: 0.1 }
+    )
+
+    stepRefs.current.forEach((ref) => {
+      if (ref) observer.observe(ref)
+    })
+
+    return () => {
+      stepRefs.current.forEach((ref) => {
+        if (ref) observer.unobserve(ref)
+      })
+    }
+  }, [])
 
   const howItWorks = [
     {
@@ -253,72 +323,81 @@ const About = () => {
 
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      {/* Header */}
-      <header className="bg-gray-100 dark:bg-gray-700 shadow-sm backdrop-blur-sm sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
+      {/* Themed Header Matching How It Works Section */}
+      <header className="sticky top-0 z-50 bg-[#020617]/80 backdrop-blur-sm border-b border-gray-800 relative overflow-hidden">
+        {/* Subtle background elements from How It Works section */}
+        <div className="absolute top-[-20px] right-[-20px] w-32 h-32 rounded-full bg-blue-500/5 blur-3xl"></div>
+        <div className="absolute bottom-[-20px] left-[-20px] w-24 h-24 rounded-full bg-indigo-400/5 blur-3xl"></div>
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="flex items-center justify-center h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <img 
-                  src="https://storage.googleapis.com/msgsndr/nb61f4OQ7o9Wsxx0zOsY/media/68df3ae78db305b0e463f363.svg" 
-                  alt="NexiFlow Logo" 
-                  className="h-10 w-auto"
+                <img
+                  src="https://storage.googleapis.com/msgsndr/nb61f4OQ7o9Wsxx0zOsY/media/68df3ae78db305b0e463f363.svg"
+                  alt="NexiFlow Logo"
+                  className="h-8 w-auto"
                 />
               </div>
               <div className="ml-3">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">NexiFlow</h1>
-                <p className="text-xs text-gray-600 dark:text-gray-400">Powered by Nexistry Digital Solutions</p>
+                <h1 className="text-xl font-bold text-white">NexiFlow</h1>
+                <p className="text-xs text-gray-400">Powered by Nexistry Digital Solutions</p>
               </div>
-            </div>
-            <div className="hidden lg:flex items-center space-x-8">
-              <a href="/" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors">Home</a>
-              <a href="#features" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors">Features</a>
-              <a href="#pricing" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors">Pricing</a>
-              <a href="#testimonials" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors">Reviews</a>
-              <a href="/about" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors">About</a>
-            </div>
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <button 
-                onClick={toggleDarkMode}
-                className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-all duration-200"
-                title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-              >
-                {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-              </button>
-              <button 
-                onClick={handleLogin}
-                className="hidden sm:block text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white cursor-pointer transition-colors"
-              >
-                Sign In
-              </button>
-              <button 
-                onClick={handleLogin}
-                className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 text-sm sm:text-base cursor-pointer transition-all duration-200 transform hover:scale-105"
-              >
-                <span className="hidden sm:inline">Access NexiFlow</span>
-                <span className="sm:hidden">Sign In</span>
-              </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* How NexiFlow Works Section - Main section */}
-
       {/* How It Works Section */}
-      <section className={`py-20 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className={`py-20 ${isDarkMode ? 'bg-[#020617]' : 'bg-white'} relative overflow-hidden`}>
+        {/* Randomly moving glow effects */}
+        {glowPositions.map((position, index) => (
+          <div 
+            key={index}
+            className="absolute w-96 h-96 rounded-full bg-blue-500/10 dark:bg-blue-400/10 blur-3xl pointer-events-none transition-all duration-1000 ease-out"
+            style={
+              {
+                left: `${position.x}px`,
+                top: `${position.y}px`,
+                transform: 'translate(-50%, -50%)'
+              }
+            }
+          ></div>
+        ))}
+  
+  {/* floating blurred shapes */}
+  <div className="absolute top-[-180px] right-[-120px] w-[500px] h-[500px] bg-blue-500/20 dark:bg-blue-700/30 rounded-full blur-[140px]"></div>
+  <div className="absolute bottom-[-200px] left-[-150px] w-[480px] h-[480px] bg-indigo-400/15 dark:bg-indigo-600/20 rounded-full blur-[150px]"></div>
+  <div className="absolute top-[45%] left-[25%] w-[300px] h-[300px] bg-purple-400/10 dark:bg-purple-500/10 rounded-full blur-[160px]"></div>
+
+  {/* subtle UI card outlines */}
+  <div className="absolute top-16 left-16 w-80 h-52 border border-gray-900/5 dark:border-white/5 rounded-2xl backdrop-blur-sm"></div>
+  <div className="absolute bottom-16 right-16 w-72 h-48 border border-gray-900/5 dark:border-white/5 rounded-2xl backdrop-blur-sm"></div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-16">
             <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-6">How NexiFlow Works</h1>
-            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-6">
               Get started with NexiFlow in just a few simple steps. Our platform is designed 
               to be intuitive and powerful, helping you track time and manage projects effortlessly.
             </p>
+            <button 
+              onClick={() => window.location.href = '/'}
+              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <ArrowRight className="mr-2 h-5 w-5 transform rotate-180" />
+              Back to Home
+            </button>
           </div>
 
           <div className="space-y-16">
             {howItWorks.map((step, index) => (
-              <div key={index} className={`flex flex-col lg:flex-row items-center gap-8 ${index % 2 === 1 ? 'lg:flex-row-reverse' : ''}`}>
+              <div 
+                key={index} 
+                ref={el => stepRefs.current[index] = el}
+                data-step-index={index}
+                className={`flex flex-col lg:flex-row items-center gap-8 ${index % 2 === 1 ? 'lg:flex-row-reverse' : ''} border border-gray-200 dark:border-gray-600 rounded-xl p-8 bg-gray-50 dark:bg-gray-700 shadow-sm transition-all duration-700 ease-out transform ${visibleSteps.has(index) ? 'opacity-100 translate-x-0' : `opacity-0 ${index % 2 === 0 ? '-translate-x-10' : 'translate-x-10'}`}`}
+              >
                 <div className="flex-1">
                   <div className="flex items-center mb-6">
                     <div className="bg-blue-100 text-blue-600 text-lg font-bold px-4 py-2 rounded-full mr-4">

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../contexts/ThemeContext'
 import SuperAdminSignupForm from '../components/auth/SuperAdminSignupForm'
@@ -8,16 +8,80 @@ export default function SuperAdminSignup() {
   const navigate = useNavigate()
   const { isDarkMode, toggleDarkMode } = useTheme()
   const [showLogin, setShowLogin] = useState(false)
+  const [glowPositions, setGlowPositions] = useState([{ x: 0, y: 0 }, { x: 0, y: 0 }])
+  const brandingRef = useRef<HTMLDivElement>(null)
+
+  // Animate random glow movements
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout
+    let startTime: number | null = null
+    const duration = 30000 // 30 seconds for one cycle (moderate speed)
+    
+    const updateGlows = () => {
+      const timestamp = Date.now()
+      if (!startTime) startTime = timestamp
+      const elapsed = timestamp - startTime
+      const progress = (elapsed % duration) / duration
+      
+      if (brandingRef.current) {
+        const rect = brandingRef.current.getBoundingClientRect()
+        const width = rect.width
+        const height = rect.height
+        
+        // Calculate positions using sine/cosine waves for smooth, slow motion
+        const glow1X = (width / 2) + (width / 4) * Math.sin(progress * 2 * Math.PI)
+        const glow1Y = (height / 2) + (height / 6) * Math.cos(progress * 2 * Math.PI)
+        
+        const glow2X = (width / 2) + (width / 6) * Math.cos(progress * 1.5 * Math.PI)
+        const glow2Y = (height / 2) + (height / 4) * Math.sin(progress * 1.5 * Math.PI)
+        
+        setGlowPositions([
+          { x: glow1X, y: glow1Y },
+          { x: glow2X, y: glow2Y }
+        ])
+      }
+    }
+    
+    // Update at 30fps instead of 60fps to reduce load
+    intervalId = setInterval(updateGlows, 1000 / 30)
+    
+    return () => {
+      clearInterval(intervalId)
+    }
+  }, [])
 
   const handleSwitchToLogin = () => {
     navigate('/auth')
   }
 
   return (
-    <div className={`min-h-screen flex ${isDarkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-primary-50 via-white to-primary-50'}`}>
+    <div className={`min-h-screen flex bg-gray-900`}>
       {/* Left Side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary-600 to-primary-800 text-white p-12 flex-col justify-center">
-        <div className="max-w-lg">
+      <div 
+        ref={brandingRef}
+        className="hidden lg:flex lg:w-1/2 bg-[#020617] text-white p-12 flex-col justify-center relative overflow-hidden"
+      >
+        {/* Randomly moving glow effects */}
+        {glowPositions.map((position, index) => (
+          <div 
+            key={index}
+            className="absolute w-96 h-96 rounded-full bg-blue-500/10 dark:bg-blue-400/10 blur-3xl pointer-events-none transition-all duration-1000 ease-out"
+            style={
+              {
+                left: `${position.x}px`,
+                top: `${position.y}px`,
+                transform: 'translate(-50%, -50%)'
+              }
+            }
+          ></div>
+        ))}
+
+        {/* floating blurred shapes */}
+        <div className="absolute top-[-180px] right-[-120px] w-[500px] h-[500px] bg-blue-500/20 dark:bg-blue-700/30 rounded-full blur-[140px]"></div>
+        <div className="absolute bottom-[-200px] left-[-150px] w-[480px] h-[480px] bg-indigo-400/15 dark:bg-indigo-600/20 rounded-full blur-[150px]"></div>
+        <div className="absolute top-[45%] left-[25%] w-[300px] h-[300px] bg-purple-400/10 dark:bg-purple-500/10 rounded-full blur-[160px]"></div>
+
+        <div className="max-w-lg relative z-10">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center space-x-3">
               <div className="flex-shrink-0">
@@ -29,47 +93,37 @@ export default function SuperAdminSignup() {
               </div>
               <div>
                 <h1 className="text-3xl font-bold">NexiFlow</h1>
-                <p className="text-sm text-primary-200">Powered by Nexistry Digital Solutions</p>
+                <p className="text-sm text-gray-400">Powered by Nexistry Digital Solutions</p>
               </div>
             </div>
-            <button
-              onClick={toggleDarkMode}
-              className="p-2 rounded-lg hover:bg-white/20 transition-colors"
-              title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              {isDarkMode ? (
-                <Sun className="h-6 w-6 text-white" />
-              ) : (
-                <Moon className="h-6 w-6 text-white" />
-              )}
-            </button>
+            {/* Removed dark mode toggle */}
           </div>
           
-          <h2 className="text-4xl font-bold mb-6">
+          <h2 className="text-4xl font-bold mb-6 text-white">
             Track Time, Boost Productivity
           </h2>
           
-          <p className="text-xl text-primary-100 mb-8 leading-relaxed">
+          <p className="text-xl text-gray-300 mb-8 leading-relaxed">
             Join thousands of professionals who use NexiFlow to manage their time, 
             track projects, and improve their productivity. Simple, powerful, and designed for teams.
           </p>
           
           <div className="space-y-4">
             <div className="flex items-center space-x-3">
-              <div className="w-2 h-2 bg-primary-200 rounded-full"></div>
-              <span className="text-primary-100">Employee time tracking</span>
+              <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+              <span className="text-gray-300">Employee time tracking</span>
             </div>
             <div className="flex items-center space-x-3">
-              <div className="w-2 h-2 bg-primary-200 rounded-full"></div>
-              <span className="text-primary-100">Project management</span>
+              <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+              <span className="text-gray-300">Project management</span>
             </div>
             <div className="flex items-center space-x-3">
-              <div className="w-2 h-2 bg-primary-200 rounded-full"></div>
-              <span className="text-primary-100">Advanced analytics</span>
+              <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+              <span className="text-gray-300">Advanced analytics</span>
             </div>
             <div className="flex items-center space-x-3">
-              <div className="w-2 h-2 bg-primary-200 rounded-full"></div>
-              <span className="text-primary-100">Team collaboration</span>
+              <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+              <span className="text-gray-300">Team collaboration</span>
             </div>
           </div>
         </div>
@@ -90,21 +144,11 @@ export default function SuperAdminSignup() {
                   />
                 </div>
                 <div className="text-left">
-                  <h1 className="text-2xl font-bold text-primary-600 dark:text-primary-400">NexiFlow</h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Powered by Nexistry Digital Solutions</p>
+                  <h1 className="text-2xl font-bold text-white">NexiFlow</h1>
+                  <p className="text-xs text-gray-400">Powered by Nexistry Digital Solutions</p>
                 </div>
               </div>
-              <button
-                onClick={toggleDarkMode}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-              >
-                {isDarkMode ? (
-                  <Sun className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-                ) : (
-                  <Moon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-                )}
-              </button>
+              {/* Removed dark mode toggle */}
             </div>
             <p className="text-gray-600 dark:text-gray-400">Time tracking made simple</p>
           </div>
