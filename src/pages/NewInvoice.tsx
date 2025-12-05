@@ -603,7 +603,7 @@ export default function NewInvoice() {
               disabled={!selectedClient || !startDate || !endDate || filteredEntries.length === 0}
             >
               <FileText className="h-4 w-4 mr-2" />
-              Generate Invoice
+              Send Invoice
             </button>
           </div>
         </div>
