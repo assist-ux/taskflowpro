@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import { 
   ArrowLeft, 
   Calendar,
@@ -7,31 +8,26 @@ import {
   Building2,
   FileText,
   Clock,
-  Tag
+  Tag,
+  Download,
+  Paperclip
 } from 'lucide-react'
+import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, isSameDay } from 'date-fns'
+import { timeEntryService } from '../services/timeEntryService'
+import { projectService } from '../services/projectService'
+import { pdfSettingsService } from '../services/pdfSettingsService'
+import { Client, TimeEntry, Project } from '../types'
+import { formatSecondsToHHMMSS, formatCurrency } from '../utils'
+import { generateIndividualClientPDF } from '../utils/pdfExport'
 
-interface TimeEntry {
-  id: string
-  description: string
-  startTime: Date
-  endTime?: Date
-  duration: number // in seconds
-  isBillable: boolean
+interface TimeEntryWithProject extends TimeEntry {
   projectName?: string
-  clientName?: string
-  projectId?: string
-  clientId?: string
-}
-
-interface Client {
-  id: string
-  name: string
-  email: string
-  hourlyRate: number
+  formattedDuration: string
 }
 
 export default function NewInvoice() {
   const navigate = useNavigate()
+  const { currentUser } = useAuth()
   
   // Form state
   const [invoiceNumber, setInvoiceNumber] = useState('')
@@ -39,109 +35,87 @@ export default function NewInvoice() {
   const [endDate, setEndDate] = useState('')
   const [selectedClient, setSelectedClient] = useState('')
   const [notes, setNotes] = useState('')
-  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([])
-  const [filteredEntries, setFilteredEntries] = useState<TimeEntry[]>([])
   const [clients, setClients] = useState<Client[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
+  const [timeEntries, setTimeEntries] = useState<TimeEntryWithProject[]>([])
+  const [filteredEntries, setFilteredEntries] = useState<TimeEntryWithProject[]>([])
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
+  const [generatedPDF, setGeneratedPDF] = useState<Blob | null>(null)
+  const [pdfFileName, setPdfFileName] = useState('')
+  const [pdfSettings, setPdfSettings] = useState<any>(null)
   
-  // Mock clients data
-  useEffect(() => {
-    const mockClients: Client[] = [
-      { id: '1', name: 'Acme Corporation', email: 'contact@acme.com', hourlyRate: 150 },
-      { id: '2', name: 'Globex Inc.', email: 'billing@globex.com', hourlyRate: 125 },
-      { id: '3', name: 'Stark Industries', email: 'accounts@starkindustries.com', hourlyRate: 200 },
-      { id: '4', name: 'Wayne Enterprises', email: 'finance@wayne.com', hourlyRate: 175 },
-      { id: '5', name: 'Umbrella Corp', email: 'billing@umbrella.com', hourlyRate: 100 }
-    ]
-    setClients(mockClients)
-  }, [])
+  // Refs
+  const pdfBlobRef = useRef<Blob | null>(null)
   
-  // Mock time entries data
+  // Load clients, projects, and PDF settings
   useEffect(() => {
-    const mockEntries: TimeEntry[] = [
-      {
-        id: '1',
-        description: 'Website redesign consultation',
-        startTime: new Date('2023-05-01T09:00:00'),
-        endTime: new Date('2023-05-01T12:30:00'),
-        duration: 12600, // 3.5 hours in seconds
-        isBillable: true,
-        projectName: 'Website Redesign',
-        clientName: 'Acme Corporation',
-        projectId: 'proj1',
-        clientId: '1'
-      },
-      {
-        id: '2',
-        description: 'Mobile app development',
-        startTime: new Date('2023-05-02T14:00:00'),
-        endTime: new Date('2023-05-02T17:00:00'),
-        duration: 10800, // 3 hours in seconds
-        isBillable: true,
-        projectName: 'Mobile App',
-        clientName: 'Globex Inc.',
-        projectId: 'proj2',
-        clientId: '2'
-      },
-      {
-        id: '3',
-        description: 'API integration work',
-        startTime: new Date('2023-05-03T10:00:00'),
-        endTime: new Date('2023-05-03T13:00:00'),
-        duration: 10800, // 3 hours in seconds
-        isBillable: true,
-        projectName: 'API Integration',
-        clientName: 'Stark Industries',
-        projectId: 'proj3',
-        clientId: '3'
-      },
-      {
-        id: '4',
-        description: 'Team meeting',
-        startTime: new Date('2023-05-04T09:00:00'),
-        endTime: new Date('2023-05-04T10:00:00'),
-        duration: 3600, // 1 hour in seconds
-        isBillable: false,
-        projectName: 'Internal',
-        clientName: undefined
-      },
-      {
-        id: '5',
-        description: 'Code review and testing',
-        startTime: new Date('2023-05-05T13:00:00'),
-        endTime: new Date('2023-05-05T16:00:00'),
-        duration: 10800, // 3 hours in seconds
-        isBillable: true,
-        projectName: 'Website Redesign',
-        clientName: 'Acme Corporation',
-        projectId: 'proj1',
-        clientId: '1'
+    const loadData = async () => {
+      try {
+        // Load clients
+        const clientsData = await projectService.getClients()
+        setClients(clientsData)
+        
+        // Load projects
+        const projectsData = await projectService.getProjects()
+        setProjects(projectsData)
+        
+        // Load PDF settings if user is logged in and has a company
+        if (currentUser?.companyId) {
+          try {
+            const settings = await pdfSettingsService.getPDFSettings(currentUser.companyId)
+            setPdfSettings(settings)
+          } catch (error) {
+            console.error('Error loading PDF settings:', error)
+          }
+        }
+      } catch (error) {
+        console.error('Error loading data:', error)
       }
-    ]
-    setTimeEntries(mockEntries)
-  }, [])
+    }
+    
+    loadData()
+  }, [currentUser])
   
   // Filter time entries based on date range and client
   useEffect(() => {
-    if (!startDate || !endDate) {
-      setFilteredEntries([])
-      return
+    const loadTimeEntries = async () => {
+      if (!startDate || !endDate || !selectedClient) {
+        setFilteredEntries([])
+        return
+      }
+      
+      try {
+        const start = new Date(startDate)
+        const end = new Date(endDate)
+        end.setHours(23, 59, 59, 999) // Include the entire end day
+        
+        // Load time entries for the date range
+        const entries = await timeEntryService.getAllTimeEntriesByDateRange(start, end)
+        
+        // Filter for the selected client and billable entries
+        const clientProjects = projects.filter(project => project.clientId === selectedClient)
+        const clientProjectIds = clientProjects.map(project => project.id)
+        
+        const filtered = entries
+          .filter(entry => 
+            entry.isBillable &&
+            entry.projectId && 
+            clientProjectIds.includes(entry.projectId)
+          )
+          .map(entry => ({
+            ...entry,
+            projectName: entry.projectName || 'No project',
+            formattedDuration: formatSecondsToHHMMSS(entry.duration)
+          }))
+        
+        setFilteredEntries(filtered)
+      } catch (error) {
+        console.error('Error loading time entries:', error)
+      }
     }
     
-    const start = new Date(startDate)
-    const end = new Date(endDate)
-    end.setHours(23, 59, 59, 999) // Include the entire end day
-    
-    const filtered = timeEntries.filter(entry => {
-      const entryDate = new Date(entry.startTime)
-      const isInRange = entryDate >= start && entryDate <= end
-      const isBillable = entry.isBillable
-      const matchesClient = !selectedClient || entry.clientId === selectedClient
-      
-      return isInRange && isBillable && matchesClient
-    })
-    
-    setFilteredEntries(filtered)
-  }, [startDate, endDate, selectedClient, timeEntries])
+    loadTimeEntries()
+  }, [startDate, endDate, selectedClient, projects])
   
   // Calculate totals
   const calculateTotals = () => {
@@ -182,6 +156,151 @@ export default function NewInvoice() {
     const hours = Math.floor(seconds / 3600)
     const minutes = Math.floor((seconds % 3600) / 60)
     return `${hours}h ${minutes}m`
+  }
+  
+  // Generate PDF report
+  const generatePDFReport = async () => {
+    if (!selectedClient || !startDate || !endDate || filteredEntries.length === 0) {
+      alert('Please select a client, date range, and ensure there are billable time entries')
+      return
+    }
+    
+    setIsGeneratingPDF(true)
+    
+    try {
+      const client = clients.find(c => c.id === selectedClient)
+      if (!client) {
+        throw new Error('Client not found')
+      }
+      
+      // Get the selected export period
+      const getExportPeriod = () => {
+        const start = new Date(startDate)
+        const end = new Date(endDate)
+        
+        // Check if it matches predefined periods
+        const now = new Date()
+        const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 })
+        const thisWeekEnd = endOfWeek(now, { weekStartsOn: 1 })
+        const lastWeekStart = startOfWeek(subWeeks(now, 1), { weekStartsOn: 1 })
+        const lastWeekEnd = endOfWeek(subWeeks(now, 1), { weekStartsOn: 1 })
+        const thisMonthStart = startOfMonth(now)
+        const thisMonthEnd = endOfMonth(now)
+        
+        if (isSameDay(start, thisWeekStart) && isSameDay(end, thisWeekEnd)) {
+          return 'this-week'
+        } else if (isSameDay(start, lastWeekStart) && isSameDay(end, lastWeekEnd)) {
+          return 'last-week'
+        } else if (isSameDay(start, thisMonthStart) && isSameDay(end, thisMonthEnd)) {
+          return 'this-month'
+        } else {
+          return 'custom'
+        }
+      }
+      
+      const exportPeriod = getExportPeriod()
+      
+      // Prepare time entries data for PDF
+      const timeEntriesForPDF = filteredEntries.map(entry => ({
+        id: entry.id,
+        description: entry.description || '',
+        projectName: entry.projectName || 'No project',
+        clientName: entry.clientName || 'No client',
+        startTime: entry.startTime,
+        endTime: entry.endTime,
+        duration: entry.duration,
+        formattedDuration: entry.formattedDuration,
+        isBillable: entry.isBillable
+      }))
+      
+      // Aggregate time entries by day for the daily time data
+      const dailyTimeData: any[] = []
+      
+      // Create a map to store daily totals
+      const dailyTotals: { [date: string]: number } = {}
+      
+      // Aggregate time entries by date
+      filteredEntries.forEach(entry => {
+        const entryDate = new Date(entry.startTime)
+        const dateKey = format(entryDate, 'yyyy-MM-dd')
+        
+        if (!dailyTotals[dateKey]) {
+          dailyTotals[dateKey] = 0
+        }
+        
+        dailyTotals[dateKey] += entry.duration
+      })
+      
+      // Convert to the format expected by the PDF generator
+      Object.keys(dailyTotals).forEach(dateKey => {
+        const hours = dailyTotals[dateKey] / 3600 // Convert seconds to hours
+        dailyTimeData.push({
+          date: dateKey,
+          hours: hours,
+          formattedDate: format(new Date(dateKey), 'EEE') // Short day name (Mon, Tue, etc.)
+        })
+      })
+      
+      // Sort by date
+      dailyTimeData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      
+      // Use the existing PDF generation function directly
+      // This will automatically trigger the download
+      await generateIndividualClientPDF(
+        `Invoice Report - ${client.name}`,
+        {
+          name: client.name,
+          hours: parseFloat(totals.totalHours),
+          amount: parseFloat(totals.totalAmount),
+          formattedTime: formatSecondsToHHMMSS(parseFloat(totals.totalHours) * 3600),
+          currency: client.currency
+        },
+        exportPeriod,
+        new Date(startDate),
+        new Date(endDate),
+        pdfSettings, // Pass the loaded PDF settings
+        currentUser?.companyId || undefined, // Pass company ID, handling null case
+        timeEntriesForPDF,
+        dailyTimeData, // Pass the daily time data for the bar graph
+        true, // includeTimeBreakdown
+        true, // includeBillingDetails
+        true, // includeProjectDetails
+        true, // includeComments
+        true, // includeTimeEntryDate
+        true, // includeTimeEntryDuration
+        true, // includeTimeEntryProject
+        true, // includeTimeEntryDescription
+        true  // includeTimeEntryBillableStatus
+      )
+      
+      alert('PDF report generated and downloaded successfully!')
+    } catch (error) {
+      console.error('Error generating PDF:', error)
+      alert('Failed to generate PDF report')
+    } finally {
+      setIsGeneratingPDF(false)
+    }
+  }
+  
+  // Helper function to compare dates
+  const isSameDate = (date1: Date, date2: Date) => {
+    return date1.getFullYear() === date2.getFullYear() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getDate() === date2.getDate()
+  }
+  
+  // Download PDF
+  const downloadPDF = () => {
+    if (!generatedPDF || !pdfFileName) return
+    
+    const url = URL.createObjectURL(generatedPDF)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = pdfFileName
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
   
   // Handle form submission
@@ -270,7 +389,7 @@ export default function NewInvoice() {
                 <option value="">Select a client</option>
                 {clients.map(client => (
                   <option key={client.id} value={client.id}>
-                    {client.name} (${client.hourlyRate}/hour)
+                    {client.name} ({formatCurrency(client.hourlyRate || 0, client.currency)})
                   </option>
                 ))}
               </select>
@@ -301,6 +420,62 @@ export default function NewInvoice() {
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
               />
             </div>
+          </div>
+          
+          {/* PDF Generation */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                PDF Report
+              </h2>
+              <div className="flex space-x-2">
+                <button
+                  type="button"
+                  onClick={generatePDFReport}
+                  disabled={!selectedClient || !startDate || !endDate || filteredEntries.length === 0 || isGeneratingPDF}
+                  className="btn-secondary flex items-center"
+                >
+                  {isGeneratingPDF ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="h-4 w-4 mr-2" />
+                      Generate PDF
+                    </>
+                  )}
+                </button>
+                
+                {generatedPDF && (
+                  <button
+                    type="button"
+                    onClick={downloadPDF}
+                    className="btn-primary flex items-center"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download PDF
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            {generatedPDF && (
+              <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="flex items-center">
+                  <Paperclip className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-2" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                      PDF Report Generated
+                    </p>
+                    <p className="text-xs text-blue-700 dark:text-blue-300">
+                      {pdfFileName}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           
           {/* Time Entries Preview */}
@@ -339,10 +514,10 @@ export default function NewInvoice() {
                             {entry.description}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                            {entry.projectName || 'N/A'}
+                            {entry.projectName}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                            {formatDuration(entry.duration)}
+                            {entry.formattedDuration}
                           </td>
                         </tr>
                       ))}
@@ -386,12 +561,18 @@ export default function NewInvoice() {
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-300">Hourly Rate:</span>
                   <span className="font-medium">
-                    ${clients.find(c => c.id === selectedClient)?.hourlyRate || 0}/hour
+                    {clients.find(c => c.id === selectedClient) 
+                      ? formatCurrency(clients.find(c => c.id === selectedClient)!.hourlyRate || 0, clients.find(c => c.id === selectedClient)!.currency)
+                      : '$0.00'}
                   </span>
                 </div>
                 <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-600">
                   <span className="text-lg font-semibold text-gray-900 dark:text-white">Total Amount:</span>
-                  <span className="text-lg font-semibold text-gray-900 dark:text-white">${totals.totalAmount}</span>
+                  <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {clients.find(c => c.id === selectedClient) 
+                      ? formatCurrency(parseFloat(totals.totalAmount), clients.find(c => c.id === selectedClient)!.currency)
+                      : '$0.00'}
+                  </span>
                 </div>
               </div>
             </div>
