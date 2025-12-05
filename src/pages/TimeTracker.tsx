@@ -15,7 +15,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { formatTimeFromSeconds, formatDate } from '../utils'
 
 export default function TimeTrackerPage() {
-  const { currentUser } = useAuth()
+  const { currentUser, currentCompany } = useAuth()
   const [timeSummary, setTimeSummary] = useState<TimeSummary | null>(null)
   const [allEntries, setAllEntries] = useState<TimeEntry[]>([])
   const [recentEntries, setRecentEntries] = useState<TimeEntry[]>([])
@@ -315,23 +315,37 @@ export default function TimeTrackerPage() {
                     {formatDate(entry.startTime)}
                   </span>
                   <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={entry.isBillable || false}
-                      onChange={async (e) => {
-                        try {
-                          await timeEntryService.updateTimeEntry(entry.id, {
-                            isBillable: e.target.checked
-                          });
-                          // Refresh the data
-                          loadTimeData();
-                        } catch (error) {
-                          console.error('Error updating billable status:', error);
-                        }
-                      }}
-                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded"
-                    />
-                    <span className="text-xs text-gray-500 dark:text-gray-400">Billable</span>
+                    {currentCompany?.pricingLevel === 'solo' ? (
+                      <>
+                        <input
+                          type="checkbox"
+                          checked={true}
+                          disabled={true}
+                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded"
+                        />
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Billable</span>
+                      </>
+                    ) : (
+                      <>
+                        <input
+                          type="checkbox"
+                          checked={entry.isBillable || false}
+                          onChange={async (e) => {
+                            try {
+                              await timeEntryService.updateTimeEntry(entry.id, {
+                                isBillable: e.target.checked
+                              });
+                              // Refresh the data
+                              loadTimeData();
+                            } catch (error) {
+                              console.error('Error updating billable status:', error);
+                            }
+                          }}
+                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded"
+                        />
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Billable</span>
+                      </>
+                    )}
                   </div>
                   <button
                     onClick={async () => {

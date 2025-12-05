@@ -972,20 +972,32 @@ export default function Clients() {
 
               {/* PDF Export Button */}
               {showTimeChart && chartData.labels.length > 0 && (
-                <button
-                  onClick={handleExportPDF}
-                  disabled={isExportingPDF}
-                  className="flex items-center space-x-1 sm:space-x-2 px-3 py-1 sm:px-4 sm:py-2 text-sm sm:text-base bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  title="Export PDF report for all clients"
-                >
-                  {isExportingPDF ? (
-                    <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
-                  ) : (
+                currentCompany?.pricingLevel === 'solo' ? (
+                  <button
+                    disabled={true}
+                    className="flex items-center space-x-1 sm:space-x-2 px-3 py-1 sm:px-4 sm:py-2 text-sm sm:text-base bg-gray-400 text-white rounded-lg cursor-not-allowed"
+                    title="PDF export is not available on the Solo plan. Please upgrade to access this feature."
+                  >
                     <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
-                  )}
-                  <span className="hidden xs:inline">{isExportingPDF ? 'Generating PDF...' : 'Export All Clients PDF'}</span>
-                  <span className="xs:hidden">{isExportingPDF ? 'PDF...' : 'Export'}</span>
-                </button>
+                    <span className="hidden xs:inline">Export All Clients PDF</span>
+                    <span className="xs:hidden">Export</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleExportPDF}
+                    disabled={isExportingPDF}
+                    className="flex items-center space-x-1 sm:space-x-2 px-3 py-1 sm:px-4 sm:py-2 text-sm sm:text-base bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Export PDF report for all clients"
+                  >
+                    {isExportingPDF ? (
+                      <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
+                    )}
+                    <span className="hidden xs:inline">{isExportingPDF ? 'Generating PDF...' : 'Export All Clients PDF'}</span>
+                    <span className="xs:hidden">{isExportingPDF ? 'PDF...' : 'Export'}</span>
+                  </button>
+                )
               )}
             </div>
 
@@ -1107,23 +1119,35 @@ export default function Clients() {
                     <div className="flex items-center space-x-1 sm:space-x-2">
                       {(() => {
                         const timeData = getClientTimeData(client)
-                        return timeData.totalHours > 0 ? (
-                          <button
-                            onClick={() => handleExportClientPDF(client)}
-                            disabled={isExportingPDF}
-                            className="p-1 sm:p-2 hover:bg-gray-100 rounded text-gray-500 hover:text-green-700 disabled:opacity-50"
-                            title={currentUser && canViewHourlyRates(currentUser.role) ? `Export PDF report for ${client.name} (${timeData.formattedTime}, $${timeData.billableAmount.toFixed(2)})` : `Export PDF report for ${client.name} (${timeData.formattedTime})`}
-                          >
-                            <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
-                          </button>
-                        ) : (
-                          <div 
-                            className="p-1 sm:p-2 text-gray-300 cursor-not-allowed"
-                            title={`No time data for ${client.name} in selected period`}
-                          >
-                            <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
-                          </div>
-                        )
+                        if (timeData.totalHours > 0) {
+                          return currentCompany?.pricingLevel === 'solo' ? (
+                            <button
+                              disabled={true}
+                              className="p-1 sm:p-2 text-gray-400 cursor-not-allowed"
+                              title="PDF export is not available on the Solo plan. Please upgrade to access this feature."
+                            >
+                              <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleExportClientPDF(client)}
+                              disabled={isExportingPDF}
+                              className="p-1 sm:p-2 hover:bg-gray-100 rounded text-gray-500 hover:text-green-700 disabled:opacity-50"
+                              title={currentUser && canViewHourlyRates(currentUser.role) ? `Export PDF report for ${client.name} (${timeData.formattedTime}, $${timeData.billableAmount.toFixed(2)})` : `Export PDF report for ${client.name} (${timeData.formattedTime})`}
+                            >
+                              <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
+                            </button>
+                          )
+                        } else {
+                          return (
+                            <div 
+                              className="p-1 sm:p-2 text-gray-300 cursor-not-allowed"
+                              title={`No time data for ${client.name} in selected period`}
+                            >
+                              <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
+                            </div>
+                          )
+                        }
                       })()}
                       <button
                         onClick={() => handleEditClient(client)}
@@ -1275,23 +1299,35 @@ export default function Clients() {
                     <div className="flex items-center space-x-1">
                       {(() => {
                         const timeData = getClientTimeData(client)
-                        return timeData.totalHours > 0 ? (
-                          <button
-                            onClick={() => handleExportClientPDF(client)}
-                            disabled={isExportingPDF}
-                            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-green-700 disabled:opacity-50"
-                            title={`Export PDF report for ${client.name} (${timeData.formattedTime}, $${timeData.billableAmount.toFixed(2)})`}
-                          >
-                            <TrendingUp className="h-4 w-4" />
-                          </button>
-                        ) : (
-                          <div 
-                            className="p-1 text-gray-300 dark:text-gray-600 cursor-not-allowed"
-                            title={`No time data for ${client.name} in selected period`}
-                          >
-                            <TrendingUp className="h-4 w-4" />
-                          </div>
-                        )
+                        if (timeData.totalHours > 0) {
+                          return currentCompany?.pricingLevel === 'solo' ? (
+                            <button
+                              disabled={true}
+                              className="p-1 text-gray-400 cursor-not-allowed"
+                              title="PDF export is not available on the Solo plan. Please upgrade to access this feature."
+                            >
+                              <TrendingUp className="h-4 w-4" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleExportClientPDF(client)}
+                              disabled={isExportingPDF}
+                              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-green-700 disabled:opacity-50"
+                              title={`Export PDF report for ${client.name} (${timeData.formattedTime}, $${timeData.billableAmount.toFixed(2)})`}
+                            >
+                              <TrendingUp className="h-4 w-4" />
+                            </button>
+                          )
+                        } else {
+                          return (
+                            <div 
+                              className="p-1 text-gray-300 dark:text-gray-600 cursor-not-allowed"
+                              title={`No time data for ${client.name} in selected period`}
+                            >
+                              <TrendingUp className="h-4 w-4" />
+                            </div>
+                          )
+                        }
                       })()}
                       <button
                         onClick={() => handleViewClientTimeEntries(client)}

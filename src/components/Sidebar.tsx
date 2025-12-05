@@ -15,7 +15,8 @@ import {
   FileText,
   Home,
   User,
-  Shield
+  Shield,
+  Crown
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { canAccessFeature } from '../utils/permissions'
@@ -56,11 +57,15 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
       // Removed PDF Settings from sidebar - will be accessible through Settings page
     ]
 
-    // For solo pricing level, hide certain tabs
+    // For solo pricing level, hide certain tabs and add Upgrade CTA
     if (currentCompany?.pricingLevel === 'solo') {
+      // Hide certain tabs for Solo users
       allNavigation = allNavigation.filter(item => 
         !['Task Management', 'Teams', 'Messaging', 'Reports'].includes(item.name)
       );
+      
+      // Add Upgrade CTA tab for Solo users
+      allNavigation.push({ name: 'Upgrade', href: '/upgrade', icon: Crown, requiredFeature: null });
     }
 
     // Filter navigation based on user permissions

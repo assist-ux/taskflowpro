@@ -59,7 +59,7 @@ interface BackupData {
 }
 
 export default function Settings() {
-  const { currentUser } = useAuth()
+  const { currentUser, currentCompany } = useAuth()
   const { isDarkMode, toggleDarkMode } = useTheme()
   const [activeTab, setActiveTab] = useState<'profile' | 'general' | 'database' | 'logs' | 'security' | 'notifications' | 'pdf'>('profile')
   const [loading, setLoading] = useState(false)
@@ -607,8 +607,10 @@ export default function Settings() {
           {[
             { id: 'profile', name: 'Profile', icon: User },
             { id: 'general', name: 'General', icon: SettingsIcon },
-            { id: 'database', name: 'Database', icon: Database },
-            { id: 'logs', name: 'System Logs', icon: FileText },
+            // Hide Database tab for Solo pricing level
+            (currentCompany?.pricingLevel !== 'solo') && { id: 'database', name: 'Database', icon: Database },
+            // Hide System Logs tab for Solo pricing level
+            (currentCompany?.pricingLevel !== 'solo') && { id: 'logs', name: 'System Logs', icon: FileText },
             { id: 'notifications', name: 'Notifications', icon: Bell },
             (currentUser?.role === 'super_admin' || currentUser?.role === 'root') && 
               { id: 'pdf', name: 'PDF Settings', icon: FileText }
@@ -898,67 +900,96 @@ export default function Settings() {
 
         {/* Database Settings */}
         {activeTab === 'database' && (
-          <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Database Management</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <Download className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                    <div>
-                      <h4 className="font-medium text-gray-900 dark:text-gray-100">Backup Database</h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Download a complete backup of your database</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleBackupDatabase}
-                    disabled={loading}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2 text-white rounded-lg"
-                  >
-                    <Download className="h-4 w-4" />
-                    <span>Backup Now</span>
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <Upload className="h-5 w-5 text-green-600 dark:text-green-400" />
-                    <div>
-                      <h4 className="font-medium text-gray-900 dark:text-gray-100">Restore Database</h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Upload and restore from a backup file</p>
-                    </div>
-                  </div>
-                  <label className="px-4 py-2 bg-green-600 hover:bg-green-700 cursor-pointer flex items-center space-x-2 text-white rounded-lg">
-                    <Upload className="h-4 w-4" />
-                    <span>Choose File</span>
-                    <input
-                      type="file"
-                      accept=".json"
-                      onChange={handleRestoreDatabase}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-
-                {backupData && (
-                  <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Last Backup Info</h4>
-                    <div className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
-                      <p>Date: {format(backupData.metadata.timestamp, 'MMM dd, yyyy HH:mm')}</p>
-                      <p>Version: {backupData.metadata.version}</p>
-                      <p>Total Records: {backupData.metadata.totalRecords}</p>
-                    </div>
-                  </div>
-                )}
+          currentCompany?.pricingLevel === 'solo' ? (
+            <div className="space-y-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 text-center">
+                <Database className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Database Management Unavailable</h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  Database management features are not available on the Solo plan.
+                </p>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Upgrade to Office or Enterprise plan to access database backup and restore functionality.
+                </p>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Database Management</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <Download className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      <div>
+                        <h4 className="font-medium text-gray-900 dark:text-gray-100">Backup Database</h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Download a complete backup of your database</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleBackupDatabase}
+                      disabled={loading}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2 text-white rounded-lg"
+                    >
+                      <Download className="h-4 w-4" />
+                      <span>Backup Now</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <Upload className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      <div>
+                        <h4 className="font-medium text-gray-900 dark:text-gray-100">Restore Database</h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Upload and restore from a backup file</p>
+                      </div>
+                    </div>
+                    <label className="px-4 py-2 bg-green-600 hover:bg-green-700 cursor-pointer flex items-center space-x-2 text-white rounded-lg">
+                      <Upload className="h-4 w-4" />
+                      <span>Choose File</span>
+                      <input
+                        type="file"
+                        accept=".json"
+                        onChange={handleRestoreDatabase}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {backupData && (
+                    <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Last Backup Info</h4>
+                      <div className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
+                        <p>Date: {format(backupData.metadata.timestamp, 'MMM dd, yyyy HH:mm')}</p>
+                        <p>Version: {backupData.metadata.version}</p>
+                        <p>Total Records: {backupData.metadata.totalRecords}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
         )}
 
         {/* System Logs */}
         {activeTab === 'logs' && (
-          <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+          currentCompany?.pricingLevel === 'solo' ? (
+            <div className="space-y-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 text-center">
+                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">System Logs Unavailable</h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  System logs are not available on the Solo plan.
+                </p>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Upgrade to Office or Enterprise plan to access system logs and monitoring features.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">System Logs</h3>
                 {(currentUser?.role === 'admin' || currentUser?.role === 'root') && (
@@ -1007,7 +1038,8 @@ export default function Settings() {
               </div>
             </div>
           </div>
-        )}
+        )
+      )}
 
 
 
@@ -1112,22 +1144,39 @@ export default function Settings() {
         {activeTab === 'profile' && (currentUser?.role === 'super_admin' || currentUser?.role === 'root') && (
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
             <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">PDF Export Settings</h3>
-            <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <FileText className="h-5 w-5 text-blue-600" />
-                <div>
-                  <h4 className="font-medium text-gray-900">Customize PDF Exports</h4>
-                  <p className="text-sm text-gray-600">Manage company-specific PDF branding and settings</p>
+            {currentCompany?.pricingLevel === 'solo' ? (
+              <div className="flex items-center justify-between p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <FileText className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">PDF Customization Unavailable</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      PDF customization is not available on the Solo plan. Upgrade to Office or Enterprise plan to unlock this feature.
+                    </p>
+                  </div>
+                </div>
+                <div className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-300 rounded-lg cursor-not-allowed">
+                  <span>Locked</span>
                 </div>
               </div>
-              <Link 
-                to="/pdf-settings" 
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-              >
-                <span>Configure</span>
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            </div>
+            ) : (
+              <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <FileText className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <h4 className="font-medium text-gray-900">Customize PDF Exports</h4>
+                    <p className="text-sm text-gray-600">Manage company-specific PDF branding and settings</p>
+                  </div>
+                </div>
+                <Link 
+                  to="/pdf-settings" 
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                >
+                  <span>Configure</span>
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              </div>
+            )}
           </div>
         )}
 
@@ -1135,20 +1184,33 @@ export default function Settings() {
         {activeTab === 'pdf' && (
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
             <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">PDF Export Settings</h3>
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <FileText className="h-16 w-16 text-blue-500 mb-4" />
-              <h4 className="text-xl font-medium text-gray-900 dark:text-gray-100 mb-2">Customize PDF Exports</h4>
-              <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md">
-                Manage company-specific PDF branding, including company name, logo, colors, and footer text.
-              </p>
-              <Link 
-                to="/pdf-settings" 
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-              >
-                <span>Go to PDF Settings</span>
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            </div>
+            {currentCompany?.pricingLevel === 'solo' ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <FileText className="h-16 w-16 text-gray-400 mb-4" />
+                <h4 className="text-xl font-medium text-gray-900 dark:text-gray-100 mb-2">PDF Customization Unavailable</h4>
+                <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md">
+                  PDF customization is not available on the Solo plan. Upgrade to Office or Enterprise plan to unlock company-specific PDF branding, including company name, logo, colors, and footer text.
+                </p>
+                <div className="px-6 py-3 bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-300 rounded-lg cursor-not-allowed">
+                  <span>Feature Locked</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <FileText className="h-16 w-16 text-blue-500 mb-4" />
+                <h4 className="text-xl font-medium text-gray-900 dark:text-gray-100 mb-2">Customize PDF Exports</h4>
+                <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md">
+                  Manage company-specific PDF branding, including company name, logo, colors, and footer text.
+                </p>
+                <Link 
+                  to="/pdf-settings" 
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                >
+                  <span>Go to PDF Settings</span>
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              </div>
+            )}
           </div>
         )}
       </div>

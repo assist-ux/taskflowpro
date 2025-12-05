@@ -32,6 +32,8 @@ import EmailVerification from './pages/EmailVerification' // Add this import
 import Landing from './pages/Landing'
 import About from './pages/About'
 import Messaging from './pages/Messaging'
+// Import the new Upgrade CTA page
+import UpgradeCTA from './pages/UpgradeCTA'
 // Import the new AI Chat Widget instead of the messaging widget
 import AIChatWidget from './components/ai/AIChatWidget'
 import TestNotifications from './pages/TestNotifications'
@@ -195,6 +197,11 @@ function AppContent() {
                 <Route path="/messaging" element={
                   <ProtectedRoute>
                     <Messaging />
+                  </ProtectedRoute>
+                } />
+                <Route path="/upgrade" element={
+                  <ProtectedRoute>
+                    <UpgradeCTA />
                   </ProtectedRoute>
                 } />
               </>

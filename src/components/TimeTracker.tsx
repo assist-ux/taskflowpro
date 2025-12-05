@@ -18,7 +18,7 @@ interface PersistedFormData {
 }
 
 export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
-  const { currentUser } = useAuth()
+  const { currentUser, currentCompany } = useAuth()
   const [isRunning, setIsRunning] = useState(false)
   const [elapsedTime, setElapsedTime] = useState(0)
   const [currentEntry, setCurrentEntry] = useState<TimeEntry | null>(null)
@@ -28,7 +28,7 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
   const [formData, setFormData] = useState<CreateTimeEntryData>({
     projectId: '',
     description: '',
-    isBillable: false,
+    isBillable: currentCompany?.pricingLevel === 'solo' ? true : false,
     tags: []
   })
   const [newTag, setNewTag] = useState('')
@@ -106,7 +106,7 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
           setFormData(prev => ({
             projectId: runningEntry.projectId || prev.projectId || '',
             description: runningEntry.description || prev.description || '',
-            isBillable: runningEntry.isBillable !== undefined ? runningEntry.isBillable : (prev.isBillable || false),
+            isBillable: currentCompany?.pricingLevel === 'solo' ? true : (runningEntry.isBillable !== undefined ? runningEntry.isBillable : (prev.isBillable || false)),
             tags: runningEntry.tags || prev.tags || []
           }))
         } else {
@@ -211,7 +211,7 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
       const minimalEntryData: CreateTimeEntryData = {
         projectId: formData.projectId || undefined,
         description: formData.description || undefined,
-        isBillable: formData.isBillable || false,
+        isBillable: currentCompany?.pricingLevel === 'solo' ? true : (formData.isBillable || false),
         tags: formData.tags || [],
         clientId: selectedClientId || undefined // Add clientId
       }
@@ -274,7 +274,7 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
       await timeEntryService.updateTimeEntry(currentEntry.id, {
         projectId: formData.projectId,
         description: formData.description.trim(),
-        isBillable: formData.isBillable,
+        isBillable: currentCompany?.pricingLevel === 'solo' ? true : formData.isBillable,
         tags: formData.tags,
         projectName: projectName,
         clientId: selectedClientId, // Add clientId
@@ -580,40 +580,59 @@ export default function TimeTracker({ onTimeUpdate }: TimeTrackerProps) {
             </div>
 
             {/* Billable Toggle */}
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="isBillable"
-                checked={formData.isBillable || false}
-                onChange={async (e) => {
-                  const newBillableValue = e.target.checked;
-                  setFormData(prev => ({ ...prev, isBillable: newBillableValue }));
-                  
-                  // If there's a current running entry, update it immediately
-                  if (currentEntry) {
-                    try {
-                      await timeEntryService.updateTimeEntry(currentEntry.id, {
-                        isBillable: newBillableValue
-                      });
-                    } catch (error) {
-                      console.error('Error updating billable status:', error);
-                      // Revert the local state if the update fails
-                      setFormData(prev => ({ ...prev, isBillable: !newBillableValue }));
-                    }
-                  }
-                }}
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
-              />
-              <label htmlFor="isBillable" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                This is billable time
-              </label>
-              {isRunning && formData.isBillable && (
+            {currentCompany?.pricingLevel === 'solo' ? (
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="isBillable"
+                  checked={true}
+                  disabled={true}
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                />
+                <label htmlFor="isBillable" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  All time entries are billable on Solo plan
+                </label>
                 <span className="ml-2 inline-flex items-center px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-medium rounded-full">
                   <DollarSign className="h-3 w-3 mr-1" />
                   Billable
                 </span>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="isBillable"
+                  checked={formData.isBillable || false}
+                  onChange={async (e) => {
+                    const newBillableValue = e.target.checked;
+                    setFormData(prev => ({ ...prev, isBillable: newBillableValue }));
+                    
+                    // If there's a current running entry, update it immediately
+                    if (currentEntry) {
+                      try {
+                        await timeEntryService.updateTimeEntry(currentEntry.id, {
+                          isBillable: newBillableValue
+                        });
+                      } catch (error) {
+                        console.error('Error updating billable status:', error);
+                        // Revert the local state if the update fails
+                        setFormData(prev => ({ ...prev, isBillable: !newBillableValue }));
+                      }
+                    }
+                  }}
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                />
+                <label htmlFor="isBillable" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  This is billable time
+                </label>
+                {isRunning && formData.isBillable && (
+                  <span className="ml-2 inline-flex items-center px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-medium rounded-full">
+                    <DollarSign className="h-3 w-3 mr-1" />
+                    Billable
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
