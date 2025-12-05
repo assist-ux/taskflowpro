@@ -18,7 +18,8 @@ import {
   Activity,
   X,
   User as UserIcon,
-  StopCircle
+  StopCircle,
+  Info
 } from 'lucide-react'
 import { format, parseISO, isValid, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, eachDayOfInterval } from 'date-fns'
 import { useAuth } from '../contexts/AuthContext'
@@ -45,7 +46,7 @@ interface UndoAction {
 }
 
 export default function AdminDashboard() {
-  const { currentUser } = useAuth()
+  const { currentUser, currentCompany } = useAuth()
   const navigate = useNavigate()
 
   // Redirect root users to the root dashboard
@@ -96,7 +97,7 @@ export default function AdminDashboard() {
     if (currentUser?.role && ['admin', 'hr', 'super_admin', 'root'].includes(currentUser.role)) {
       const interval = setInterval(() => {
         // Only refresh running timers periodically
-        timeEntryService.getAllRunningTimeEntries().then(runningEntries => {
+        timeEntryService.getAllRunningTimeEntries(currentUser?.companyId || null).then(runningEntries => {
           setRunningTimeEntries(runningEntries)
         }).catch(error => {
           console.error('Error refreshing running timers:', error)
@@ -124,7 +125,7 @@ export default function AdminDashboard() {
       
       const [timeEntriesData, runningTimeEntriesData, projectsData, clientsData, teamsData] = await Promise.all([
         timeEntryService.getAllTimeEntries(),
-        timeEntryService.getAllRunningTimeEntries(),
+        timeEntryService.getAllRunningTimeEntries(currentUser?.companyId || null),
         projectService.getProjects(),
         currentUser?.role === 'root' && !currentUser?.companyId
           ? projectService.getClients() // Root can see all clients
@@ -1065,8 +1066,21 @@ export default function AdminDashboard() {
                 </div>
                 {currentUser?.role && canAccessFeature(currentUser.role, 'create-users') && (
                   <button 
-                    onClick={() => setIsCreateModalOpen(true)}
-                    className="btn-primary flex items-center space-x-2"
+                    onClick={() => {
+                      // Check if user is on solo pricing level and has reached the user limit
+                      if (currentCompany?.pricingLevel === 'solo') {
+                        // Count non-super-admin users
+                        const nonSuperAdminUsers = users.filter(user => user.role !== 'super_admin').length;
+                        if (nonSuperAdminUsers >= 1) {
+                          setError('Solo plan is limited to 1 regular user (plus 1 super admin). Please upgrade to create more users.')
+                          return
+                        }
+                      }
+                      setIsCreateModalOpen(true)
+                    }}
+                    disabled={currentCompany?.pricingLevel === 'solo' && users.filter(user => user.role !== 'super_admin').length >= 1}
+                    className={`flex items-center space-x-2 ${currentCompany?.pricingLevel === 'solo' && users.filter(user => user.role !== 'super_admin').length >= 1 ? 'btn-secondary cursor-not-allowed opacity-50' : 'btn-primary'}`}
+                    title={currentCompany?.pricingLevel === 'solo' && users.filter(user => user.role !== 'super_admin').length >= 1 ? 'Solo plan is limited to 1 regular user (plus 1 super admin). Please upgrade to create more users.' : ''}
                   >
                     <Plus className="h-4 w-4" />
                     <span>Add User</span>
@@ -1074,6 +1088,24 @@ export default function AdminDashboard() {
                 )}
               </div>
             </div>
+
+            {/* User Limit Info for Solo Plan */}
+            {currentCompany?.pricingLevel === 'solo' && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 dark:bg-blue-900/30 dark:border-blue-800">
+                <div className="flex items-start space-x-2">
+                  <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5 dark:text-blue-400" />
+                  <div>
+                    <h3 className="font-medium text-blue-800 dark:text-blue-200">User Limit</h3>
+                    <p className="text-sm text-blue-700 mt-1 dark:text-blue-300">
+                      Your Solo plan is limited to 1 regular user (plus 1 super admin). You have {users.filter(user => user.role !== 'super_admin').length} of 1 regular user slots used.
+                    </p>
+                    <p className="text-sm text-blue-700 mt-1 dark:text-blue-300">
+                      Upgrade to Office or Enterprise plan to create more users.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Users Table */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
@@ -1327,7 +1359,7 @@ export default function AdminDashboard() {
                   </div>
                   <button 
                     onClick={async () => {
-                      const runningEntries = await timeEntryService.getAllRunningTimeEntries()
+                      const runningEntries = await timeEntryService.getAllRunningTimeEntries(currentUser?.companyId || null)
                       setRunningTimeEntries(runningEntries)
                     }}
                     className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"

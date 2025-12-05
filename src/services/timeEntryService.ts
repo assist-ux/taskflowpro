@@ -233,13 +233,13 @@ export const timeEntryService = {
   },
 
   // Get all running time entries (for admin use)
-  async getAllRunningTimeEntries(): Promise<TimeEntry[]> {
+  async getAllRunningTimeEntries(companyId?: string | null): Promise<TimeEntry[]> {
     const entriesRef = ref(database, 'timeEntries')
     const snapshot = await get(entriesRef)
     
     if (snapshot.exists()) {
       const entries = snapshot.val()
-      return Object.values(entries)
+      let filteredEntries = Object.values(entries)
         .map((entry: any) => ({
           ...entry,
           startTime: new Date(entry.startTime),
@@ -248,7 +248,13 @@ export const timeEntryService = {
           updatedAt: new Date(entry.updatedAt)
         }))
         .filter((entry: TimeEntry) => entry.isRunning)
-        .sort((a: TimeEntry, b: TimeEntry) => b.createdAt.getTime() - a.createdAt.getTime())
+        
+      // Apply company filtering if companyId is provided
+      if (companyId) {
+        filteredEntries = filteredEntries.filter((entry: TimeEntry) => entry.companyId === companyId)
+      }
+        
+      return filteredEntries.sort((a: TimeEntry, b: TimeEntry) => b.createdAt.getTime() - a.createdAt.getTime())
     }
     
     return []
