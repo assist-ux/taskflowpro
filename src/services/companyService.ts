@@ -20,6 +20,32 @@ export const companyService = {
     }))
   },
 
+  async getCompanyById(companyId: string): Promise<Company | null> {
+    try {
+      const companyRef = ref(database, `companies/${companyId}`)
+      const snapshot = await get(companyRef)
+      
+      if (snapshot.exists()) {
+        const value = snapshot.val()
+        return {
+          id: value.id || companyId,
+          name: value.name,
+          isActive: Boolean(value.isActive),
+          pricingLevel: value.pricingLevel || 'solo',
+          maxMembers: value.maxMembers || 1,
+          createdAt: value.createdAt,
+          updatedAt: value.updatedAt,
+          pdfSettings: value.pdfSettings
+        }
+      }
+      
+      return null
+    } catch (error) {
+      console.error('Error fetching company by ID:', error)
+      return null
+    }
+  },
+
   async createCompany(name: string, pricingLevel: PricingLevel = 'solo'): Promise<Company> {
     const companiesRef = ref(database, 'companies')
     const newRef = push(companiesRef)

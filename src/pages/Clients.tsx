@@ -16,7 +16,8 @@ import {
   DollarSign,
   BarChart3,
   Grid,
-  List
+  List,
+  Info
 } from 'lucide-react'
 import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, isSameDay, parseISO, subMonths } from 'date-fns'
 import { useAuth } from '../contexts/AuthContext'
@@ -54,7 +55,7 @@ const formatDurationToHHMMSS = (seconds: number): string => {
 }
 
 export default function Clients() {
-  const { currentUser } = useAuth()
+  const { currentUser, currentCompany } = useAuth()
   const navigate = useNavigate()
   
   // Helper function to format date for input field (YYYY-MM-DD format in local timezone)
@@ -191,6 +192,12 @@ export default function Clients() {
   }
 
   const handleCreateClient = () => {
+    // Check if user is on solo pricing level and has reached the client limit
+    if (currentCompany?.pricingLevel === 'solo' && clients.length >= 1) {
+      setError('Solo plan is limited to 1 client. Please upgrade to create more clients.')
+      return
+    }
+    
     setSelectedClient(null)
     setShowClientModal(true)
   }
@@ -825,7 +832,9 @@ export default function Clients() {
         {currentUser?.role && canAccessFeature(currentUser.role, 'clients') && (
           <button
             onClick={handleCreateClient}
-            className="btn-primary flex items-center space-x-2"
+            disabled={currentCompany?.pricingLevel === 'solo' && clients.length >= 1}
+            className={`flex items-center space-x-2 ${currentCompany?.pricingLevel === 'solo' && clients.length >= 1 ? 'btn-secondary cursor-not-allowed opacity-50' : 'btn-primary'}`}
+            title={currentCompany?.pricingLevel === 'solo' && clients.length >= 1 ? 'Solo plan is limited to 1 client. Please upgrade to create more clients.' : ''}
           >
             <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
             <span className="hidden xs:inline">Add Client</span>
@@ -883,6 +892,24 @@ export default function Clients() {
           </div>
         </div>
       </div>
+
+      {/* Client Limit Info for Solo Plan */}
+      {currentCompany?.pricingLevel === 'solo' && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 dark:bg-blue-900/30 dark:border-blue-800">
+          <div className="flex items-start space-x-2">
+            <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5 dark:text-blue-400" />
+            <div>
+              <h3 className="font-medium text-blue-800 dark:text-blue-200">Client Limit</h3>
+              <p className="text-sm text-blue-700 mt-1 dark:text-blue-300">
+                Your Solo plan is limited to 1 client. You have {stats.totalClients} of 1 client slots used.
+              </p>
+              <p className="text-sm text-blue-700 mt-1 dark:text-blue-300">
+                Upgrade to Office or Enterprise plan to create more clients.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Time Filter and Chart Toggle */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
@@ -1314,7 +1341,9 @@ export default function Clients() {
           {!searchTerm && typeFilter === 'all' && (
             <button
               onClick={handleCreateClient}
-              className="btn-primary flex items-center space-x-2 mx-auto"
+              disabled={currentCompany?.pricingLevel === 'solo' && clients.length >= 1}
+              className={`flex items-center space-x-2 mx-auto ${currentCompany?.pricingLevel === 'solo' && clients.length >= 1 ? 'btn-secondary cursor-not-allowed opacity-50' : 'btn-primary'}`}
+              title={currentCompany?.pricingLevel === 'solo' && clients.length >= 1 ? 'Solo plan is limited to 1 client. Please upgrade to create more clients.' : ''}
             >
               <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
               <span className="hidden xs:inline">Add Client</span>

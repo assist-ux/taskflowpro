@@ -27,7 +27,7 @@ interface SidebarProps {
 
 export default function Sidebar({ open, setOpen }: SidebarProps) {
   const location = useLocation()
-  const { currentUser } = useAuth()
+  const { currentUser, currentCompany } = useAuth()
 
   // Define navigation items based on user role
   const getNavigationItems = () => {
@@ -40,7 +40,7 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
     }
 
     // Regular navigation for other users
-    const allNavigation = [
+    let allNavigation = [
       { name: 'Dashboard', href: '/', icon: Home, requiredFeature: null },
       { name: 'Time Tracker', href: '/tracker', icon: Clock, requiredFeature: null },
       { name: 'Calendar', href: '/calendar', icon: Calendar, requiredFeature: null },
@@ -55,6 +55,13 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
       { name: 'Settings', href: '/settings', icon: Settings, requiredFeature: null },
       // Removed PDF Settings from sidebar - will be accessible through Settings page
     ]
+
+    // For solo pricing level, hide certain tabs
+    if (currentCompany?.pricingLevel === 'solo') {
+      allNavigation = allNavigation.filter(item => 
+        !['Task Management', 'Teams', 'Messaging', 'Reports'].includes(item.name)
+      );
+    }
 
     // Filter navigation based on user permissions
     return allNavigation.filter(item => 

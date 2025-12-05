@@ -10,11 +10,13 @@ import {
 } from 'firebase/auth'
 import { ref, set, get, push, update } from 'firebase/database'
 import { auth, database } from '../config/firebase'
-import { AuthUser, LoginCredentials, SignupCredentials, PDFSettings } from '../types'
+import { AuthUser, LoginCredentials, SignupCredentials, PDFSettings, Company } from '../types'
 import { loggingService } from '../services/loggingService'
+import { companyService } from '../services/companyService'
 
 interface AuthContextType {
   currentUser: AuthUser | null
+  currentCompany: Company | null
   loading: boolean
   login: (credentials: LoginCredentials) => Promise<void>
   signup: (credentials: SignupCredentials, companyName?: string) => Promise<void>
@@ -39,6 +41,7 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
+  const [currentCompany, setCurrentCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(true)
 
   const resendVerificationEmail = async () => {
@@ -119,6 +122,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (snapshot.exists()) {
         const userData = snapshot.val()
+        
+        // Fetch company data if user belongs to a company
+        let companyData = null;
+        if (userData.companyId) {
+          companyData = await companyService.getCompanyById(userData.companyId);
+        }
+        
         setCurrentUser({
           uid: user.uid,
           email: userData.email,
@@ -130,6 +140,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
           avatar: userData.avatar || null,
           emailVerified: user.emailVerified
         })
+        
+        setCurrentCompany(companyData);
         
         // Log successful login
         await loggingService.logAuthEvent('login', user.uid, userData.name, true)
@@ -177,6 +189,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
             // For existing users, we allow access even if email is not verified
             // (This is for backward compatibility with existing users)
             const userData = snapshot.val()
+            
+            // Fetch company data if user belongs to a company
+            let companyData = null;
+            if (userData.companyId) {
+              companyData = await companyService.getCompanyById(userData.companyId);
+            }
+            
             setCurrentUser({
               uid: user.uid,
               email: userData.email,
@@ -188,11 +207,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
               avatar: userData.avatar || null,
               emailVerified: user.emailVerified
             })
+            
+            setCurrentCompany(companyData);
           } else {
             // For new users, enforce email verification
             if (!user.emailVerified) {
               await signOut(auth);
               setCurrentUser(null);
+              setCurrentCompany(null);
               setLoading(false);
               return;
             }
@@ -255,6 +277,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
               await set(ref(database, `users/${user.uid}`), userProfile)
 
+              // Fetch company data
+              let companyData = null;
+              if (companyId) {
+                companyData = await companyService.getCompanyById(companyId);
+              }
+
               // Set current user
               setCurrentUser({
                 uid: user.uid,
@@ -268,6 +296,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 emailVerified: user.emailVerified
               })
               
+              setCurrentCompany(companyData);
+              
               // Clean up temporary signup data
               localStorage.removeItem(`signup_${user.uid}`);
               
@@ -277,6 +307,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               // No signup data found, sign out the user
               await signOut(auth);
               setCurrentUser(null);
+              setCurrentCompany(null);
             }
           }
         } catch (error) {
@@ -284,9 +315,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // If there's an error, sign out the user
           await signOut(auth);
           setCurrentUser(null);
+          setCurrentCompany(null);
         }
       } else {
         setCurrentUser(null)
+        setCurrentCompany(null)
       }
       setLoading(false)
     })
@@ -296,6 +329,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const value = {
     currentUser,
+    currentCompany,
     loading,
     login,
     signup,
