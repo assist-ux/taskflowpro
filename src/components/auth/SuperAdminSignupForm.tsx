@@ -202,11 +202,10 @@ export default function SuperAdminSignupForm({ onSwitchToLogin }: SuperAdminSign
                   Your account will be automatically set up with the Solo pricing plan which includes:
                 </p>
                 <ul className="text-sm text-blue-700 list-disc list-inside mt-1 space-y-1 dark:text-blue-300">
-                  <li>1 team member</li>
-                  <li>Unlimited time tracking</li>
-                  <li>Basic project management</li>
-                  <li>Simple reporting</li>
-                  <li>Email support</li>
+                  <li>Unlimited Time Tracker</li>
+                  <li>Calendar</li>
+                  <li>1 Project</li>
+                  <li>1 Client</li>
                 </ul>
                 <p className="text-sm text-blue-700 mt-2 dark:text-blue-300">
                   You can upgrade to Office or Enterprise plans at any time in your account settings.

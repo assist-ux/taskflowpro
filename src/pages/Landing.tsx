@@ -182,46 +182,52 @@ const Landing = () => {
 
   const pricingPlans = [
     {
-      name: 'Free',
+      name: 'Solo',
       price: '$0',
       period: 'forever',
       description: 'Perfect for individuals and small teams',
       features: [
-        'Unlimited time tracking',
-        'Basic project management',
-        'Simple reporting',
-        '1 team member',
-        'Email support'
+        'Unlimited Time Tracker',
+        'Calendar',
+        '1 Project',
+        '1 Client'
       ],
       popular: false
     },
     {
-      name: 'Professional',
+      name: 'Office',
       price: '$9',
       period: 'per user/month',
       description: 'Ideal for growing businesses',
       features: [
-        'Everything in Free',
-        'Advanced analytics',
-        'Team management',
-        'Client management',
-        'Billing & invoicing',
-        'Priority support'
+        'Everything in Solo',
+        'Time Off',
+        'Client Invoice',
+        'Time reminder',
+        'Project Management',
+        'Customize your PDF',
+        'Task Management',
+        'Teams Management',
+        'Tags',
+        'Customize billable time (optional)',
+        'Manage Roles',
+        'Set Idle Feature (optional)'
       ],
       popular: true
     },
     {
       name: 'Enterprise',
-      price: 'Custom',
-      period: 'contact us',
+      price: '$12',
+      period: 'per user/month',
       description: 'For large organizations',
       features: [
-        'Everything in Professional',
-        'Custom integrations',
-        'Advanced security',
-        'Dedicated support',
-        'Custom reporting',
-        'API access'
+        'Everything in Office',
+        'Multiple Currencies',
+        'Email Support',
+        'Database Backups: backup database every 1hr (optional)',
+        'Force Timer',
+        'Teams Messaging',
+        'System Logs'
       ],
       popular: false
     }
@@ -241,7 +247,7 @@ const Landing = () => {
       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-[#091845] blur-[120px] opacity-25"></div>
     </div>
       {/* Header */}
-      <header className="bg-transparent relative z-30 pt-6">
+      <header className="bg-transparent relative z-50 pt-6 sticky top-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="relative backdrop-blur-lg bg-white/35 dark:bg-gray-900/45 rounded-xl overflow-hidden">
             <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/40 to-blue-200/40 dark:from-gray-600/50 dark:to-blue-900/50 p-0.5"></div>
@@ -983,23 +989,20 @@ const Landing = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
             {pricingPlans.map((plan, index) => (
               <div
                 key={index}
-                className={`relative bg-white dark:bg-gray-700 rounded-xl shadow-sm p-8 transition-all duration-500 delay-${index * 100} ease-out ${
+                className={`relative rounded-xl shadow-lg pt-10 p-8 transition-all duration-500 delay-${index * 100} ease-out backdrop-blur-lg bg-gradient-to-br from-white/40 to-blue-50/40 dark:from-gray-800/50 dark:to-gray-900/50 border border-white/30 dark:border-gray-700/50 hover:shadow-xl flex flex-col h-full ${
                   visibleSections.has('pricing') 
                     ? 'opacity-100 translate-y-0' 
                     : 'opacity-0 translate-y-5'
-                } ${plan.popular ? 'ring-2 ring-blue-500' : ''}`}
+                }`}
               >
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-blue-500 text-white px-4 py-1 rounded-full text-xs font-semibold">
-                      Most Popular
-                    </span>
-                  </div>
-                )}
+                {/* Inner glow effect */}
+                <div className="absolute inset-0 rounded-xl pointer-events-none bg-gradient-to-br from-blue-500/5 to-indigo-500/5 dark:from-blue-500/10 dark:to-indigo-500/10"></div>
+                <div className="relative z-10">
+
                 <div className="text-center mb-8">
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{plan.name}</h3>
                   <div className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
@@ -1020,14 +1023,18 @@ const Landing = () => {
                 </ul>
                 <button
                   onClick={handleLogin}
-                  className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${plan.popular
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                      : 'bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 text-gray-900 dark:text-white'
+                  className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-lg overflow-hidden relative group mt-auto ${plan.popular
+                      ? 'backdrop-blur-lg bg-blue-600/35 hover:bg-blue-700 text-white'
+                      : 'backdrop-blur-lg bg-gray-100/35 dark:bg-gray-600/35 hover:bg-gray-200 dark:hover:bg-gray-500 text-gray-900 dark:text-white'
                     }`}
                 >
-                  {plan.name === 'Enterprise' ? 'Contact Sales' : 'Get Started'}
+                  <span className="relative z-10">
+                    Get Started
+                  </span>
+                  <span className="absolute inset-0 bg-gradient-to-r from-white/20 to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
                 </button>
               </div>
+            </div>
             ))}
           </div>
         </div>
