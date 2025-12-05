@@ -53,6 +53,17 @@ const authenticateToken = async (req, res, next) => {
   try {
     const decodedToken = await auth.verifyIdToken(token);
     req.user = decodedToken;
+    
+    // Fetch user profile to get companyId
+    const userRef = db.ref(`users/${decodedToken.uid}`);
+    const userSnapshot = await userRef.once('value');
+    
+    if (userSnapshot.exists()) {
+      const userData = userSnapshot.val();
+      req.user.companyId = userData.companyId || null;
+      req.user.role = userData.role;
+    }
+    
     next();
   } catch (error) {
     return res.status(403).json({ error: 'Invalid or expired token' });
@@ -91,6 +102,19 @@ const calculateDuration = (startTime, endTime) => {
   return Math.floor((new Date(endTime) - new Date(startTime)) / 1000);
 };
 
+// Company-aware filtering helpers
+const filterByCompany = (data, companyId) => {
+  if (!companyId) return data; // Root users can see all data
+  return data.filter(item => item.companyId === companyId);
+};
+
+const addCompanyId = (data, companyId) => {
+  if (companyId) {
+    return { ...data, companyId };
+  }
+  return data;
+};
+
 // Routes
 
 // Health check
@@ -107,7 +131,10 @@ app.get('/api/time-entries', authenticateToken, async (req, res) => {
   try {
     const { startDate, endDate, projectId, billableOnly } = req.query;
     const userId = req.user.uid;
+    const companyId = req.user.companyId;
     
+    // For non-root users, we need to fetch all entries and filter by company
+    // For root users, they can see all entries
     let query = db.ref('timeEntries').orderByChild('userId').equalTo(userId);
     
     const snapshot = await query.once('value');
@@ -115,6 +142,11 @@ app.get('/api/time-entries', authenticateToken, async (req, res) => {
     
     if (snapshot.exists()) {
       entries = Object.values(snapshot.val());
+      
+      // Apply company filtering for non-root users
+      if (req.user.role !== 'root') {
+        entries = filterByCompany(entries, companyId);
+      }
       
       // Apply filters
       if (startDate) {
@@ -164,6 +196,7 @@ app.post('/api/time-entries', authenticateToken, async (req, res) => {
     }
     
     const userId = req.user.uid;
+    const companyId = req.user.companyId;
     const entryId = uuidv4();
     const now = new Date();
     
@@ -172,11 +205,17 @@ app.post('/api/time-entries', authenticateToken, async (req, res) => {
     if (value.projectId) {
       const projectSnapshot = await db.ref(`projects/${value.projectId}`).once('value');
       if (projectSnapshot.exists()) {
-        projectName = projectSnapshot.val().name;
+        const projectData = projectSnapshot.val();
+        projectName = projectData.name;
+        
+        // Verify user has access to this project (same company)
+        if (req.user.role !== 'root' && projectData.companyId !== companyId) {
+          return res.status(403).json({ error: 'Access denied to this project' });
+        }
       }
     }
     
-    const timeEntry = {
+    const timeEntry = addCompanyId({
       id: entryId,
       userId,
       projectId: value.projectId,
@@ -190,7 +229,7 @@ app.post('/api/time-entries', authenticateToken, async (req, res) => {
       tags: value.tags,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString()
-    };
+    }, companyId);
     
     await db.ref(`timeEntries/${entryId}`).set(timeEntry);
     
@@ -214,6 +253,7 @@ app.put('/api/time-entries/:id', authenticateToken, async (req, res) => {
     }
     
     const userId = req.user.uid;
+    const companyId = req.user.companyId;
     
     // Check if entry exists and belongs to user
     const entrySnapshot = await db.ref(`timeEntries/${id}`).once('value');
@@ -226,17 +266,28 @@ app.put('/api/time-entries/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
     
+    // For non-root users, verify they belong to the same company
+    if (req.user.role !== 'root' && existingEntry.companyId !== companyId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
     // Update entry
-    const updates = {
+    const updates = addCompanyId({
       ...value,
       updatedAt: new Date().toISOString()
-    };
+    }, companyId);
     
     // Get project name if projectId changed
     if (value.projectId && value.projectId !== existingEntry.projectId) {
       const projectSnapshot = await db.ref(`projects/${value.projectId}`).once('value');
       if (projectSnapshot.exists()) {
-        updates.projectName = projectSnapshot.val().name;
+        const projectData = projectSnapshot.val();
+        updates.projectName = projectData.name;
+        
+        // Verify user has access to this project (same company)
+        if (req.user.role !== 'root' && projectData.companyId !== companyId) {
+          return res.status(403).json({ error: 'Access denied to this project' });
+        }
       }
     }
     
@@ -256,6 +307,7 @@ app.delete('/api/time-entries/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.uid;
+    const companyId = req.user.companyId;
     
     // Check if entry exists and belongs to user
     const entrySnapshot = await db.ref(`timeEntries/${id}`).once('value');
@@ -265,6 +317,11 @@ app.delete('/api/time-entries/:id', authenticateToken, async (req, res) => {
     
     const existingEntry = entrySnapshot.val();
     if (existingEntry.userId !== userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // For non-root users, verify they belong to the same company
+    if (req.user.role !== 'root' && existingEntry.companyId !== companyId) {
       return res.status(403).json({ error: 'Access denied' });
     }
     
@@ -283,8 +340,14 @@ app.delete('/api/time-entries/:id', authenticateToken, async (req, res) => {
 // Projects API
 app.get('/api/projects', authenticateToken, async (req, res) => {
   try {
+    const companyId = req.user.companyId;
     const snapshot = await db.ref('projects').once('value');
-    const projects = snapshot.exists() ? Object.values(snapshot.val()) : [];
+    let projects = snapshot.exists() ? Object.values(snapshot.val()) : [];
+    
+    // For non-root users, filter by company
+    if (req.user.role !== 'root') {
+      projects = filterByCompany(projects, companyId);
+    }
     
     // Filter out archived projects
     const activeProjects = projects.filter(project => !project.isArchived);
@@ -308,17 +371,18 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
     }
     
     const userId = req.user.uid;
+    const companyId = req.user.companyId;
     const projectId = uuidv4();
     const now = new Date();
     
-    const project = {
+    const project = addCompanyId({
       id: projectId,
       ...value,
       isArchived: false,
       createdBy: userId,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString()
-    };
+    }, companyId);
     
     await db.ref(`projects/${projectId}`).set(project);
     
@@ -338,6 +402,7 @@ app.get('/api/time-summary', authenticateToken, async (req, res) => {
   try {
     const { period = 'month' } = req.query;
     const userId = req.user.uid;
+    const companyId = req.user.companyId;
     
     const now = new Date();
     let startDate, endDate;
@@ -373,6 +438,11 @@ app.get('/api/time-summary', authenticateToken, async (req, res) => {
         const entryDate = new Date(entry.startTime);
         return entryDate >= startDate && entryDate <= adjustedEndDate;
       });
+      
+      // For non-root users, filter by company
+      if (req.user.role !== 'root') {
+        entries = filterByCompany(entries, companyId);
+      }
     }
     
     const totalDuration = entries.reduce((sum, entry) => sum + entry.duration, 0);
@@ -409,6 +479,7 @@ app.get('/api/calendar', authenticateToken, async (req, res) => {
   try {
     const { year, month, projectId, billableOnly } = req.query;
     const userId = req.user.uid;
+    const companyId = req.user.companyId;
     
     const targetYear = parseInt(year) || new Date().getFullYear();
     const targetMonth = parseInt(month) || new Date().getMonth();
@@ -425,6 +496,11 @@ app.get('/api/calendar', authenticateToken, async (req, res) => {
         const entryDate = new Date(entry.startTime);
         return entryDate >= startDate && entryDate <= endDate;
       });
+      
+      // For non-root users, filter by company
+      if (req.user.role !== 'root') {
+        entries = filterByCompany(entries, companyId);
+      }
       
       // Apply filters
       if (projectId) {

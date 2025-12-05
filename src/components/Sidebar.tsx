@@ -51,7 +51,7 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
       { name: 'Teams', href: '/teams', icon: UserCheck, requiredFeature: 'teams' },
       { name: 'Messaging', href: '/messaging', icon: MessageSquare, requiredFeature: null },
       { name: 'Reports', href: '/reports', icon: BarChart3, requiredFeature: null },
-      { name: 'Feedbacks', href: '/feedbacks', icon: MessageSquare, requiredFeature: null },
+      { name: 'Invoicing', href: '/invoicing', icon: FileText, requiredFeature: null }, // Changed to Invoicing
       { name: 'Admin Dashboard', href: '/admin', icon: User, requiredFeature: 'admin-dashboard' },
       { name: 'Settings', href: '/settings', icon: Settings, requiredFeature: null },
       // Removed PDF Settings from sidebar - will be accessible through Settings page

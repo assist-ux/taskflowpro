@@ -20,7 +20,6 @@ import Reports from './pages/Reports'
 import TaskManagement from './pages/ProjectManagement'
 import Teams from './pages/Teams'
 import TeamDetails from './pages/TeamDetails'
-import Feedbacks from './pages/Feedbacks'
 import AdminDashboard from './pages/AdminDashboard'
 import Settings from './pages/Settings'
 import SystemSettings from './pages/SystemSettings'
@@ -40,6 +39,9 @@ import TestNotifications from './pages/TestNotifications'
 import DemoPage from './pages/DemoPage'
 // Import the new Root Dashboard
 import RootDashboard from './pages/RootDashboard'
+// Import the new Invoicing page
+import Invoicing from './pages/Invoicing'
+import NewInvoice from './pages/NewInvoice'
 import { soundManager } from './utils/soundManager'
 
 function AppContent() {
@@ -159,11 +161,6 @@ function AppContent() {
                     <TeamDetails />
                   </ProtectedRoute>
                 } />
-                <Route path="/feedbacks" element={
-                  <ProtectedRoute>
-                    <Feedbacks />
-                  </ProtectedRoute>
-                } />
                 <Route path="/admin" element={
                   <ProtectedRoute>
                     <AdminDashboard />
@@ -197,6 +194,16 @@ function AppContent() {
                 <Route path="/messaging" element={
                   <ProtectedRoute>
                     <Messaging />
+                  </ProtectedRoute>
+                } />
+                <Route path="/invoicing" element={
+                  <ProtectedRoute>
+                    <Invoicing />
+                  </ProtectedRoute>
+                } />
+                <Route path="/invoicing/new" element={
+                  <ProtectedRoute>
+                    <NewInvoice />
                   </ProtectedRoute>
                 } />
                 <Route path="/upgrade" element={

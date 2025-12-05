@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Clock, TrendingUp, Play, Plus, Users, Menu, X } from 'lucide-react'
+import { Clock, TrendingUp, Play, Plus, Users, Menu, X, FileText } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useNotifications } from '../contexts/NotificationContext'
@@ -134,6 +134,17 @@ export default function Dashboard() {
                           >
                             <TrendingUp className="h-5 w-5 inline mr-2" />
                             View Reports
+                          </button>
+                          
+                          <button
+                            onClick={() => {
+                              navigate('/invoicing');
+                              setMobileMenuOpen(false);
+                            }}
+                            className="w-full text-left px-4 py-3 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                          >
+                            <FileText className="h-5 w-5 inline mr-2" />
+                            Invoicing
                           </button>
                           
                           {(currentUser?.role === 'admin' || currentUser?.role === 'root') && (
